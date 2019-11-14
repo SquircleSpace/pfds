@@ -14,16 +14,18 @@
 
 (defpackage :pfds.shcl.io/list
   (:use :common-lisp)
+  (:import-from :pfds.shcl.io/common #:define-interface #:is-empty #:empty)
   (:export
    #:with-head #:head #:tail #:is-empty #:empty #:empty-pure-list
    #:empty-list #:list-+ #:update))
 (in-package :pfds.shcl.io/list)
 
-(defgeneric with-head (item list))
-(defgeneric head (list))
-(defgeneric tail (list))
-(defgeneric is-empty (list))
-(defgeneric empty (type))
+(define-interface list
+  (defgeneric with-head (item list))
+  (defgeneric head (list))
+  (defgeneric tail (list))
+  is-empty
+  empty)
 
 (defun list-+ (left-list right-list)
   (if (is-empty left-list)
