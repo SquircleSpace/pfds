@@ -14,8 +14,9 @@
 
 (defpackage :pfds.shcl.io/common
   (:use :common-lisp)
+  (:import-from :pfds.shcl.io/compare #:compare #:define-type-id)
   (:export
-   #:is-empty #:empty #:define-interface))
+   #:is-empty #:empty #:define-interface #:compare #:define-type-id))
 (in-package :pfds.shcl.io/common)
 
 (defgeneric is-empty (container))
