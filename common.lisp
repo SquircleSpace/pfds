@@ -34,3 +34,22 @@
                 thing
                 (error "Invalid interface")))))
      ',name))
+
+(defmacro define-adt (base-name common-slots &body subtypes)
+  (labels
+      ((handle-subtype (definition)
+         (destructuring-bind (name &rest slots) definition
+           `(defstruct (,name (:include ,base-name)) ,@(mapcar #'handle-slot slots))))
+       (handle-slot (slot-definition)
+         (etypecase slot-definition
+           (symbol
+            `(,slot-definition nil :read-only t))
+           (cons
+            (destructuring-bind (name default-value) slot-definition
+              `(,name ,default-value :read-only t))))))
+    `(progn
+       (defstruct (,base-name (:constructor ,(gensym (symbol-name base-name))))
+         ,@(mapcar #'handle-slot common-slots))
+       ,@(mapcar #'handle-subtype subtypes)
+       (define-type-id ,base-name)
+       ,@(mapcar (lambda (record) `(define-type-id ,(first record))) subtypes))))

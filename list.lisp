@@ -14,7 +14,7 @@
 
 (defpackage :pfds.shcl.io/list
   (:use :common-lisp)
-  (:import-from :pfds.shcl.io/common #:define-interface #:is-empty #:empty)
+  (:import-from :pfds.shcl.io/common #:define-interface #:is-empty #:empty #:define-adt)
   (:export
    #:with-head #:head #:tail #:is-empty #:empty #:empty-pure-list
    #:empty-list #:list-+ #:update))
@@ -43,9 +43,12 @@
     (t
      (error "Invalid subscript"))))
 
-(defstruct %pure-list)
-
-(defstruct (%empty-pure-list (:include %pure-list)))
+(define-adt %pure-list
+    ()
+  (%empty-pure-list)
+  (%nonempty-pure-list
+   head
+   (tail (empty-pure-list))))
 
 (defconstant +empty-pure-list+
   (if (boundp '+empty-pure-list+)
@@ -54,10 +57,6 @@
 
 (defun empty-pure-list ()
   +empty-pure-list+)
-
-(defstruct %nonempty-pure-list
-  head
-  (tail (empty-pure-list)))
 
 (defun pure-list* (objects)
   (if objects
