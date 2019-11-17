@@ -16,11 +16,15 @@
   (:use :common-lisp)
   (:import-from :pfds.shcl.io/compare #:compare #:define-type-id)
   (:export
-   #:is-empty #:empty #:define-interface #:compare #:define-type-id))
+   #:is-empty #:empty #:with-member #:without-member #:is-member
+   #:define-interface #:compare #:define-type-id))
 (in-package :pfds.shcl.io/common)
 
 (defgeneric is-empty (container))
 (defgeneric empty (container))
+(defgeneric with-member (container item))
+(defgeneric without-member (container item))
+(defgeneric is-member (container item))
 
 (defmacro define-interface (name &body functions)
   `(progn
