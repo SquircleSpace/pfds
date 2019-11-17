@@ -14,7 +14,7 @@
 
 (defpackage :pfds.shcl.io/list
   (:use :common-lisp)
-  (:import-from :pfds.shcl.io/common #:define-interface #:is-empty #:empty #:define-adt)
+  (:import-from :pfds.shcl.io/common #:define-interface #:is-empty #:empty #:define-adt #:compare)
   (:export
    #:with-head #:head #:tail #:is-empty #:empty #:empty-pure-list
    #:empty-list #:list-+ #:update))
@@ -89,6 +89,14 @@
 
 (defmethod empty ((list %pure-list))
   (empty-pure-list))
+
+(defmethod compare ((left %empty-pure-list) (right %empty-pure-list))
+  t)
+
+(defmethod compare ((left %nonempty-pure-list) (right %nonempty-pure-list))
+  (when (eql left right)
+    (return-from compare :equal))
+  (compare))
 
 (defmethod with-head (item (list list))
   (cons item list))
