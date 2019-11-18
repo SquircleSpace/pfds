@@ -14,10 +14,11 @@
 
 (defpackage :pfds.shcl.io/common
   (:use :common-lisp)
-  (:import-from :pfds.shcl.io/compare #:compare #:define-type-id)
+  (:import-from :pfds.shcl.io/compare
+   #:compare #:define-type-id #:compare*)
   (:export
    #:is-empty #:empty #:with-member #:without-member #:is-member
-   #:define-interface #:compare #:define-type-id))
+   #:define-interface #:compare #:compare* #:define-type-id))
 (in-package :pfds.shcl.io/common)
 
 (defgeneric is-empty (container))
@@ -43,17 +44,23 @@
   (labels
       ((handle-subtype (definition)
          (destructuring-bind (name &rest slots) definition
-           `(defstruct (,name (:include ,base-name)) ,@(mapcar #'handle-slot slots))))
+           (when (symbolp name)
+             (setf name `(,name)))
+           (destructuring-bind (real-name &rest options) name
+             (setf name `(,real-name (:include ,base-name) ,@options))
+             `(progn
+                (defstruct ,name ,@(mapcar #'handle-slot slots))
+                (define-type-id ,real-name)))))
        (handle-slot (slot-definition)
          (etypecase slot-definition
            (symbol
             `(,slot-definition nil :read-only t))
            (cons
-            (destructuring-bind (name default-value) slot-definition
-              `(,name ,default-value :read-only t))))))
+            (destructuring-bind (name default-value &rest options) slot-definition
+              `(,name ,default-value :read-only t ,@options))))))
     `(progn
-       (defstruct (,base-name (:constructor ,(gensym (symbol-name base-name))))
-         ,@(mapcar #'handle-slot common-slots))
-       ,@(mapcar #'handle-subtype subtypes)
-       (define-type-id ,base-name)
-       ,@(mapcar (lambda (record) `(define-type-id ,(first record))) subtypes))))
+       (progn
+         (defstruct (,base-name (:constructor ,(gensym (symbol-name base-name))))
+           ,@(mapcar #'handle-slot common-slots))
+         (define-type-id ,base-name))
+       ,@(mapcar #'handle-subtype subtypes))))

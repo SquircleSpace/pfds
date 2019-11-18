@@ -14,7 +14,8 @@
 
 (defpackage :pfds.shcl.io/list
   (:use :common-lisp)
-  (:import-from :pfds.shcl.io/common #:define-interface #:is-empty #:empty #:define-adt #:compare)
+  (:import-from :pfds.shcl.io/common
+   #:define-interface #:is-empty #:empty #:define-adt #:compare #:compare*)
   (:export
    #:with-head #:head #:tail #:is-empty #:empty #:empty-pure-list
    #:empty-list #:list-+ #:update))
@@ -70,16 +71,16 @@
   (make-%nonempty-pure-list :head item :tail list))
 
 (defmethod head ((list %nonempty-pure-list))
-  (%nonempty-pure-list-head list))
+  (values (%nonempty-pure-list-head list) t))
 
 (defmethod head ((list %empty-pure-list))
-  (error "List is empty"))
+  (values nil nil))
 
 (defmethod tail ((list %nonempty-pure-list))
-  (%nonempty-pure-list-tail list))
+  (values (%nonempty-pure-list-tail list) t))
 
 (defmethod tail ((list %empty-pure-list))
-  (error "List is empty"))
+  (values nil nil))
 
 (defmethod is-empty ((list %nonempty-pure-list))
   nil)
@@ -90,22 +91,38 @@
 (defmethod empty ((list %pure-list))
   (empty-pure-list))
 
-(defmethod compare ((left %empty-pure-list) (right %empty-pure-list))
-  t)
-
-(defmethod compare ((left %nonempty-pure-list) (right %nonempty-pure-list))
+(defun compare-pure-list (left right &key (head-compare-fn 'compare) (tail-compare-fn 'compare-pure-list))
   (when (eql left right)
-    (return-from compare :equal))
-  (compare))
+    (return-from compare-pure-list :equal))
+
+  (cond
+    ((and (%empty-pure-list-p left)
+          (%empty-pure-list-p right))
+     :equal)
+    ((%empty-pure-list-p left)
+     :less)
+    ((%empty-pure-list-p right)
+     :greater)
+    (t
+     (compare*
+       (funcall head-compare-fn (%nonempty-pure-list-head left) (%nonempty-pure-list-head right))
+       (funcall tail-compare-fn (%nonempty-pure-list-tail left) (%nonempty-pure-list-tail right))))))
+
+(defmethod compare ((left %pure-list) (right %pure-list))
+  (compare-pure-list left right))
 
 (defmethod with-head (item (list list))
   (cons item list))
 
 (defmethod head ((list list))
-  (car list))
+  (if list
+      (values (car list) t)
+      (values nil nil)))
 
 (defmethod tail ((list list))
-  (cdr list))
+  (if list
+      (values (cdr list) t)
+      (values nil nil)))
 
 (defmethod is-empty ((list list))
   (null list))
