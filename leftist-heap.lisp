@@ -15,11 +15,15 @@
 (defpackage :pfds.shcl.io/leftist-heap
   (:use :common-lisp)
   (:import-from :pfds.shcl.io/common
-   #:define-interface #:is-empty #:empty #:define-adt #:compare #:with-member)
+   #:define-interface #:define-adt #:compare)
+  (:import-from :pfds.shcl.io/heap
+   #:merge-heaps #:heap-top #:without-heap-top #:with-member #:is-empty #:empty)
+  (:import-from :pfds.shcl.io/mutable-queue
+   #:make-mutable-queue #:enqueue #:dequeue #:mutable-queue-count)
   (:export
    #:merge-heaps
    #:heap-top
-   #:remove-heap-top
+   #:without-heap-top
    #:with-member
    #:is-empty
    #:empty
@@ -30,14 +34,6 @@
    #:height-biased-leftist-heap
    #:weight-biased-leftist-heap))
 (in-package :pfds.shcl.io/leftist-heap)
-
-(define-interface heap
-  (defgeneric merge-heaps (first second))
-  (defgeneric heap-top (heap))
-  (defgeneric remove-heap-top (heap))
-  with-member
-  is-empty
-  empty)
 
 (define-adt guts
     ()
@@ -160,23 +156,16 @@
   (unless items
     (return-from make-guts (guts-nil)))
 
-  (let* ((items (make-array (length items) :initial-contents items :fill-pointer t))
-         (temp (make-array (ceiling (/ (length items) 2)) :fill-pointer 0)))
-    (loop :for i :below (length items) :do
-      (setf (aref items i) (make-guts-node (aref items i) bias)))
+  (let ((queue (make-mutable-queue :initial-size (length items))))
+    (dolist (item items)
+      (enqueue queue (make-guts-node item bias)))
 
-    (loop :while (< 1 (length items)) :do
-      (progn
-        (loop :for i :below (floor (/ (length items) 2)) :do
-          (let ((first (vector-pop items))
-                (second (vector-pop items)))
-            (vector-push (merge-guts comparator bias first second) temp)))
-        (unless (zerop (length items))
-          (assert (equal 1 (length items)))
-          (vector-push (vector-pop items) temp))
-        (rotatef items temp)))
+    (loop :while (< 1 (mutable-queue-count queue)) :do
+      (let ((first (dequeue queue))
+            (second (dequeue queue)))
+        (enqueue queue (merge-guts comparator bias first second))))
 
-    (aref items 0)))
+    (nth-value 0 (dequeue queue))))
 
 (defun make-leftist-heap* (comparator &key (bias :height) items)
   (check-type bias (member :height :weight))
@@ -243,23 +232,28 @@
 (defmethod heap-top ((heap weight-biased-leftist-heap))
   (heap-top-common heap))
 
-(defun remove-heap-top-common (heap constructor)
+(defun without-heap-top-common (heap constructor)
   (let ((guts (leftist-heap-guts heap))
         (bias (leftist-heap-bias heap)))
-    (if (guts-nil-p guts)
-        heap
-        (funcall constructor
-                 :comparator (leftist-heap-comparator heap)
-                 :guts (merge-guts (leftist-heap-comparator heap)
-                                   bias
-                                   (guts-node-left guts)
-                                   (guts-node-right guts))))))
+    (when (guts-nil-p guts)
+      (return-from without-heap-top-common
+        (values heap nil nil)))
 
-(defmethod remove-heap-top ((heap height-biased-leftist-heap))
-  (remove-heap-top-common heap '%make-height-biased-leftist-heap))
+    (values
+     (funcall constructor
+              :comparator (leftist-heap-comparator heap)
+              :guts (merge-guts (leftist-heap-comparator heap)
+                                bias
+                                (guts-node-left guts)
+                                (guts-node-right guts)))
+     (guts-node-value guts)
+     t)))
 
-(defmethod remove-heap-top ((heap weight-biased-leftist-heap))
-  (remove-heap-top-common heap '%make-weight-biased-leftist-heap))
+(defmethod without-heap-top ((heap height-biased-leftist-heap))
+  (without-heap-top-common heap '%make-height-biased-leftist-heap))
+
+(defmethod without-heap-top ((heap weight-biased-leftist-heap))
+  (without-heap-top-common heap '%make-weight-biased-leftist-heap))
 
 (defmethod empty ((heap height-biased-leftist-heap))
   (%make-height-biased-leftist-heap :comparator (leftist-heap-comparator heap)))
