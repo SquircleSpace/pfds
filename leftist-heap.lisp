@@ -18,8 +18,8 @@
    #:define-interface #:define-adt #:compare)
   (:import-from :pfds.shcl.io/heap
    #:merge-heaps #:heap-top #:without-heap-top #:with-member #:is-empty #:empty)
-  (:import-from :pfds.shcl.io/mutable-queue
-   #:make-mutable-queue #:enqueue #:dequeue #:mutable-queue-count)
+  (:import-from :pfds.shcl.io/impure-queue
+   #:make-impure-queue #:enqueue #:dequeue #:impure-queue-count)
   (:export
    #:merge-heaps
    #:heap-top
@@ -156,11 +156,11 @@
   (unless items
     (return-from make-guts (guts-nil)))
 
-  (let ((queue (make-mutable-queue :initial-size (length items))))
+  (let ((queue (make-impure-queue :initial-size (length items))))
     (dolist (item items)
       (enqueue queue (make-guts-node item bias)))
 
-    (loop :while (< 1 (mutable-queue-count queue)) :do
+    (loop :while (< 1 (impure-queue-count queue)) :do
       (let ((first (dequeue queue))
             (second (dequeue queue)))
         (enqueue queue (merge-guts comparator bias first second))))
