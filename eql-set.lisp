@@ -14,6 +14,7 @@
 
 (defpackage :pfds.shcl.io/eql-set
   (:use :common-lisp)
+  (:import-from :pfds.shcl.io/common #:define-structure)
   (:export
    #:make-eql-set
    #:eql-set-p
@@ -29,8 +30,8 @@
    #:do-eql-set))
 (in-package :pfds.shcl.io/eql-set)
 
-(defstruct (eql-set (:constructor %make-eql-set) (:copier %copy-eql-set))
-  (set (make-hash-table :test 'eql)))
+(define-structure (eql-set (:constructor %make-eql-set) (:copier %copy-eql-set))
+  (set (make-hash-table :test 'eql) :type hash-table))
 
 (defun make-eql-set (&rest items)
   (let ((new-table (make-hash-table :test 'eql)))
