@@ -156,7 +156,11 @@
   (unless items
     (return-from make-guts (guts-nil)))
 
-  (let ((queue (make-impure-queue :initial-size (length items))))
+  ;; We know exactly how large the queue needs to be, and reallocating
+  ;; to try and save space as it shrinks is just a waste of time and
+  ;; needlessly pressures the GC.
+  (let ((queue (make-impure-queue :initial-size (length items)
+                                  :shrink-factor nil :growth-factor nil)))
     (dolist (item items)
       (enqueue queue (make-guts-node item bias)))
 

@@ -20,9 +20,13 @@
 (in-package :pfds.shcl.io/impure-queue)
 
 (defconstant +default-queue-size+ 32)
+(defconstant +default-growth-factor+ 2)
+(defconstant +default-shrink-factor+ 0.5)
 
 (defstruct (impure-queue (:constructor %make-impure-queue))
   (array (make-array +default-queue-size+) :type vector)
+  (growth-factor +default-growth-factor+ :type (or null (real (1))))
+  (shrink-factor +default-shrink-factor+ :type (or null (real (0) (1))))
   (front-position 0 :type (integer 0))
   (%count 0 :type (integer 0)))
 
@@ -31,10 +35,20 @@
 (defun impure-queue-count (queue)
   (impure-queue-%count queue))
 
-(defun make-impure-queue (&key (initial-size +default-queue-size+) initial-contents)
+(defun impure-queue-capacity (queue)
+  (length (impure-queue-array queue)))
+
+(defun make-impure-queue (&key (initial-size +default-queue-size+)
+                            initial-contents
+                            (growth-factor +default-growth-factor+)
+                            (shrink-factor +default-shrink-factor+))
   (check-type initial-size (integer 0))
+  (check-type growth-factor (or null (real (1))))
+  (check-type shrink-factor (or null (real (0) (1))))
   (let ((queue (%make-impure-queue
-                :array (make-array initial-size))))
+                :array (make-array initial-size)
+                :growth-factor growth-factor
+                :shrink-factor shrink-factor)))
     (dolist (item initial-contents)
       (enqueue queue item))
     queue))
@@ -47,7 +61,10 @@
 
 (defun enqueue (queue object)
   (when (equal (impure-queue-%count queue) (length (impure-queue-array queue)))
-    (let ((new-array (make-array (* 2 (length (impure-queue-array queue)))))
+    (unless (impure-queue-growth-factor queue)
+      (error "Queue is full and doesn't support growth"))
+    (let ((new-array (make-array (* (impure-queue-growth-factor queue)
+                                    (length (impure-queue-array queue)))))
           (old-array (impure-queue-array queue))
           (old-count (impure-queue-%count queue))
           (old-front-position (impure-queue-front-position queue)))
@@ -80,13 +97,16 @@
     (setf (impure-queue-front-position queue) new-front-position)
     (setf (aref array old-front-position) 0)
 
-    (let* ((shorter-length (ceiling (/ (length array) 2)))
-           (threshold-length (ceiling (/ shorter-length 4))))
-      (when (and (< new-count threshold-length)
-                 (>= shorter-length +default-queue-size+))
-        (let ((new-array (make-array shorter-length)))
-          (copy-queue-array array new-front-position new-count new-array)
-          (setf (impure-queue-array queue) new-array)
-          (setf (impure-queue-front-position queue) 0))))
+    (let ((shrink-factor (impure-queue-shrink-factor queue)))
+      (when shrink-factor
+        (let* ((shorter-length (ceiling (* (length array) shrink-factor)))
+               (threshold-length (ceiling (* shorter-length shrink-factor))))
+          (when (and (< shorter-length (length array))
+                     (>= shorter-length +default-queue-size+)
+                     (< new-count threshold-length))
+            (let ((new-array (make-array shorter-length)))
+              (copy-queue-array array new-front-position new-count new-array)
+              (setf (impure-queue-array queue) new-array)
+              (setf (impure-queue-front-position queue) 0))))))
 
     (values removed-item t)))
