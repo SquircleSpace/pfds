@@ -44,7 +44,8 @@
   (let ((id (gensym "ID"))
         (object (gensym "OBJECT")))
     `(unless (find-method #'type-id nil '(,class-name) nil)
-       (let ((,id (incf *type-id*)))
+       (let ((,id *type-id*))
+         (incf *type-id*)
          (defmethod type-id ((,object ,class-name))
            ,id)))))
 
