@@ -16,7 +16,8 @@
   (:use :common-lisp)
   (:import-from :pfds.shcl.io/common
    #:define-interface #:is-empty #:empty #:define-adt #:compare
-   #:with-member #:without-member #:is-member)
+   #:with-member #:without-member #:is-member #:define-structure
+   #:to-list)
   (:import-from :pfds.shcl.io/eql-set
    #:make-eql-set #:eql-set-with #:eql-set-count
    #:eql-set-representative #:eql-set-contains-p #:do-eql-set
@@ -30,8 +31,7 @@
    
    #:empty-unbalanced-set
    #:make-unbalanced-set
-   #:make-unbalanced-set*
-   #:do-unbalanced-set))
+   #:make-unbalanced-set*))
 (in-package :pfds.shcl.io/unbalanced-set)
 
 (define-interface set
@@ -41,349 +41,223 @@
   is-empty
   empty)
 
-(define-adt %unbalanced-set
-    ((comparator #'compare))
-  (%unbalanced-set-nil)
-  (%unbalanced-set-node
-   (left (make-%unbalanced-set-nil))
+(defvar *tree-nil*)
+
+(defun tree-nil ()
+  *tree-nil*)
+
+(define-adt unbalanced-tree
+    ()
+  (tree-nil)
+  (tree-node
+   (left (tree-nil) :type unbalanced-tree)
    value
-   (right (make-%unbalanced-set-nil)))
-  (%unbalanced-set-uneql-node
-   (left (make-%unbalanced-set-nil))
-   values
-   (right (make-%unbalanced-set-nil))))
+   (right (tree-nil) :type unbalanced-tree)))
+
+(defvar *tree-nil* (make-tree-nil))
+
+(define-structure (uneql-tree-node (:include tree-node)))
+
+(defun tree-node-representative-value (tree)
+  (etypecase tree
+    (uneql-tree-node
+     (eql-set-representative (tree-node-value tree)))
+    (tree-node
+     (tree-node-value tree))))
+
+(define-structure (unbalanced-set (:constructor %make-unbalanced-set))
+  (tree (tree-nil) :type unbalanced-tree)
+  (comparator 'compare))
 
 (defun empty-unbalanced-set (comparator)
-  (make-%unbalanced-set-nil :comparator comparator))
+  (%make-unbalanced-set :comparator comparator))
 
 (defun make-unbalanced-set* (comparator &key items)
-  (let ((tree (empty-unbalanced-set comparator)))
+  (let ((tree (tree-nil)))
     (dolist (item items)
-      (setf tree (with-member tree item)))
-    tree))
+      (setf tree (tree-insert comparator tree item)))
+    (%make-unbalanced-set
+     :tree tree
+     :comparator comparator)))
 
 (defun make-unbalanced-set (comparator &rest items)
   (make-unbalanced-set* comparator :items items))
 
-(defgeneric do-unbalanced-set-f (tree fn))
+(defun do-unbalanced-tree-f (tree fn)
+  (when (tree-nil-p tree)
+    (return-from do-unbalanced-tree-f))
+  (do-unbalanced-tree-f (tree-node-right tree) fn)
+  (etypecase tree
+    (uneql-tree-node
+     (do-eql-set (member (tree-node-value tree))
+       (funcall fn member)))
+    (tree-node
+     (funcall fn (tree-node-value tree))))
+  (do-unbalanced-tree-f (tree-node-left tree) fn))
 
-(defmethod do-unbalanced-set-f ((tree %unbalanced-set-nil) fn)
-  nil)
-
-(defmethod do-unbalanced-set-f ((tree %unbalanced-set-node) fn)
-  (funcall fn (%unbalanced-set-node-value tree))
-  (do-unbalanced-set-f (%unbalanced-set-node-left tree) fn)
-  (do-unbalanced-set-f (%unbalanced-set-node-right tree) fn))
-
-(defmethod do-unbalanced-set-f ((tree %unbalanced-set-uneql-node) fn)
-  (do-eql-set (member (%unbalanced-set-uneql-node-values tree))
-    (funcall fn member))
-  (do-unbalanced-set-f (%unbalanced-set-uneql-node-left tree) fn)
-  (do-unbalanced-set-f (%unbalanced-set-uneql-node-right tree) fn))
-
-(defmacro do-unbalanced-set ((member tree &optional result) &body body)
+(defmacro do-unbalanced-tree ((member tree &optional result) &body body)
   `(block nil
-     (do-unbalanced-set-f ,tree (lambda (,member) ,@body))
+     (do-unbalanced-tree-f ,tree (lambda (,member) ,@body))
      ,result))
 
-(defmethod print-object ((object %unbalanced-set) stream)
+(defun unbalanced-set-to-list (set)
   (let (items)
-    (do-unbalanced-set (item object)
+    (do-unbalanced-tree (item (unbalanced-set-tree set))
       (push item items))
+    items))
+
+(defmethod to-list ((set unbalanced-set))
+  (unbalanced-set-to-list set))
+
+(defmethod print-object ((object unbalanced-set) stream)
+  (let ((items (unbalanced-set-to-list object)))
     (write
-     `(make-unbalanced-set* (quote ,(%unbalanced-set-comparator object))
+     `(make-unbalanced-set* (quote ,(unbalanced-set-comparator object))
                             :items (quote ,items))
      :stream stream)))
 
-(defun convert-to-uneql-node (node)
-  (make-%unbalanced-set-uneql-node
-   :comparator (%unbalanced-set-comparator node)
-   :left (%unbalanced-set-node-left node)
-   :values (make-eql-set (%unbalanced-set-node-value node))
-   :right (%unbalanced-set-node-right node)))
+(defun tree-node-with-changes (tree &key
+                                      (left (tree-node-left tree))
+                                      (right (tree-node-right tree))
+                                      (value (tree-node-value tree)))
+  (when (and (eq left (tree-node-left tree))
+             (eq right (tree-node-right tree))
+             (eq value (tree-node-value tree)))
+    (return-from tree-node-with-changes tree))
 
-(defun convert-to-regular-node (uneql-node)
-  (let* ((values (%unbalanced-set-uneql-node-values uneql-node))
-         (value (if (equal 1 (eql-set-count values))
-                    (eql-set-representative values)
-                    (error "Cannot convert an uneql-node with a non-singluar value.  This node has ~A elements"
-                           (eql-set-count values)))))
-    (make-%unbalanced-set-node
-     :comparator (%unbalanced-set-comparator uneql-node)
-     :left (%unbalanced-set-uneql-node-left uneql-node)
-     :value value
-     :right (%unbalanced-set-uneql-node-right uneql-node))))
+  (etypecase tree
+    (uneql-tree-node
+     (make-uneql-tree-node
+      :left left
+      :right right
+      :value value))
+    (tree-node
+     (make-tree-node
+      :left left
+      :right right
+      :value value))))
 
-(defmethod is-empty ((set %unbalanced-set-nil))
-  t)
+(defun tree-node-with-uneql-member (tree item)
+  (etypecase tree
+    (uneql-tree-node
+     (tree-node-with-changes tree :value (eql-set-with (tree-node-value tree) item)))
+    (tree-node
+     (assert (not (eq item (tree-node-value tree))))
+     (make-uneql-tree-node
+      :left (tree-node-left tree)
+      :value (make-eql-set (tree-node-value tree) item)
+      :right (tree-node-right tree)))))
 
-(defmethod is-empty ((set %unbalanced-set-node))
-  nil)
+(defun tree-node-without-uneql-member (tree item)
+  (etypecase tree
+    (uneql-tree-node
+     (let ((new-set (eql-set-without (tree-node-value tree) item)))
+       (assert (plusp (eql-set-count new-set)))
+       (if (> (eql-set-count new-set) 1)
+           (tree-node-with-changes tree :value new-set)
+           (make-tree-node
+            :left (tree-node-left tree)
+            :right (tree-node-right tree)
+            :value (eql-set-representative new-set)))))
+    (tree-node
+     (assert (not (eq item (tree-node-value tree))))
+     tree)))
 
-(defmethod is-empty ((set %unbalanced-set-uneql-node))
-  nil)
+(defmethod is-empty ((set unbalanced-set))
+  (tree-nil-p (unbalanced-set-tree set)))
 
-(defmethod empty ((set %unbalanced-set-node))
-  (make-%unbalanced-set-nil :comparator (%unbalanced-set-comparator set)))
+(defmethod empty ((set unbalanced-set))
+  (empty-unbalanced-set (unbalanced-set-comparator set)))
 
-(defmethod empty ((set %unbalanced-set-uneql-node))
-  (make-%unbalanced-set-nil :comparator (%unbalanced-set-comparator set)))
+(defun tree-member (comparator tree item)
+  (etypecase tree
+    (tree-nil
+     nil)
+    (tree-node
+     (let ((value (tree-node-representative-value tree)))
+       (ecase (funcall comparator item value)
+         (:less
+          (tree-member comparator (tree-node-left tree) item))
+         (:greater
+          (tree-member comparator (tree-node-right tree) item))
+         (:equal
+          t)
+         (:unequal
+          (etypecase tree
+            (uneql-tree-node
+             (eql-set-contains-p (tree-node-value tree) item))
+            (tree-node
+             nil))))))))
 
-(defmethod empty ((set %unbalanced-set-nil))
-  set)
+(defmethod is-member ((set unbalanced-set) item)
+  (tree-member (unbalanced-set-comparator set) (unbalanced-set-tree set) item))
 
-(defmethod is-member ((set %unbalanced-set-nil) item)
-  nil)
+(defun tree-insert (comparator tree item)
+  (etypecase tree
+    (tree-nil
+     (make-tree-node :value item))
+    (tree-node
+     (let ((value (tree-node-representative-value tree)))
+       (ecase (funcall comparator item value)
+         (:less
+          (tree-node-with-changes tree :left (tree-insert comparator (tree-node-left tree) item)))
+         (:greater
+          (tree-node-with-changes tree :right (tree-insert comparator (tree-node-right tree) item)))
+         (:equal
+          tree)
+         (:unequal
+          (tree-node-with-uneql-member tree item)))))))
 
-(defmethod is-member ((set %unbalanced-set-node) item)
-  (let ((value (%unbalanced-set-node-value set)))
-    (ecase (funcall (%unbalanced-set-comparator set) item value)
-      (:less
-       (is-member (%unbalanced-set-node-left set) item))
-      (:greater
-       (is-member (%unbalanced-set-node-right set) item))
-      (:equal
-       t)
-      (:unequal
-       nil))))
+(defmethod with-member ((set unbalanced-set) item)
+  (let ((new-tree (tree-insert (unbalanced-set-comparator set) (unbalanced-set-tree set) item)))
+    (if (eq new-tree (unbalanced-set-tree set))
+        set
+        (%make-unbalanced-set :tree new-tree :comparator (unbalanced-set-comparator set)))))
 
-(defmethod is-member ((set %unbalanced-set-uneql-node) item)
-  (let* ((values (%unbalanced-set-uneql-node-values set))
-         (value (progn
-                  (assert (plusp (eql-set-count values)))
-                  (eql-set-representative values))))
-    (ecase (funcall (%unbalanced-set-comparator set) item value)
-      (:less
-       (is-member (%unbalanced-set-uneql-node-left set) item))
-      (:greater
-       (is-member (%unbalanced-set-uneql-node-right set) item))
-      (:equal
-       t)
-      (:unequal
-       (eql-set-contains-p values item)))))
+(defun tree-remove-min (tree)
+  (unless (tree-nil-p (tree-node-left tree))
+    (multiple-value-bind (removed-value new-left) (tree-remove-min (tree-node-left tree))
+      (return-from tree-remove-min
+        (values removed-value
+                (tree-node-with-changes tree :left new-left)))))
 
-(defmethod with-member ((set %unbalanced-set-nil) item)
-  (make-%unbalanced-set-node :comparator (%unbalanced-set-comparator set)
-                          :left set
-                          :value item
-                          :right set))
+  (etypecase tree
+    (uneql-tree-node
+     (let ((value (eql-set-representative (tree-node-value tree))))
+       (values (tree-node-without-uneql-member tree value))))
+    (tree-node
+     (values (tree-node-value tree) (tree-node-right tree)))))
 
-(defmethod with-member ((set %unbalanced-set-node) item)
-  (with-accessors
-        ((left %unbalanced-set-node-left)
-         (right %unbalanced-set-node-right)
-         (value %unbalanced-set-node-value)
-         (comparator %unbalanced-set-comparator))
-      set
-    (ecase (funcall comparator item value)
-      (:less
-       (let ((new-left (with-member left item)))
-         (if (eq new-left left)
-             set
-             (make-%unbalanced-set-node
-              :comparator comparator
-              :left new-left
-              :right right
-              :value value))))
-      (:greater
-       (let ((new-right (with-member right item)))
-         (if (eq new-right right)
-             set
-             (make-%unbalanced-set-node
-              :comparator comparator
-              :left left
-              :right new-right
-              :value value))))
-      (:equal
-       set)
-      (:unequal
-       (with-member (convert-to-uneql-node set) item)))))
+(defun tree-remove (comparator tree item)
+  (etypecase tree
+    (tree-nil
+     tree)
+    (tree-node
+     (let ((value (tree-node-representative-value tree)))
+       (ecase (funcall comparator item value)
+         (:less
+          (tree-node-with-changes tree :left (tree-remove comparator (tree-node-left tree) item)))
+         (:greater
+          (tree-node-with-changes tree :right (tree-remove comparator (tree-node-right tree) item)))
+         (:equal
+          (etypecase tree
+            (uneql-tree-node
+             (tree-node-without-uneql-member tree item))
+            (tree-node
+             (when (tree-nil-p (tree-node-left tree))
+               (return-from tree-remove (tree-node-right tree)))
+             (when (tree-nil-p (tree-node-right tree))
+               (return-from tree-remove (tree-node-left tree)))
+             (multiple-value-bind (removed-value new-right) (tree-remove-min (tree-node-right tree))
+               (tree-node-with-changes
+                tree
+                :value removed-value
+                :right new-right)))))
+         (:unequal
+          (tree-node-without-uneql-member tree item)))))))
 
-(defmethod with-member ((set %unbalanced-set-uneql-node) item)
-  (with-accessors
-        ((left %unbalanced-set-uneql-node-left)
-         (right %unbalanced-set-uneql-node-right)
-         (values %unbalanced-set-uneql-node-values)
-         (comparator %unbalanced-set-comparator))
-      set
-    (let ((value (progn
-                   (assert (plusp (eql-set-count values)))
-                   (eql-set-representative values))))
-      (ecase (funcall comparator item value)
-        (:less
-         (let ((new-left (with-member left item)))
-           (if (eq new-left left)
-               set
-               (make-%unbalanced-set-uneql-node
-                :comparator comparator
-                :left new-left
-                :right right
-                :values values))))
-        (:greater
-         (let ((new-right (with-member right item)))
-           (if (eq new-right right)
-               set
-               (make-%unbalanced-set-uneql-node
-                :comparator comparator
-                :left left
-                :right new-right
-                :values values))))
-        (:equal
-         set)
-        (:unequal
-         (let ((new-values (eql-set-with values item)))
-           (if (eq new-values values)
-               set
-               (make-%unbalanced-set-uneql-node
-                :comparator comparator
-                :left left
-                :right right
-                :values new-values))))))))
-
-(defgeneric without-min-node (set))
-
-(defmethod without-min-node ((set %unbalanced-set-node))
-  (with-accessors
-        ((left %unbalanced-set-node-left)
-         (right %unbalanced-set-node-right)
-         (value %unbalanced-set-node-value)
-         (comparator %unbalanced-set-comparator))
-      set
-    (cond
-      ((not (%unbalanced-set-nil-p left))
-       (multiple-value-bind (new-left removed-node) (without-min-node left)
-         (values
-          (make-%unbalanced-set-node
-           :comparator comparator
-           :left new-left
-           :right right
-           :value value)
-          removed-node)))
-
-      (t
-       (values left set)))))
-
-(defmethod without-min-node ((set %unbalanced-set-uneql-node))
-  (with-accessors
-        ((left %unbalanced-set-uneql-node-left)
-         (right %unbalanced-set-uneql-node-right)
-         (values %unbalanced-set-uneql-node-values)
-         (comparator %unbalanced-set-comparator))
-      set
-    (cond
-      ((not (%unbalanced-set-nil-p left))
-       (multiple-value-bind (new-left removed-node) (without-min-node left)
-         (values
-          (make-%unbalanced-set-uneql-node
-           :comparator comparator
-           :left new-left
-           :right right
-           :values values)
-          removed-node)))
-
-      (t
-       (values left set)))))
-
-(defmethod without-member ((set %unbalanced-set-nil) item)
-  set)
-
-(defmethod without-member ((set %unbalanced-set-node) item)
-  (with-accessors
-        ((left %unbalanced-set-node-left)
-         (right %unbalanced-set-node-right)
-         (value %unbalanced-set-node-value)
-         (comparator %unbalanced-set-comparator))
-      set
-    (ecase (funcall comparator item value)
-      (:less
-       (let ((new-left (without-member left item)))
-         (if (eq new-left left)
-             set
-             (make-%unbalanced-set-node
-              :comparator comparator
-              :left new-left
-              :right right
-              :value value))))
-
-      (:greater
-       (let ((new-right (without-member right item)))
-         (if (eq new-right right)
-             set
-             (make-%unbalanced-set-node
-              :comparator comparator
-              :left left
-              :right new-right
-              :value value))))
-
-      (:equal
-       (cond
-         ((%unbalanced-set-nil-p left)
-          right)
-
-         ((%unbalanced-set-nil-p right)
-          left)
-
-         (t
-          (multiple-value-bind (new-right removed-node) (without-min-node right)
-            (etypecase removed-node
-              (%unbalanced-set-node
-               (make-%unbalanced-set-node
-                :comparator comparator
-                :left left
-                :right new-right
-                :value (%unbalanced-set-node-value removed-node)))
-
-              (%unbalanced-set-uneql-node
-               (make-%unbalanced-set-uneql-node
-                :comparator comparator
-                :left left
-                :right new-right
-                :values (%unbalanced-set-uneql-node-values removed-node))))))))
-
-      (:unequal
-       set))))
-
-(defmethod without-member ((set %unbalanced-set-uneql-node) item)
-  (with-accessors
-        ((left %unbalanced-set-uneql-node-left)
-         (right %unbalanced-set-uneql-node-right)
-         (values %unbalanced-set-uneql-node-values)
-         (comparator %unbalanced-set-comparator))
-      set
-    (let ((value (eql-set-representative values)))
-      (ecase (funcall comparator item value)
-        (:less
-         (let ((new-left (without-member left item)))
-           (if (eq new-left left)
-               set
-               (make-%unbalanced-set-uneql-node
-                :comparator comparator
-                :left new-left
-                :right right
-                :values values))))
-
-        (:greater
-         (let ((new-right (without-member right item)))
-           (if (eq new-right right)
-               set
-               (make-%unbalanced-set-uneql-node
-                :comparator comparator
-                :left left
-                :right new-right
-                :values values))))
-
-        ((:equal :unequal)
-         (let ((new-values (eql-set-without values item)))
-           (when (eq new-values values)
-             (return-from without-member set))
-           (if (equal 1 (eql-set-count new-values))
-               (make-%unbalanced-set-node
-                :comparator comparator
-                :left left
-                :right right
-                :value (eql-set-representative new-values))
-               (make-%unbalanced-set-uneql-node
-                :comparator comparator
-                :left left
-                :right right
-                :values new-values))))))))
+(defmethod without-member ((set unbalanced-set) item)
+  (let ((new-tree (tree-remove (unbalanced-set-comparator set) (unbalanced-set-tree set) item)))
+    (if (eq new-tree (unbalanced-set-tree set))
+        set
+        (%make-unbalanced-set :tree new-tree :comparator (unbalanced-set-comparator set)))))
