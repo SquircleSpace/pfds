@@ -15,10 +15,11 @@
 (defpackage :pfds.shcl.io/list
   (:use :common-lisp)
   (:import-from :pfds.shcl.io/common
-   #:define-interface #:is-empty #:empty #:define-adt #:compare #:compare*)
+   #:define-interface #:is-empty #:empty #:define-adt #:compare #:compare*
+   #:to-list)
   (:export
    #:with-head #:head #:tail #:is-empty #:empty #:empty-pure-list
-   #:empty-list #:list-+ #:update))
+   #:empty-list #:list-+ #:update #:pure-list #:pure-list* #:pure-list-cons))
 (in-package :pfds.shcl.io/list)
 
 (define-interface list
@@ -44,72 +45,100 @@
     (t
      (error "Invalid subscript"))))
 
-(define-adt %pure-list
+(define-adt pure-list
     ()
-  (%empty-pure-list)
-  (%nonempty-pure-list
+  (pure-list-nil)
+  ((pure-list-cons (:constructor %make-pure-list-cons))
    head
-   (tail (empty-pure-list))))
+   (tail (empty-pure-list) :type pure-list)))
 
-(defconstant +empty-pure-list+
-  (if (boundp '+empty-pure-list+)
-      (symbol-value '+empty-pure-list+)
-      (make-%empty-pure-list)))
+(defvar *empty-pure-list*
+  (make-pure-list-nil))
 
 (defun empty-pure-list ()
-  +empty-pure-list+)
+  *empty-pure-list*)
 
-(defun pure-list* (objects)
-  (if objects
-      (with-head (car objects) (pure-list* (cdr objects)))
-      (empty-pure-list)))
+(defun pure-list* (&rest objects)
+  (labels
+      ((visit (objects)
+         (if (cdr objects)
+             (with-head (car objects) (visit (cdr objects)))
+             (if (car objects)
+                 (visit (car objects))
+                 (empty-pure-list)))))
+    (if (null objects)
+        (empty-pure-list)
+        (visit objects))))
 
 (defun pure-list (&rest objects)
-  (pure-list* objects))
+  (pure-list* objects nil))
 
-(defmethod with-head (item (list %pure-list))
-  (make-%nonempty-pure-list :head item :tail list))
+(defun pure-list-cons (head tail)
+  (check-type tail pure-list)
+  (%make-pure-list-cons :head head :tail tail))
 
-(defmethod head ((list %nonempty-pure-list))
-  (values (%nonempty-pure-list-head list) t))
-
-(defmethod head ((list %empty-pure-list))
-  (values nil nil))
-
-(defmethod tail ((list %nonempty-pure-list))
-  (values (%nonempty-pure-list-tail list) t))
-
-(defmethod tail ((list %empty-pure-list))
-  (values nil nil))
-
-(defmethod is-empty ((list %nonempty-pure-list))
+(defmethod to-list ((list pure-list-nil))
   nil)
 
-(defmethod is-empty ((list %empty-pure-list))
+(defmethod to-list ((list pure-list-cons))
+  (cons (pure-list-cons-head list) (to-list (pure-list-cons-tail list))))
+
+(defmethod with-head (item (list pure-list))
+  (pure-list-cons list item))
+
+(defmethod head ((list pure-list-cons))
+  (values (pure-list-cons-head list) t))
+
+(defmethod head ((list pure-list-nil))
+  (values nil nil))
+
+(defmethod tail ((list pure-list-cons))
+  (values (pure-list-cons-tail list) t))
+
+(defmethod tail ((list pure-list-nil))
+  (values list nil))
+
+(defmethod is-empty ((list pure-list-cons))
+  nil)
+
+(defmethod is-empty ((list pure-list-nil))
   t)
 
-(defmethod empty ((list %pure-list))
+(defmethod empty ((list pure-list-cons))
   (empty-pure-list))
 
-(defun compare-pure-list (left right &key (head-compare-fn 'compare) (tail-compare-fn 'compare-pure-list))
+(defmethod empty ((list pure-list-nil))
+  list)
+
+(defun compare-pure-list (left right &key (head-compare-fn 'compare))
   (when (eql left right)
     (return-from compare-pure-list :equal))
 
   (cond
-    ((and (%empty-pure-list-p left)
-          (%empty-pure-list-p right))
+    ((and (pure-list-nil-p left)
+          (pure-list-nil-p right))
      :equal)
-    ((%empty-pure-list-p left)
+    ((pure-list-nil-p left)
      :less)
-    ((%empty-pure-list-p right)
+    ((pure-list-nil-p right)
      :greater)
     (t
      (compare*
-       (funcall head-compare-fn (%nonempty-pure-list-head left) (%nonempty-pure-list-head right))
-       (funcall tail-compare-fn (%nonempty-pure-list-tail left) (%nonempty-pure-list-tail right))))))
+       (funcall head-compare-fn (pure-list-cons-head left) (pure-list-cons-head right))
+       (compare-pure-list (pure-list-cons-tail left) (pure-list-cons-tail right)
+                          :head-compare-fn head-compare-fn)))))
 
-(defmethod compare ((left %pure-list) (right %pure-list))
+(defmethod compare ((left pure-list-nil) (right pure-list-nil))
+  :equal)
+
+(defmethod compare ((left pure-list-cons) (right pure-list-cons))
   (compare-pure-list left right))
+
+(defmethod compare ((left pure-list-nil) (right pure-list-cons))
+  :less)
+
+(defmethod compare ((left pure-list-cons) (right pure-list-nil))
+  :greater)
 
 (defmethod with-head (item (list list))
   (cons item list))
@@ -132,3 +161,6 @@
 
 (defun empty-list ()
   nil)
+
+(defmethod to-list ((list list))
+  list)
