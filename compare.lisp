@@ -52,9 +52,13 @@
 (define-type-id symbol)
 (define-type-id package)
 (define-type-id string)
-(define-type-id number)
+(define-type-id integer)
+(define-type-id ratio)
+(define-type-id rational)
+(define-type-id float)
 (define-type-id real)
 (define-type-id complex)
+(define-type-id number)
 (define-type-id vector)
 (define-type-id array)
 (define-type-id standard-class)
@@ -95,7 +99,7 @@
     ((eql left right)
      :equal)
     (t
-     :unequal)))
+     (uneqaulify (compare-type-ids (type-id left) (type-id right))))))
 
 (defun compare-complexes (left right)
   ;; There is no way to order complex numbers... if you care about
@@ -117,7 +121,13 @@
 (defun compare-type-ids (left right)
   (cond
     ((and left right)
-     (compare-reals left right))
+     (cond
+       ((> left right)
+        :greater)
+       ((< left right)
+        :less)
+       ((= left right)
+        :equal)))
     ;; Having an id now means that any type
     ;; assigned an id later will have a larger one.
     ;; So, if left has an id now but right doesn't
