@@ -75,15 +75,15 @@
                  `(let ((,value ,form))
                     (ecase ,value
                       (:equal)
-                      (:uneqal
-                       (setf ,result :uneqal))
+                      (:unequal
+                       (setf ,result :unequal))
                       ((:less :greater)
                        (return-from ,compare* ,value)))))
          ,result))))
 
 (defun uneqaulify (value)
   (if (eq value :equal)
-      :uneqal
+      :unequal
       value))
 
 (defun compare-reals (left right)
