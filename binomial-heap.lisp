@@ -242,19 +242,13 @@
   (ranked-trees nil :type list))
 
 (defmethod print-object ((heap binomial-heap) stream)
-  (write-char #\( stream)
-  (print-object 'make-binomial-heap* stream)
-  (write-char #\space stream)
-  (print-object (binomial-heap-comparator heap) stream)
-  (write-char #\space stream)
-  (print-object :items stream)
-  (write-string " (" stream)
-  (print-object 'list stream)
-  (dolist (ranked-tree (binomial-heap-ranked-trees heap))
-    (do-tree (value (ranked-tree-tree ranked-tree))
-      (write-char #\space stream)
-      (print-object value stream)))
-  (write-string "))" stream))
+  (let (items)
+    (dolist (ranked-tree (binomial-heap-ranked-trees heap))
+      (do-tree (item (ranked-tree-tree ranked-tree))
+        (push item items)))
+    (write
+     `(make-binomial-heap* (quote ,(binomial-heap-comparator heap))
+                           :items (quote ,items)))))
 
 (defun make-binomial-heap* (comparator &key items)
   (let (ranked-tree-list

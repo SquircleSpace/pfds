@@ -30,6 +30,7 @@
    
    #:empty-unbalanced-set
    #:make-unbalanced-set
+   #:make-unbalanced-set*
    #:do-unbalanced-set))
 (in-package :pfds.shcl.io/unbalanced-set)
 
@@ -55,11 +56,14 @@
 (defun empty-unbalanced-set (comparator)
   (make-%unbalanced-set-nil :comparator comparator))
 
-(defun make-unbalanced-set (comparator &rest objects)
+(defun make-unbalanced-set* (comparator &key items)
   (let ((tree (empty-unbalanced-set comparator)))
-    (dolist (object objects)
-      (setf tree (with-member tree object)))
+    (dolist (item items)
+      (setf tree (with-member tree item)))
     tree))
+
+(defun make-unbalanced-set (comparator &rest items)
+  (make-unbalanced-set* comparator :items items))
 
 (defgeneric do-unbalanced-set-f (tree fn))
 
@@ -83,12 +87,13 @@
      ,result))
 
 (defmethod print-object ((object %unbalanced-set) stream)
-  (let ((objects (make-array 0 :adjustable t :fill-pointer t)))
+  (let (items)
     (do-unbalanced-set (item object)
-      (vector-push-extend item objects))
-    (print-object `(make-unbalanced-set ,(%unbalanced-set-comparator object)
-                                         ,@(coerce objects 'list))
-                  stream)))
+      (push item items))
+    (write
+     `(make-unbalanced-set* (quote ,(%unbalanced-set-comparator object))
+                            :items (quote ,items))
+     :stream stream)))
 
 (defun convert-to-uneql-node (node)
   (make-%unbalanced-set-uneql-node
