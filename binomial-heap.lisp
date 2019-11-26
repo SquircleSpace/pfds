@@ -15,7 +15,7 @@
 (defpackage :pfds.shcl.io/binomial-heap
   (:use :common-lisp)
   (:import-from :pfds.shcl.io/common
-   #:define-interface #:define-adt #:define-structure)
+   #:define-interface #:define-adt #:define-structure #:to-list)
   (:import-from :pfds.shcl.io/compare
    #:compare #:define-type-id)
   (:import-from :pfds.shcl.io/heap
@@ -241,11 +241,18 @@
   (size 0 :type (integer 0))
   (ranked-trees nil :type list))
 
-(defmethod print-object ((heap binomial-heap) stream)
+(defun binomial-heap-to-list (heap)
   (let (items)
     (dolist (ranked-tree (binomial-heap-ranked-trees heap))
       (do-tree (item (ranked-tree-tree ranked-tree))
         (push item items)))
+    items))
+
+(defmethod to-list ((heap binomial-heap))
+  (binomial-heap-to-list heap))
+
+(defmethod print-object ((heap binomial-heap) stream)
+  (let ((items (binomial-heap-to-list heap)))
     (write
      `(make-binomial-heap* (quote ,(binomial-heap-comparator heap))
                            :items (quote ,items)))))

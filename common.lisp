@@ -19,8 +19,10 @@
   (:export
    #:is-empty #:empty #:with-member #:without-member #:is-member
    #:define-interface #:compare #:compare* #:define-type-id
-   #:define-structure))
+   #:define-structure #:to-list))
 (in-package :pfds.shcl.io/common)
+
+(defgeneric to-list (object))
 
 (defgeneric is-empty (container))
 (defgeneric empty (container))

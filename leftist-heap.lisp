@@ -15,7 +15,7 @@
 (defpackage :pfds.shcl.io/leftist-heap
   (:use :common-lisp)
   (:import-from :pfds.shcl.io/common
-   #:define-interface #:define-adt #:compare)
+   #:define-interface #:define-adt #:compare #:to-list)
   (:import-from :pfds.shcl.io/heap
    #:merge-heaps #:heap-top #:without-heap-top #:with-member #:is-empty #:empty)
   (:import-from :pfds.shcl.io/impure-queue
@@ -95,10 +95,20 @@
      (do-guts-f ,guts (lambda (,item) ,@body))
      ,result))
 
-(defun print-leftist-heap (heap stream)
+(defun leftist-heap-to-list (heap)
   (let (items)
     (do-guts (item (leftist-heap-guts heap))
       (push item items))
+    items))
+
+(defmethod to-list ((heap height-biased-leftist-heap))
+  (leftist-heap-to-list heap))
+
+(defmethod to-list ((heap weight-biased-leftist-heap))
+  (leftist-heap-to-list heap))
+
+(defun print-leftist-heap (heap stream)
+  (let ((items (leftist-heap-to-list heap)))
     (write
      `(make-leftist-heap* (quote ,(leftist-heap-comparator heap))
                           :bias (quote ,(leftist-heap-bias heap))
