@@ -15,9 +15,10 @@
 (defpackage :pfds.shcl.io/unbalanced-set
   (:use :common-lisp)
   (:import-from :pfds.shcl.io/common
-   #:define-interface #:is-empty #:empty #:define-adt #:compare
-   #:with-member #:without-member #:is-member #:define-structure
+   #:define-interface #:define-adt #:compare #:define-structure
    #:to-list)
+  (:import-from :pfds.shcl.io/set
+   #:is-empty #:empty #:with-member #:without-member #:is-member)
   (:import-from :pfds.shcl.io/eql-set
    #:make-eql-set #:eql-set-with #:eql-set-count
    #:eql-set-representative #:eql-set-contains-p #:do-eql-set
@@ -33,13 +34,6 @@
    #:make-unbalanced-set
    #:make-unbalanced-set*))
 (in-package :pfds.shcl.io/unbalanced-set)
-
-(define-interface set
-  with-member
-  is-member
-  without-member
-  is-empty
-  empty)
 
 (defvar *tree-nil*)
 
