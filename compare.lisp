@@ -213,9 +213,9 @@
    (compare (pathname-host left) (pathname-host right))
    (compare (pathname-version left) (pathname-version right))))
 
-(defun compare-other (left right)
+(defun compare-other-objects (left right)
   (when (eql left right)
-    (return-from compare-other :equal))
+    (return-from compare-other-objects :equal))
 
   (uneqaulify
    (compare*
@@ -227,7 +227,7 @@
     (compare-reals (sxhash left) (sxhash right)))))
 
 (defmethod compare (left right)
-  (compare-other left right))
+  (compare-other-objects left right))
 
 (defmethod compare ((left real) (right real))
   (compare-reals left right))
