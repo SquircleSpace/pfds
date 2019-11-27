@@ -86,9 +86,9 @@
   (etypecase guts
     (guts-nil)
     (guts-node
-     (funcall fn (guts-node-value guts))
      (do-guts-f (guts-node-left guts) fn)
-     (do-guts-f (guts-node-right guts) fn))))
+     (do-guts-f (guts-node-right guts) fn)
+     (funcall fn (guts-node-value guts)))))
 
 (defmacro do-guts ((item guts &optional result) &body body)
   `(block nil
