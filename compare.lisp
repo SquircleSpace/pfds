@@ -20,12 +20,15 @@
    #:compare-complexes
    #:compare-characters
    #:compare-vectors
+   #:compare-arrays
    #:compare-strings
    #:compare-packages
    #:compare-symbols
    #:compare-classes
    #:compare-cons
+   #:compare-lists
    #:compare-pathnames
+   #:compare-functions
    #:compare-other-objects
    #:compare*
    #:define-type-id))
@@ -68,6 +71,7 @@
 (define-type-id character)
 (define-type-id cons)
 (define-type-id pathname)
+(define-type-id function)
 
 (defmacro compare* (&body forms)
   (let ((result (gensym "RESULT"))
@@ -152,12 +156,46 @@
     (unless (eq :equal comparison)
       (return-from compare-vectors comparison)))
 
-  (loop :for left-element :across left
-        :for right-element :across right
-        :for comparison = (funcall element-compare-fn left-element right-element) :do
-          (unless (eq :equal comparison)
-            (return-from compare-vectors comparison)))
-  :equal)
+  (let ((result :equal))
+    (loop :for left-element :across left
+          :for right-element :across right :do
+            (let ((comparison (funcall element-compare-fn left-element right-element)))
+              (ecase comparison
+                (:equal)
+                (:unequal
+                 (setf result :unequal))
+                ((:greater :less)
+                 (return-from compare-vectors comparison)))))
+
+    result))
+
+(defun compare-arrays (left right &key (element-compare-fn 'compare))
+  (when (eql left right)
+    (return-from compare-arrays :equal))
+
+  (labels
+      ((list-comparator (left right)
+         (compare-lists left right
+                        :car-compare-fn 'compare-reals
+                        :cdr-compare-fn #'list-comparator)))
+    (let ((comparison (list-comparator (array-dimensions left)
+                                       (array-dimensions right))))
+      (unless (eq :equal comparison)
+        (return-from compare-arrays comparison)))
+
+    (let ((result :equal))
+      (loop :for index :below (array-total-size left) :do
+        (let ((comparison (funcall element-compare-fn
+                                   (row-major-aref left index)
+                                   (row-major-aref right index))))
+          (ecase comparison
+            (:equal)
+            (:unequal
+             (setf result :unequal))
+            ((:greater :less)
+             (return-from compare-arrays comparison)))))
+
+      result)))
 
 (defun compare-strings (left right)
   (compare-vectors left right :element-compare-fn 'compare-characters))
@@ -198,8 +236,20 @@
     (return-from compare-cons :equal))
 
   (compare*
-   (funcall car-compare-fn left right)
-   (funcall cdr-compare-fn left right)))
+   (funcall car-compare-fn (car left) (car right))
+   (funcall cdr-compare-fn (cdr left) (cdr right))))
+
+(defun compare-lists (left right &key (car-compare-fn 'compare) (cdr-compare-fn 'compare))
+  (when (eql left right)
+    (return-from compare-lists :equal))
+  (unless left
+    (return-from compare-lists :less))
+  (unless right
+    (return-from compare-lists :greater))
+
+  (compare*
+    (funcall car-compare-fn (car left) (car right))
+    (funcall cdr-compare-fn (cdr left) (cdr right))))
 
 (defun compare-pathnames (left right)
   (when (eql left right)
@@ -212,6 +262,28 @@
    (compare (pathname-device left) (pathname-device right))
    (compare (pathname-host left) (pathname-host right))
    (compare (pathname-version left) (pathname-version right))))
+
+(defun compare-functions (left right
+                          &key (lambda-expression-compare-fn 'compare)
+                            (closure-p-compare-fn 'compare)
+                            (name-compare-fn 'compare))
+  (when (eql left right)
+    (return-from compare-functions :equal))
+
+  (multiple-value-bind
+        (left-expression left-closure-p left-name) (function-lambda-expression left)
+    (multiple-value-bind
+          (right-expression right-closure-p right-name) (function-lambda-expression right)
+      (uneqaulify
+       (compare*
+         ;; name is most likely to be provided, meaningful, and
+         ;; easily comparable.  Let's start with that.
+         (funcall name-compare-fn left-name right-name)
+         (funcall closure-p-compare-fn left-closure-p right-closure-p)
+         (funcall lambda-expression-compare-fn left-expression right-expression)
+         ;; Both CCL and SBCL always return the same value for the
+         ;; hash of a function.  But, let's give it a shot anyway.
+         (compare-reals (sxhash left) (sxhash right)))))))
 
 (defun compare-other-objects (left right)
   (when (eql left right)
@@ -241,6 +313,9 @@
 (defmethod compare ((left vector) (right vector))
   (compare-vectors left right))
 
+(defmethod compare ((left array) (right array))
+  (compare-arrays left right))
+
 (defmethod compare ((left string) (right string))
   (compare-strings left right))
 
@@ -250,8 +325,11 @@
 (defmethod compare ((left package) (right package))
   (compare-packages left right))
 
-(defmethod compare ((left cons) (right cons))
-  (compare-cons left right))
+(defmethod compare ((left list) (right list))
+  (compare-lists left right))
 
 (defmethod compare ((left pathname) (right pathname))
   (compare-pathnames left right))
+
+(defmethod compare ((left function) (right function))
+  (compare-functions left right))
