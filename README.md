@@ -71,22 +71,24 @@ an ordering between things that are mutually `=`, such as `1`, `1.0`,
 `(COMPLEX 1)`, and `(COMPLEX 1.0)`.  Its probably best if you think of
 `COMPARE` as the ordering equivalent of a hash function.  The results
 aren't necessarily meaningful, but they do have useful properties for
-specific use cases.  If you want to have a meaningful ordering, you
-can simply define your own comparator function.  The
+specific use cases.  In fact, `COMPARE` will back to comparing hashes
+if it has nothing else to go on.  If you want to have a meaningful
+ordering, you can simply define your own comparator function.  The
 `PFDS.SHCL.IO/COMPARE` package exports comparators for many common
 types to help facilitate writing your own comparator.
 
 Note that `COMPARE` assumes that instances of types provided by Common
 Lisp are immutable.  You mustn't mutate objects in ways that change
 their ordering after adding them to an ordering-dependent data
-structure.  Since the ordering may depend on the `SXHASH` of the
-object, its probably best to just avoid mutating them at all.  A
+structure.  Its probably best to just avoid mutating them at all.  A
 principled approach would be to return `:UNEQUAL` when comparing
 un-`EQL` instances of a mutable type.  Unfortunately, that would
 result in very common use cases becoming very inefficient.  For
 example, its very common to use symbols and strings as members of a
-set or keys in a map.  If all un-`EQL` symbols and strings are
-`:UNEQUAL` then the performance for that use case will plummet.
+set or keys in a map.  If all un-`EQL` symbols and strings were
+`:UNEQUAL` then the performance for that use case would plummet.  As a
+concession for practicality, the `COMPARE` function ignores the
+mutability of data types provided by Common Lisp.
 
 For user-defined mutable data structures, you are strongly encouraged
 to use the following `COMPARE` method.
