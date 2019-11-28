@@ -16,6 +16,7 @@
   (:use :common-lisp)
   (:export
    #:compare
+   #:compare-objects
    #:compare-reals
    #:compare-complexes
    #:compare-characters
@@ -34,7 +35,7 @@
    #:define-type-id))
 (in-package :pfds.shcl.io/compare)
 
-(defgeneric compare (left right))
+(defgeneric compare-objects (left right))
 
 (defvar *type-id* 0)
 
@@ -205,13 +206,7 @@
     (return-from compare-packages :equal))
 
   (unequalify
-   (compare*
-    (compare-strings (package-name left) (package-name right))
-    ;; Packages should never have the same name and be un-eql.  So,
-    ;; the above comparison should always establish an ordering.  Just
-    ;; in case that logic fails for some reason, let's give it one
-    ;; last shot to establish an ordering!
-    (compare-reals (sxhash left) (sxhash right)))))
+   (compare-strings (package-name left) (package-name right))))
 
 (defun compare-symbols (left right)
   (when (eql left right)
@@ -227,9 +222,7 @@
     (return-from compare-classes :equal))
 
   (unequalify
-   (compare*
-    (compare-symbols (class-name left) (class-name right))
-    (compare-reals (sxhash left) (sxhash right)))))
+   (compare-symbols (class-name left) (class-name right))))
 
 (defun compare-cons (left right &key (car-compare-fn 'compare) (cdr-compare-fn 'compare))
   (when (eql left right)
@@ -280,56 +273,54 @@
          ;; easily comparable.  Let's start with that.
          (funcall name-compare-fn left-name right-name)
          (funcall closure-p-compare-fn left-closure-p right-closure-p)
-         (funcall lambda-expression-compare-fn left-expression right-expression)
-         ;; Both CCL and SBCL always return the same value for the
-         ;; hash of a function.  But, let's give it a shot anyway.
-         (compare-reals (sxhash left) (sxhash right)))))))
+         (funcall lambda-expression-compare-fn left-expression right-expression))))))
 
-(defun compare-other-objects (left right)
+(defun compare (left right)
   (when (eql left right)
-    (return-from compare-other-objects :equal))
+    (return-from compare :equal))
 
+  (let ((result (compare-objects left right)))
+    (when (eq result :unequal)
+      (setf result (unequalify (compare-reals (sxhash left) (sxhash right)))))
+    result))
+
+(defmethod compare-objects (left right)
   (unequalify
    (compare*
-    ;; Are these known types?
-    (compare-reals (type-id left) (type-id right))
-    ;; Can we establish an ordering anyway?
-    (compare-classes (class-of left) (class-of right))
-    ;; When in doubt, hash it out!
-    (compare-reals (sxhash left) (sxhash right)))))
+     ;; Are these known types?
+     (compare-reals (type-id left) (type-id right))
+     ;; Can we establish an ordering anyway?
+     (compare-classes (class-of left) (class-of right)))))
 
-(defmethod compare (left right)
-  (compare-other-objects left right))
-
-(defmethod compare ((left real) (right real))
+(defmethod compare-objects ((left real) (right real))
   (compare-reals left right))
 
-(defmethod compare ((left complex) (right complex))
+(defmethod compare-objects ((left complex) (right complex))
   (compare-complexes left right))
 
-(defmethod compare ((left character) (right character))
+(defmethod compare-objects ((left character) (right character))
   (compare-characters left right))
 
-(defmethod compare ((left vector) (right vector))
+(defmethod compare-objects ((left vector) (right vector))
   (compare-vectors left right))
 
-(defmethod compare ((left array) (right array))
+(defmethod compare-objects ((left array) (right array))
   (compare-arrays left right))
 
-(defmethod compare ((left string) (right string))
+(defmethod compare-objects ((left string) (right string))
   (compare-strings left right))
 
-(defmethod compare ((left symbol) (right symbol))
+(defmethod compare-objects ((left symbol) (right symbol))
   (compare-symbols left right))
 
-(defmethod compare ((left package) (right package))
+(defmethod compare-objects ((left package) (right package))
   (compare-packages left right))
 
-(defmethod compare ((left list) (right list))
+(defmethod compare-objects ((left list) (right list))
   (compare-lists left right))
 
-(defmethod compare ((left pathname) (right pathname))
+(defmethod compare-objects ((left pathname) (right pathname))
   (compare-pathnames left right))
 
-(defmethod compare ((left function) (right function))
+(defmethod compare-objects ((left function) (right function))
   (compare-functions left right))

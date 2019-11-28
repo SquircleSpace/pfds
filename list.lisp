@@ -15,8 +15,9 @@
 (defpackage :pfds.shcl.io/list
   (:use :common-lisp)
   (:import-from :pfds.shcl.io/common
-   #:define-interface #:is-empty #:empty #:define-adt #:compare #:compare*
-   #:to-list)
+   #:define-interface #:is-empty #:empty #:define-adt #:to-list)
+  (:import-from :pfds.shcl.io/compare
+   #:compare #:compare* #:compare-objects)
   (:export
    #:with-head #:head #:tail #:is-empty #:empty #:empty-pure-list
    #:empty-list #:list-+ #:update #:pure-list #:pure-list* #:pure-list-cons))
@@ -128,16 +129,16 @@
        (compare-pure-list (pure-list-cons-tail left) (pure-list-cons-tail right)
                           :head-compare-fn head-compare-fn)))))
 
-(defmethod compare ((left pure-list-nil) (right pure-list-nil))
+(defmethod compare-objects ((left pure-list-nil) (right pure-list-nil))
   :equal)
 
-(defmethod compare ((left pure-list-cons) (right pure-list-cons))
+(defmethod compare-objects ((left pure-list-cons) (right pure-list-cons))
   (compare-pure-list left right))
 
-(defmethod compare ((left pure-list-nil) (right pure-list-cons))
+(defmethod compare-objects ((left pure-list-nil) (right pure-list-cons))
   :less)
 
-(defmethod compare ((left pure-list-cons) (right pure-list-nil))
+(defmethod compare-objects ((left pure-list-cons) (right pure-list-nil))
   :greater)
 
 (defmethod with-head (item (list list))

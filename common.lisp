@@ -15,11 +15,11 @@
 (defpackage :pfds.shcl.io/common
   (:use :common-lisp)
   (:import-from :pfds.shcl.io/compare
-   #:compare #:define-type-id #:compare*)
+   #:compare #:define-type-id #:compare* #:compare-objects)
   (:export
    #:is-empty #:empty #:with-member
    #:define-interface #:compare #:compare* #:define-type-id
-   #:define-structure #:to-list))
+   #:define-structure #:to-list #:compare-objects))
 (in-package :pfds.shcl.io/common)
 
 (defgeneric to-list (object))

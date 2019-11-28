@@ -91,7 +91,7 @@ set or keys in a map.  If all un-`EQL` symbols and strings are
 For user-defined mutable data structures, you are strongly encouraged
 to use the following `COMPARE` method.
 ```
-(defmethod compare ((left my-type) (right my-type))
+(defmethod compare-objects ((left my-type) (right my-type))
   (if (eql left right)
       :equal
       :unequal))
