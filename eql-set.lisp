@@ -14,9 +14,10 @@
 
 (defpackage :pfds.shcl.io/eql-set
   (:use :common-lisp)
-  (:import-from :pfds.shcl.io/common #:define-structure)
+  (:import-from :pfds.shcl.io/common #:define-structure #:to-list)
   (:export
    #:make-eql-set
+   #:make-eql-set*
    #:eql-set-p
    #:eql-set
    #:eql-set-with
@@ -33,7 +34,18 @@
 (define-structure (eql-set (:constructor %make-eql-set) (:copier %copy-eql-set))
   (set (make-hash-table :test 'eql) :type hash-table))
 
+(defmethod to-list ((eql-set eql-set))
+  (loop :for item :being :the :hash-keys :of (eql-set-set eql-set) :collect item))
+
+(defmethod print-object ((eql-set eql-set) stream)
+  (write
+   `(make-eql-set* :items (quote ,(to-list eql-set)))
+   :stream stream))
+
 (defun make-eql-set (&rest items)
+  (make-eql-set* :items items))
+
+(defun make-eql-set* (&key items)
   (let ((new-table (make-hash-table :test 'eql)))
     (dolist (item items)
       (setf (gethash item new-table) t))
