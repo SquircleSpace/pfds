@@ -90,7 +90,7 @@
                        (return-from ,compare* ,value)))))
          ,result))))
 
-(defun uneqaulify (value)
+(defun unequalify (value)
   (if (eq value :equal)
       :unequal
       value))
@@ -104,7 +104,7 @@
     ((eql left right)
      :equal)
     (t
-     (uneqaulify (compare-type-ids (type-id left) (type-id right))))))
+     (unequalify (compare-type-ids (type-id left) (type-id right))))))
 
 (defun compare-complexes (left right)
   ;; There is no way to order complex numbers... if you care about
@@ -204,7 +204,7 @@
   (when (eql left right)
     (return-from compare-packages :equal))
 
-  (uneqaulify
+  (unequalify
    (compare*
     (compare-strings (package-name left) (package-name right))
     ;; Packages should never have the same name and be un-eql.  So,
@@ -217,7 +217,7 @@
   (when (eql left right)
     (return-from compare-symbols :equal))
 
-  (uneqaulify
+  (unequalify
    (compare*
     (compare-strings (symbol-name left) (symbol-name right))
     (compare-packages (symbol-package left) (symbol-package right)))))
@@ -226,7 +226,7 @@
   (when (eql left right)
     (return-from compare-classes :equal))
 
-  (uneqaulify
+  (unequalify
    (compare*
     (compare-symbols (class-name left) (class-name right))
     (compare-reals (sxhash left) (sxhash right)))))
@@ -274,7 +274,7 @@
         (left-expression left-closure-p left-name) (function-lambda-expression left)
     (multiple-value-bind
           (right-expression right-closure-p right-name) (function-lambda-expression right)
-      (uneqaulify
+      (unequalify
        (compare*
          ;; name is most likely to be provided, meaningful, and
          ;; easily comparable.  Let's start with that.
@@ -289,7 +289,7 @@
   (when (eql left right)
     (return-from compare-other-objects :equal))
 
-  (uneqaulify
+  (unequalify
    (compare*
     ;; Are these known types?
     (compare-reals (type-id left) (type-id right))
