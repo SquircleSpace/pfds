@@ -12,13 +12,15 @@
 ;; See the License for the specific language governing permissions and
 ;; limitations under the License.
 
-(defpackage :pfds.shcl.io/red-black-tree-set
+(defpackage :pfds.shcl.io/red-black-tree
   (:use :common-lisp)
   (:import-from :pfds.shcl.io/common
    #:define-interface #:define-adt #:compare #:define-structure
    #:to-list)
   (:import-from :pfds.shcl.io/set
-   #:is-empty #:empty #:with-member #:without-member #:is-member)
+   #:with-member #:without-member #:is-member)
+  (:import-from :pfds.shcl.io/map
+   #:with-entry #:without-entry #:lookup-entry)
   (:import-from :pfds.shcl.io/eql-map
    #:make-eql-map #:eql-map-with #:eql-map-count
    #:eql-map-representative #:eql-map-lookup #:do-eql-map
@@ -31,7 +33,7 @@
    #:is-member
    #:make-red-black-tree-set*
    #:make-red-black-tree-set))
-(in-package :pfds.shcl.io/red-black-tree-set)
+(in-package :pfds.shcl.io/red-black-tree)
 
 (deftype color ()
   '(member :red :black))
@@ -354,7 +356,8 @@
 
 (defun tree-member (comparator tree key)
   (when (tree-nil-p tree)
-    (return-from tree-member nil))
+    (return-from tree-member
+      (values nil nil)))
 
   (multiple-value-bind (representative-key representative-value) (tree-node-representative tree)
     (let ((comparison (funcall comparator representative-key key)))
@@ -671,14 +674,17 @@
      (do-tree-f ,tree (lambda (,key ,value) ,@body) ,reverse-p)
      ,result))
 
-(define-structure (red-black-tree-set (:constructor %make-red-black-tree-set))
+(define-structure (red-black-tree (:constructor #:make-red-black-tree))
   (tree (tree-nil) :type rb-tree)
   (count 0 :type (integer 0))
   (comparator 'compare))
 
+(define-structure (red-black-tree-set (:include red-black-tree)
+                                      (:constructor %make-red-black-tree-set)))
+
 (defun red-black-tree-set-to-list (set)
   (let (items)
-    (do-tree (key value (red-black-tree-set-tree set) :reverse-p t)
+    (do-tree (key value (red-black-tree-tree set) :reverse-p t)
       (declare (ignore value))
       (push key items))
     items))
@@ -688,42 +694,42 @@
 
 (defmethod print-object ((tree red-black-tree-set) stream)
   (write
-   `(make-red-black-tree-set* (quote ,(red-black-tree-set-comparator tree))
-                          :items (quote ,(red-black-tree-set-to-list tree)))
+   `(make-red-black-tree-set* (quote ,(red-black-tree-comparator tree))
+                              :items (quote ,(red-black-tree-set-to-list tree)))
    :stream stream))
 
-(defmethod is-empty ((tree red-black-tree-set))
-  (zerop (red-black-tree-set-count tree)))
+(defmethod pfds.shcl.io/set:is-empty ((tree red-black-tree-set))
+  (zerop (red-black-tree-count tree)))
 
-(defmethod empty ((tree red-black-tree-set))
-  (%make-red-black-tree-set :comparator (red-black-tree-set-comparator tree)))
+(defmethod pfds.shcl.io/set:empty ((tree red-black-tree-set))
+  (%make-red-black-tree-set :comparator (red-black-tree-comparator tree)))
 
 (defmethod with-member ((tree red-black-tree-set) item)
-  (let ((new-tree (tree-insert (red-black-tree-set-comparator tree)
-                               (red-black-tree-set-tree tree)
+  (let ((new-tree (tree-insert (red-black-tree-comparator tree)
+                               (red-black-tree-tree tree)
                                item
                                nil)))
-    (if (eq new-tree (red-black-tree-set-tree tree))
+    (if (eq new-tree (red-black-tree-tree tree))
         tree
         (%make-red-black-tree-set
          :tree new-tree
-         :count (1+ (red-black-tree-set-count tree))
-         :comparator (red-black-tree-set-comparator tree)))))
+         :count (1+ (red-black-tree-count tree))
+         :comparator (red-black-tree-comparator tree)))))
 
 (defmethod without-member ((tree red-black-tree-set) item)
-  (let ((new-tree (tree-remove (red-black-tree-set-comparator tree)
-                               (red-black-tree-set-tree tree)
+  (let ((new-tree (tree-remove (red-black-tree-comparator tree)
+                               (red-black-tree-tree tree)
                                item)))
-    (if (eq new-tree (red-black-tree-set-tree tree))
+    (if (eq new-tree (red-black-tree-tree tree))
         tree
         (%make-red-black-tree-set
          :tree new-tree
-         :count (1- (red-black-tree-set-count tree))
-         :comparator (red-black-tree-set-comparator tree)))))
+         :count (1- (red-black-tree-count tree))
+         :comparator (red-black-tree-comparator tree)))))
 
 (defmethod is-member ((tree red-black-tree-set) item)
-  (nth-value 1 (tree-member (red-black-tree-set-comparator tree)
-                            (red-black-tree-set-tree tree)
+  (nth-value 1 (tree-member (red-black-tree-comparator tree)
+                            (red-black-tree-tree tree)
                             item)))
 
 (defun make-red-black-tree-set* (comparator &key items)
@@ -741,3 +747,75 @@
 
 (defun make-red-black-tree-set (comparator &rest items)
   (make-red-black-tree-set* comparator :items items))
+
+(define-structure (red-black-tree-map (:include red-black-tree)
+                                      (:constructor %make-red-black-tree-map)))
+
+(defun red-black-tree-map-to-list (map)
+  (let (items)
+    (do-tree (key value (red-black-tree-tree map) :reverse-p t)
+      (push (cons key value) items))
+    items))
+
+(defmethod to-list ((tree red-black-tree-map))
+  (red-black-tree-map-to-list tree))
+
+(defmethod print-object ((tree red-black-tree-map) stream)
+  (write
+   `(make-red-black-tree-map* (quote ,(red-black-tree-comparator tree))
+                              :alist (quote ,(red-black-tree-map-to-list tree)))
+   :stream stream))
+
+(defmethod pfds.shcl.io/map:is-empty ((tree red-black-tree-map))
+  (zerop (red-black-tree-count tree)))
+
+(defmethod pfds.shcl.io/map:empty ((tree red-black-tree-map))
+  (%make-red-black-tree-map :comparator (red-black-tree-comparator tree)))
+
+(defmethod with-entry ((tree red-black-tree-map) key value)
+  (let ((new-tree (tree-insert (red-black-tree-comparator tree)
+                               (red-black-tree-tree tree)
+                               key
+                               value)))
+    (if (eq new-tree (red-black-tree-tree tree))
+        tree
+        (%make-red-black-tree-map
+         :tree new-tree
+         :count (1+ (red-black-tree-count tree))
+         :comparator (red-black-tree-comparator tree)))))
+
+(defmethod without-entry ((tree red-black-tree-map) key)
+  (let ((new-tree (tree-remove (red-black-tree-comparator tree)
+                               (red-black-tree-tree tree)
+                               key)))
+    (if (eq new-tree (red-black-tree-tree tree))
+        tree
+        (%make-red-black-tree-map
+         :tree new-tree
+         :count (1- (red-black-tree-count tree))
+         :comparator (red-black-tree-comparator tree)))))
+
+(defmethod lookup-entry ((tree red-black-tree-map) key)
+  (tree-member (red-black-tree-comparator tree)
+               (red-black-tree-tree tree)
+               key))
+
+(defun make-red-black-tree-map* (comparator &key alist plist)
+  (let ((tree (tree-nil))
+        (count 0))
+    (loop :while plist
+          :for key = (pop plist)
+          :for value = (if plist (pop plist) (error "Odd number of items in plist"))
+          :do (setf tree (tree-insert comparator tree key value)))
+    (dolist (pair alist)
+      (setf tree (tree-insert comparator tree (car pair) (cdr pair))))
+    (do-tree (key value tree)
+      (declare (ignore key value))
+      (incf count))
+    (%make-red-black-tree-map
+     :tree tree
+     :count count
+     :comparator comparator)))
+
+(defun make-red-black-tree-map (comparator &rest plist)
+  (make-red-black-tree-map* comparator :plist plist))

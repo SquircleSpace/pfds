@@ -19,7 +19,7 @@
    #:define-structure #:to-list)
   (:import-from :pfds.shcl.io/compare
    #:compare #:compare-objects)
-  (:import-from :pfds.shcl.io/red-black-tree-set #:make-red-black-tree-set*)
+  (:import-from :pfds.shcl.io/red-black-tree #:make-red-black-tree-set*)
   (:import-from :pfds.shcl.io/unbalanced-set #:make-unbalanced-set*)
   (:import-from :prove #:is #:subtest #:ok #:pass #:fail))
 (in-package :pfds.shcl.io/tests/set)
