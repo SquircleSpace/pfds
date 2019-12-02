@@ -34,6 +34,7 @@
    #:compare-functions
    #:compare-other-objects
    #:compare*
+   #:unequalify
    #:define-type-id))
 (in-package :pfds.shcl.io/compare)
 

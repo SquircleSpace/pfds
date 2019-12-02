@@ -105,10 +105,11 @@ to use the following `COMPARE` method.
 (defmethod compare-objects ((left my-type) (right my-type))
   (if (eql left right)
       :equal
-      :unequal))
+      (unequalify (compare-reals (sxhash left) (sxhash right)))))
 ```
 This ensures that the ordering invariants of data structures are not
-violated by mutation.
+violated by mutation while also minimizing the number of `:UNEQUAL`
+entries.
 
 ### `DEFSTRUCT` vs `DEFCLASS`
 
