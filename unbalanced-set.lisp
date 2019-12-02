@@ -19,10 +19,10 @@
    #:to-list)
   (:import-from :pfds.shcl.io/set
    #:is-empty #:empty #:with-member #:without-member #:is-member)
-  (:import-from :pfds.shcl.io/eql-set
-   #:make-eql-set #:eql-set-with #:eql-set-count
-   #:eql-set-representative #:eql-set-contains-p #:do-eql-set
-   #:eql-set-without)
+  (:import-from :pfds.shcl.io/eql-map
+   #:make-eql-map #:eql-map-with #:eql-map-count
+   #:eql-map-representative #:eql-map-lookup #:do-eql-map
+   #:eql-map-without)
   (:export
    #:with-member
    #:is-member
@@ -55,7 +55,7 @@
 (defun tree-node-representative-value (tree)
   (etypecase tree
     (uneql-tree-node
-     (eql-set-representative (tree-node-value tree)))
+     (eql-map-representative (tree-node-value tree)))
     (tree-node
      (tree-node-value tree))))
 
@@ -83,7 +83,8 @@
   (do-unbalanced-tree-f (tree-node-right tree) fn)
   (etypecase tree
     (uneql-tree-node
-     (do-eql-set (member (tree-node-value tree))
+     (do-eql-map (member value (tree-node-value tree))
+       (declare (ignore value))
        (funcall fn member)))
     (tree-node
      (funcall fn (tree-node-value tree))))
@@ -134,25 +135,25 @@
 (defun tree-node-with-uneql-member (tree item)
   (etypecase tree
     (uneql-tree-node
-     (tree-node-with-changes tree :value (eql-set-with (tree-node-value tree) item)))
+     (tree-node-with-changes tree :value (eql-map-with (tree-node-value tree) item t)))
     (tree-node
      (assert (not (eq item (tree-node-value tree))))
      (make-uneql-tree-node
       :left (tree-node-left tree)
-      :value (make-eql-set (tree-node-value tree) item)
+      :value (make-eql-map (tree-node-value tree) t item t)
       :right (tree-node-right tree)))))
 
 (defun tree-node-without-uneql-member (tree item)
   (etypecase tree
     (uneql-tree-node
-     (let ((new-set (eql-set-without (tree-node-value tree) item)))
-       (assert (plusp (eql-set-count new-set)))
-       (if (> (eql-set-count new-set) 1)
+     (let ((new-set (eql-map-without (tree-node-value tree) item)))
+       (assert (plusp (eql-map-count new-set)))
+       (if (> (eql-map-count new-set) 1)
            (tree-node-with-changes tree :value new-set)
            (make-tree-node
             :left (tree-node-left tree)
             :right (tree-node-right tree)
-            :value (eql-set-representative new-set)))))
+            :value (eql-map-representative new-set)))))
     (tree-node
      (assert (not (eq item (tree-node-value tree))))
      tree)))
@@ -179,7 +180,7 @@
          (:unequal
           (etypecase tree
             (uneql-tree-node
-             (eql-set-contains-p (tree-node-value tree) item))
+             (nth-value 1 (eql-map-lookup (tree-node-value tree) item)))
             (tree-node
              nil))))))))
 
@@ -217,7 +218,7 @@
 
   (etypecase tree
     (uneql-tree-node
-     (let ((value (eql-set-representative (tree-node-value tree))))
+     (let ((value (eql-map-representative (tree-node-value tree))))
        (values (tree-node-without-uneql-member tree value))))
     (tree-node
      (values (tree-node-value tree) (tree-node-right tree)))))

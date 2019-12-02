@@ -19,10 +19,10 @@
    #:to-list)
   (:import-from :pfds.shcl.io/set
    #:is-empty #:empty #:with-member #:without-member #:is-member)
-  (:import-from :pfds.shcl.io/eql-set
-   #:make-eql-set #:eql-set-with #:eql-set-count
-   #:eql-set-representative #:eql-set-contains-p #:do-eql-set
-   #:eql-set-without)
+  (:import-from :pfds.shcl.io/eql-map
+   #:make-eql-map #:eql-map-with #:eql-map-count
+   #:eql-map-representative #:eql-map-lookup #:do-eql-map
+   #:eql-map-without #:eql-map #:make-eql-map*)
   (:export
    #:is-empty
    #:empty
@@ -44,13 +44,19 @@
 (define-adt rb-tree
     ()
   ((tree-nil (:constructor %make-tree-nil)))
-  ((tree-node (:constructor %make-tree-node))
+  ((tree-node (:constructor #:make-tree-node))
    (color :black :type color)
    (left (tree-nil) :type rb-tree)
-   (right (tree-nil) :type rb-tree)
-   value))
+   (right (tree-nil) :type rb-tree)))
 
-(defmethod print-object ((tree tree-node) stream)
+(define-structure (tree-node-1 (:include tree-node) (:constructor %make-tree-node-1))
+  (key (error "required"))
+  value)
+
+(define-structure (tree-node-n (:include tree-node) (:constructor %make-tree-node-n))
+  (values (make-eql-map) :type eql-map))
+
+(defmethod print-object ((tree tree-node-1) stream)
   (when *print-readably*
     (return-from print-object
       (call-next-method)))
@@ -58,7 +64,20 @@
   (let (rep)
     (push (tree-node-left tree) rep)
     (push (tree-node-color tree) rep)
-    (push (tree-node-value tree) rep)
+    (push (tree-node-1-key tree) rep)
+    (push (tree-node-1-value tree) rep)
+    (push (tree-node-right tree) rep)
+    (print-object (nreverse rep) stream)))
+
+(defmethod print-object ((tree tree-node-n) stream)
+  (when *print-readably*
+    (return-from print-object
+      (call-next-method)))
+
+  (let (rep)
+    (push (tree-node-left tree) rep)
+    (push (tree-node-color tree) rep)
+    (push (tree-node-n-values tree) rep)
     (push (tree-node-right tree) rep)
     (print-object (nreverse rep) stream)))
 
@@ -67,21 +86,20 @@
     (return-from print-object
       (call-next-method)))
 
-  (print-object nil stream))
+  (write nil :stream stream))
 
-(defun make-tree-node (&key (color :black) (left (tree-nil)) (right (tree-nil)) value)
+(defun make-tree-node-1 (&key (color :black) (left (tree-nil)) (right (tree-nil)) (key (error "required")) value)
   (check-type color color)
   (check-type left rb-tree)
   (check-type right rb-tree)
-  (%make-tree-node :color color :left left :right right :value value))
+  (%make-tree-node-1 :color color :left left :right right :value value :key key))
 
-(define-structure (uneql-tree-node (:include tree-node) (:constructor %make-uneql-tree-node)))
-
-(defun make-uneql-tree-node (&key (color :black) (left (tree-nil)) (right (tree-nil)) value)
+(defun make-tree-node-n (&key (color :black) (left (tree-nil)) (right (tree-nil)) (values (make-eql-map)))
   (check-type color color)
   (check-type left rb-tree)
   (check-type right rb-tree)
-  (%make-uneql-tree-node :color color :left left :right right :value value))
+  (check-type values eql-map)
+  (%make-tree-node-n :color color :left left :right right :values values))
 
 (defvar *tree-nil*
   (%make-tree-nil))
@@ -126,18 +144,25 @@
      (validate-red-invariant (tree-node-left tree))
      (validate-red-invariant (tree-node-right tree)))))
 
+(defun tree-node-representative (tree)
+  (etypecase tree
+    (tree-node-n
+     (eql-map-representative (tree-node-n-values tree)))
+    (tree-node-1
+     (values (tree-node-1-key tree) (tree-node-1-value tree)))))
+
 (defun validate-ordering (tree comparator)
   (etypecase tree
     (tree-nil)
     (tree-node
-     (let ((value (tree-node-representative-value tree))
+     (let ((key (tree-node-representative tree))
            (left (tree-node-left tree))
            (right (tree-node-right tree)))
        (when (and (tree-node-p left)
-                  (not (eq :less (funcall comparator (tree-node-representative-value left) value))))
+                  (not (eq :less (funcall comparator (tree-node-representative left) key))))
          (cerror "ignore" "ordering violation"))
        (when (and (tree-node-p right)
-                  (not (eq :greater (funcall comparator (tree-node-representative-value right) value))))
+                  (not (eq :greater (funcall comparator (tree-node-representative right) key))))
          (cerror "ignore" "ordering violation"))))))
 
 (defun validate-tree (tree comparator)
@@ -148,54 +173,94 @@
 (defun tree-node-with-changes (tree &key
                                       (color (tree-node-color tree))
                                       (left (tree-node-left tree))
-                                      (right (tree-node-right tree))
-                                      (value (tree-node-value tree)))
+                                      (right (tree-node-right tree)))
   (when (and (eq color (tree-node-color tree))
              (eq left (tree-node-left tree))
-             (eq right (tree-node-right tree))
-             (eq value (tree-node-value tree)))
+             (eq right (tree-node-right tree)))
     (return-from tree-node-with-changes tree))
 
   (etypecase tree
-    (uneql-tree-node
-     (make-uneql-tree-node
+    (tree-node-n
+     (make-tree-node-n
       :color color
       :left left
       :right right
-      :value value))
-    (tree-node
-     (make-tree-node
+      :values (tree-node-n-values tree)))
+    (tree-node-1
+     (make-tree-node-1
       :color color
       :left left
       :right right
-      :value value))))
+      :key (tree-node-1-key tree)
+      :value (tree-node-1-value tree)))))
 
-(defun tree-node-with-uneql-member (tree item)
+(defun tree-node-n-with-changes (tree &key
+                                        (color (tree-node-color tree))
+                                        (left (tree-node-left tree))
+                                        (right (tree-node-right tree))
+                                        (values (tree-node-n-values tree)))
+  (when (and (eq color (tree-node-color tree))
+             (eq left (tree-node-left tree))
+             (eq right (tree-node-right tree))
+             (eq values (tree-node-n-values tree)))
+    (return-from tree-node-n-with-changes tree))
+
+  (make-tree-node-n
+   :color color
+   :left left
+   :right right
+   :values values))
+
+(defun tree-node-1-with-changes (tree &key
+                                        (color (tree-node-color tree))
+                                        (left (tree-node-left tree))
+                                        (right (tree-node-right tree))
+                                        (key (tree-node-1-key tree))
+                                        (value (tree-node-1-value tree)))
+  (when (and (eq color (tree-node-color tree))
+             (eq left (tree-node-left tree))
+             (eq right (tree-node-right tree))
+             (eq value (tree-node-1-value tree))
+             (eq key (tree-node-1-key tree)))
+    (return-from tree-node-1-with-changes tree))
+
+  (make-tree-node-1
+   :color color
+   :left left
+   :right right
+   :key key
+   :value value))
+
+(defun tree-node-with-uneql-member (tree key value)
   (etypecase tree
-    (uneql-tree-node
-     (tree-node-with-changes tree :value (eql-set-with (tree-node-value tree) item)))
-    (tree-node
-     (assert (not (eq item (tree-node-value tree))))
-     (make-uneql-tree-node
+    (tree-node-n
+     (tree-node-n-with-changes tree :values (eql-map-with (tree-node-n-values tree) key value)))
+    (tree-node-1
+     (assert (not (eql key (tree-node-1-key tree))))
+     (make-tree-node-n
       :color (tree-node-color tree)
       :left (tree-node-left tree)
       :right (tree-node-right tree)
-      :value (make-eql-set (tree-node-value tree) item)))))
+      :values (make-eql-map (tree-node-1-key tree) (tree-node-1-value tree)
+                            key value)))))
 
-(defun tree-node-without-uneql-member (tree item)
+(defun tree-node-without-uneql-member (tree key)
   (etypecase tree
-    (uneql-tree-node
-     (let ((new-set (eql-set-without (tree-node-value tree) item)))
-       (assert (plusp (eql-set-count new-set)))
-       (if (> (eql-set-count new-set) 1)
-           (tree-node-with-changes tree :value new-set)
-           (make-tree-node
-            :color (tree-node-color tree)
-            :left (tree-node-left tree)
-            :right (tree-node-right tree)
-            :value (eql-set-representative new-set)))))
-    (tree-node
-     (assert (not (eq item (tree-node-value tree))))
+    (tree-node-n
+     (let ((new-map (eql-map-without (tree-node-n-values tree) key)))
+       (assert (plusp (eql-map-count new-map)))
+       (when (> (eql-map-count new-map) 1)
+         (return-from tree-node-without-uneql-member
+           (tree-node-n-with-changes tree :values new-map)))
+       (multiple-value-bind (key value) (eql-map-representative new-map)
+         (make-tree-node-1
+          :color (tree-node-color tree)
+          :left (tree-node-left tree)
+          :right (tree-node-right tree)
+          :key key
+          :value value))))
+    (tree-node-1
+     (assert (not (eq key (tree-node-1-key tree))))
      tree)))
 
 (defmacro %path (l-or-r &rest rest)
@@ -287,95 +352,25 @@
 
     (tree-node-with-changes tree :left left :right right :color :black)))
 
-(defun tree-node-representative-value (tree)
-  (etypecase tree
-    (uneql-tree-node
-     (eql-set-representative (tree-node-value tree)))
-    (tree-node
-     (tree-node-value tree))))
-
-(defun tree-member (comparator tree item)
+(defun tree-member (comparator tree key)
   (when (tree-nil-p tree)
     (return-from tree-member nil))
 
-  (let ((comparison (funcall comparator (tree-node-representative-value tree) item)))
-    (ecase comparison
-      (:greater
-       (tree-member comparator (tree-node-left tree) item))
-      (:less
-       (tree-member comparator (tree-node-right tree) item))
-      (:equal
-       t)
-      (:unequal
-       (etypecase tree
-         (uneql-tree-node
-          (eql-set-contains-p (tree-node-value tree) item))
-         (tree-node
-          nil))))))
-
-(defun tree-append (left right)
-  (cond
-    ((tree-nil-p left)
-     right)
-    ((tree-nil-p right)
-     left)
-    ((and (red-p left) (red-p right))
-     (let ((merged (tree-append (tree-node-right left) (tree-node-left right))))
-       (if (red-p merged)
-           (tree-node-with-changes
-            merged
-            :color :red
-            :left (tree-node-with-changes
-                   left
-                   :color :red
-                   :left (tree-node-left left)
-                   :right (tree-node-left merged))
-            :right (tree-node-with-changes
-                    right
-                    :color :red
-                    :left (tree-node-right merged)
-                    :right (tree-node-right right)))
-           (tree-node-with-changes
-            left
-            :color :red
-            :left (tree-node-left left)
-            :right (tree-node-with-changes
-                    right
-                    :color :red
-                    :left merged
-                    :right (tree-node-right right))))))
-    ((and (black-p left) (black-p right))
-     (let ((merged (tree-append (tree-node-right left) (tree-node-left right))))
-       (if (red-p merged)
-           (tree-node-with-changes
-            merged
-            :color :red
-            :left (tree-node-with-changes
-                   left
-                   :color :black
-                   :left (tree-node-left left)
-                   :right (tree-node-left merged))
-            :right (tree-node-with-changes
-                    right
-                    :color :black
-                    :left (tree-node-right merged)
-                    :right (tree-node-right right)))
-           (balance-left left :right
-                         (tree-node-with-changes
-                          right
-                          :color :black
-                          :left merged
-                          :right (tree-node-right right))))))
-    ((red-p right)
-     (tree-node-with-changes
-      right
-      :left (tree-append left (tree-node-left right))))
-    ((red-p left)
-     (tree-node-with-changes
-      left
-      :right (tree-append (tree-node-right left) right)))
-    (t
-     (error "This should be impossible"))))
+  (multiple-value-bind (representative-key representative-value) (tree-node-representative tree)
+    (let ((comparison (funcall comparator representative-key key)))
+      (ecase comparison
+        (:greater
+         (tree-member comparator (tree-node-left tree) key))
+        (:less
+         (tree-member comparator (tree-node-right tree) key))
+        (:equal
+         (values representative-value t))
+        (:unequal
+         (etypecase tree
+           (tree-node-n
+            (eql-map-lookup (tree-node-n-values tree) key))
+           (tree-node-1
+            (values nil nil))))))))
 
 (defun balance-left (tree &key (left (tree-node-left tree)) (right (tree-node-right tree)))
   (when (and (eq left (tree-node-left tree))
@@ -455,40 +450,104 @@
     (t
      (assert nil nil "This should be impossible"))))
 
-(defun tree-remove (comparator original-tree item)
+(defun tree-append (left right)
+  (cond
+    ((tree-nil-p left)
+     right)
+    ((tree-nil-p right)
+     left)
+    ((and (red-p left) (red-p right))
+     (let ((merged (tree-append (tree-node-right left) (tree-node-left right))))
+       (if (red-p merged)
+           (tree-node-with-changes
+            merged
+            :color :red
+            :left (tree-node-with-changes
+                   left
+                   :color :red
+                   :left (tree-node-left left)
+                   :right (tree-node-left merged))
+            :right (tree-node-with-changes
+                    right
+                    :color :red
+                    :left (tree-node-right merged)
+                    :right (tree-node-right right)))
+           (tree-node-with-changes
+            left
+            :color :red
+            :left (tree-node-left left)
+            :right (tree-node-with-changes
+                    right
+                    :color :red
+                    :left merged
+                    :right (tree-node-right right))))))
+    ((and (black-p left) (black-p right))
+     (let ((merged (tree-append (tree-node-right left) (tree-node-left right))))
+       (if (red-p merged)
+           (tree-node-with-changes
+            merged
+            :color :red
+            :left (tree-node-with-changes
+                   left
+                   :color :black
+                   :left (tree-node-left left)
+                   :right (tree-node-left merged))
+            :right (tree-node-with-changes
+                    right
+                    :color :black
+                    :left (tree-node-right merged)
+                    :right (tree-node-right right)))
+           (balance-left left :right
+                         (tree-node-with-changes
+                          right
+                          :color :black
+                          :left merged
+                          :right (tree-node-right right))))))
+    ((red-p right)
+     (tree-node-with-changes
+      right
+      :left (tree-append left (tree-node-left right))))
+    ((red-p left)
+     (tree-node-with-changes
+      left
+      :right (tree-append (tree-node-right left) right)))
+    (t
+     (error "This should be impossible"))))
+
+(defun tree-remove (comparator original-tree key)
   (labels
-      ((%remove (comparator tree item)
+      ((%remove (comparator tree key)
          (when (tree-nil-p tree)
            (return-from tree-remove original-tree))
 
-         (let* ((representative-value (tree-node-representative-value tree))
-                (comparison (funcall comparator item representative-value)))
+         (let* ((representative-key (tree-node-representative tree))
+                (comparison (funcall comparator key representative-key)))
            (ecase comparison
              (:less
-              (%remove-from-left comparator tree item))
+              (%remove-from-left comparator tree key))
              (:greater
-              (%remove-from-right comparator tree item))
+              (%remove-from-right comparator tree key))
              (:unequal
               (etypecase tree
-                (uneql-tree-node
-                 (let ((replacement-tree (tree-node-without-uneql-member tree item)))
+                (tree-node-n
+                 (let ((replacement-tree (tree-node-without-uneql-member tree key)))
                    (when (eq replacement-tree tree)
                      (return-from tree-remove original-tree))
                    (values replacement-tree t)))
-                (tree-node
+                (tree-node-1
                  (return-from tree-remove original-tree))))
              (:equal
               (etypecase tree
-                (uneql-tree-node
-                 (let ((replacement-tree (tree-node-without-uneql-member tree item)))
+                (tree-node-n
+                 (let ((replacement-tree (tree-node-without-uneql-member tree key)))
                    (when (eq replacement-tree tree)
                      (return-from tree-remove original-tree))
                    (values replacement-tree t)))
                 (tree-node
                  (tree-append (tree-node-left tree) (tree-node-right tree))))))))
 
-       (%remove-from-left (comparator tree item)
-         (multiple-value-bind (updated-left tree-already-balanced) (%remove comparator (tree-node-left tree) item)
+       (%remove-from-left (comparator tree key)
+         (multiple-value-bind (updated-left tree-already-balanced) (%remove comparator (tree-node-left tree) key)
            (cond
              (tree-already-balanced
               (values (tree-node-with-changes tree :left updated-left)
@@ -500,8 +559,8 @@
               (values (tree-node-with-changes tree :left updated-left :color :red)
                       nil)))))
 
-       (%remove-from-right (comparator tree item)
-         (multiple-value-bind (updated-right tree-already-balanced) (%remove comparator (tree-node-right tree) item)
+       (%remove-from-right (comparator tree key)
+         (multiple-value-bind (updated-right tree-already-balanced) (%remove comparator (tree-node-right tree) key)
            (cond
              (tree-already-balanced
               (values (tree-node-with-changes tree :right updated-right)
@@ -511,25 +570,25 @@
              (t
               (tree-node-with-changes tree :right updated-right :color :red))))))
 
-    (let* ((removed (%remove comparator original-tree item))
+    (let* ((removed (%remove comparator original-tree key))
            (result (if (tree-node-p removed)
                        (tree-node-with-changes removed :color :black)
                        removed)))
       (validate-tree result comparator)
       result)))
 
-(defun tree-insert (comparator tree item)
+(defun tree-insert (comparator tree key value)
   (when (tree-nil-p tree)
-    (return-from tree-insert (make-tree-node :color :black :value item)))
+    (return-from tree-insert (make-tree-node-1 :color :black :key key :value value)))
 
   (labels
       ((insert (tree)
          (when (tree-nil-p tree)
            (return-from insert
-             (make-tree-node :color :red :value item)))
+             (make-tree-node-1 :color :red :key key :value value)))
 
-         (let* ((representative-value (tree-node-representative-value tree))
-                (comparison (funcall comparator item representative-value))
+         (let* ((representative-key (tree-node-representative tree))
+                (comparison (funcall comparator key representative-key))
                 (color (tree-node-color tree)))
            (ecase comparison
              (:less
@@ -541,9 +600,17 @@
                   (tree-node-with-changes tree :right (insert (tree-node-right tree)))
                   (balance tree :right (insert (tree-node-right tree)))))
              (:equal
-              tree)
+              (etypecase tree
+                (tree-node-n
+                 (tree-node-n-with-changes
+                  tree
+                  :values (eql-map-with (tree-node-n-values tree) key value)))
+                (tree-node-1
+                 (tree-node-1-with-changes
+                  tree
+                  :value value))))
              (:unequal
-              (tree-node-with-uneql-member tree item))))))
+              (tree-node-with-uneql-member tree key value))))))
 
     ;; I see a red black tree and I want it painted blaaaack
     (let ((result (tree-node-with-changes (insert tree) :color :black)))
@@ -560,7 +627,12 @@
                (return-from visit our-id))
 
              (format stream "ID~A [label=\"~A\" color=~A]~%"
-                     our-id (tree-node-value tree)
+                     our-id
+                     (etypecase tree
+                       (tree-node-1
+                        (format nil "~A=~A" (tree-node-1-key tree) (tree-node-1-value tree)))
+                       (tree-node-n
+                        (tree-node-n-values tree)))
                      (if (eq :black (tree-node-color tree))
                          "black"
                          "red"))
@@ -573,28 +645,43 @@
       (visit tree)
       (format stream "}~%"))))
 
+(defun do-tree-f (tree fn reverse-p)
+  (when (tree-nil-p tree)
+    (return-from do-tree-f))
+  (labels
+      ((emit ()
+         (etypecase tree
+           (tree-node-1
+            (funcall fn (tree-node-1-key tree) (tree-node-1-value tree)))
+           (tree-node-n
+            (do-eql-map (key value (tree-node-n-values tree))
+              (funcall fn key value))))))
+    (declare (dynamic-extent #'emit))
+
+    (let ((first-child (tree-node-left tree))
+          (second-child (tree-node-right tree)))
+      (when reverse-p
+        (rotatef first-child second-child))
+      (do-tree-f first-child fn reverse-p)
+      (emit)
+      (do-tree-f second-child fn reverse-p))))
+
+(defmacro do-tree ((key value tree &key result reverse-p) &body body)
+  `(block nil
+     (do-tree-f ,tree (lambda (,key ,value) ,@body) ,reverse-p)
+     ,result))
+
 (define-structure (red-black-tree-set (:constructor %make-red-black-tree-set))
   (tree (tree-nil) :type rb-tree)
   (count 0 :type (integer 0))
   (comparator 'compare))
 
-(defun red-black-tree-set-to-list (tree)
+(defun red-black-tree-set-to-list (set)
   (let (items)
-    (labels
-        ((visit (tree)
-           (when (tree-nil-p tree)
-             (return-from visit))
-
-           (visit (tree-node-right tree))
-           (etypecase tree
-             (uneql-tree-node
-              (do-eql-set (value (tree-node-value tree))
-                (push value items)))
-             (tree-node
-              (push (tree-node-value tree) items)))
-           (visit (tree-node-left tree))))
-      (visit (red-black-tree-set-tree tree))
-      items)))
+    (do-tree (key value (red-black-tree-set-tree set) :reverse-p t)
+      (declare (ignore value))
+      (push key items))
+    items))
 
 (defmethod to-list ((tree red-black-tree-set))
   (red-black-tree-set-to-list tree))
@@ -614,7 +701,8 @@
 (defmethod with-member ((tree red-black-tree-set) item)
   (let ((new-tree (tree-insert (red-black-tree-set-comparator tree)
                                (red-black-tree-set-tree tree)
-                               item)))
+                               item
+                               nil)))
     (if (eq new-tree (red-black-tree-set-tree tree))
         tree
         (%make-red-black-tree-set
@@ -634,15 +722,15 @@
          :comparator (red-black-tree-set-comparator tree)))))
 
 (defmethod is-member ((tree red-black-tree-set) item)
-  (tree-member (red-black-tree-set-comparator tree)
-               (red-black-tree-set-tree tree)
-               item))
+  (nth-value 1 (tree-member (red-black-tree-set-comparator tree)
+                            (red-black-tree-set-tree tree)
+                            item)))
 
 (defun make-red-black-tree-set* (comparator &key items)
   (let ((tree (tree-nil))
         (count 0))
     (dolist (item items)
-      (let ((new-tree (tree-insert comparator tree item)))
+      (let ((new-tree (tree-insert comparator tree item nil)))
         (unless (eq new-tree tree)
           (incf count)
           (setf tree new-tree))))
