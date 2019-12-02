@@ -13,6 +13,16 @@ structures as well.
 
 ## Data Structures
 
+### Maps
+
+#### `RED-BLACK-TREE-MAP`
+
+- `MAKE-RED-BLACK-TREE-MAP`: `O(n log(n))`
+- `WITH-ENTRY`: `O(log(n))`
+- `WITHOUT-ENTRY`: `O(log(n))`
+- `LOOKUP-ENTRY`: `O(log(n))`
+- `IS-EMPTY`: `O(1)`
+
 ### Sets
 
 #### `RED-BLACK-TREE-SET`
