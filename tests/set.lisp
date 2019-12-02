@@ -15,10 +15,11 @@
 (defpackage :pfds.shcl.io/tests/set
   (:use :common-lisp)
   (:import-from :pfds.shcl.io/common
-   #:without-member #:is-member #:with-member #:is-empty #:empty
    #:define-structure #:to-list)
   (:import-from :pfds.shcl.io/compare
    #:compare #:compare-objects)
+  (:import-from :pfds.shcl.io/set
+   #:is-empty #:empty #:with-member #:without-member #:is-member)
   (:import-from :pfds.shcl.io/red-black-tree #:make-red-black-tree-set*)
   (:import-from :pfds.shcl.io/unbalanced-set #:make-unbalanced-set*)
   (:import-from :prove #:is #:subtest #:ok #:pass #:fail))
@@ -38,7 +39,7 @@
 
 (defmethod compare-objects ((left token) (right token))
   (when (eql left right)
-    (return-from compare :equal))
+    (return-from compare-objects :equal))
   (let ((result (compare (token-value left) (token-value right))))
     (when (eq :equal result)
       (setf result :unequal))
