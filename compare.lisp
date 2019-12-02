@@ -15,8 +15,10 @@
 (defpackage :pfds.shcl.io/compare
   (:use :common-lisp)
   (:export
+   #:comparison
    #:compare
    #:compare-objects
+   #:compare-objects-using-slots
    #:compare-reals
    #:compare-complexes
    #:compare-characters
@@ -35,7 +37,36 @@
    #:define-type-id))
 (in-package :pfds.shcl.io/compare)
 
-(defgeneric compare-objects (left right))
+(deftype comparison ()
+  '(member :greater :less :equal :unequal))
+
+(defgeneric compare-objects (left right)
+  (:documentation
+   "Establish ordering between two objects.
+
+Any methods you define on this generic function must obey the laws
+described in `COMPARE''s function documentation.  This generic
+function is not intended to be called directly.  You should call
+`COMPARE' instead."))
+
+(defun compare-objects-using-slots (left right &rest slots)
+  (when (eql left right)
+    (return-from compare-objects-using-slots :equal))
+
+  (let ((result :equal))
+    (dolist (slot slots)
+      (let ((slot-result (etypecase slot
+                           (function
+                            (compare (funcall slot left) (funcall slot right)))
+                           (symbol
+                            (compare (slot-value left slot) (slot-value right slot))))))
+        (ecase slot-result
+          (:equal)
+          (:unequal
+           (setf result :unequal))
+          ((:greater :less)
+           (return-from compare-objects-using-slots slot-result)))))
+    result))
 
 (defvar *type-id* 0)
 
@@ -53,10 +84,8 @@
          (defmethod type-id ((,object ,class-name))
            ,id)))))
 
-(define-type-id null)
 (define-type-id symbol)
 (define-type-id package)
-(define-type-id string)
 (define-type-id integer)
 (define-type-id ratio)
 (define-type-id rational)
@@ -65,6 +94,7 @@
 (define-type-id complex)
 (define-type-id number)
 (define-type-id vector)
+(define-type-id string)
 (define-type-id array)
 (define-type-id standard-class)
 (define-type-id standard-object)
@@ -208,14 +238,25 @@
   (unequalify
    (compare-strings (package-name left) (package-name right))))
 
+(defun compare-packages-or-nil (left right)
+  (cond
+    ((and (null left) (null right))
+     :equal)
+    ((null left)
+     :less)
+    ((null right)
+     :greater)
+    (t
+     (compare-packages left right))))
+
 (defun compare-symbols (left right)
   (when (eql left right)
     (return-from compare-symbols :equal))
 
   (unequalify
    (compare*
-    (compare-strings (symbol-name left) (symbol-name right))
-    (compare-packages (symbol-package left) (symbol-package right)))))
+     (compare-strings (symbol-name left) (symbol-name right))
+     (compare-packages-or-nil (symbol-package left) (symbol-package right)))))
 
 (defun compare-classes (left right)
   (when (eql left right)
@@ -275,22 +316,44 @@
          (funcall closure-p-compare-fn left-closure-p right-closure-p)
          (funcall lambda-expression-compare-fn left-expression right-expression))))))
 
+(defun compare-other-objects (left right)
+  (unequalify (compare-reals (type-id left) (type-id right))))
+
 (defun compare (left right)
+  "Determine the relative ordering between `LEFT' and `RIGHT'.
+
+This function will return either `:GREATER', `:LESS', `:EQUAL', or
+`:UNEQUAL'.  This function is a wrapper around `COMPARE-OBJECTS'.  If
+`LEFT' and `RIGHT' are eql then `COMPARE' will return `:EQUAL' without
+calling `COMPARE-OBJECTS'.
+
+The ordering provided by this function obeys the transitivity law.
+That means that if X and Y have ordering C and Y and Z also have
+ordering C, then X and Z have ordering C as well.  In code, this means
+the following assertion should never fail
+    (let ((a (compare x y))
+          (b (compare y z)))
+      (when (eq a b)
+        (assert (eq a (compare x z)))))
+
+The ordering provided by this function also obeys what we'll call the
+\"sustainability\" property for equality and unequality.  Suppose X
+and Y are `:EQUAL' or `:UNEQUAL'.  For any object Z, X and Z will
+always have the same result as Y and Z.  In code, this means the
+following assertion should never fail.
+    (lambda (x y z) ; for any objects x, y, and z
+      (let ((a (compare x y)))
+        (when (typep a '(member :EQUAL :UNEQUAL))
+          (assert (eq (compare x z) (compare y z))))))"
   (when (eql left right)
     (return-from compare :equal))
 
   (let ((result (compare-objects left right)))
-    (when (eq result :unequal)
-      (setf result (unequalify (compare-reals (sxhash left) (sxhash right)))))
+    (check-type result comparison)
     result))
 
 (defmethod compare-objects (left right)
-  (unequalify
-   (compare*
-     ;; Are these known types?
-     (compare-reals (type-id left) (type-id right))
-     ;; Can we establish an ordering anyway?
-     (compare-classes (class-of left) (class-of right)))))
+  (compare-other-objects left right))
 
 (defmethod compare-objects ((left real) (right real))
   (compare-reals left right))

@@ -71,9 +71,8 @@ an ordering between things that are mutually `=`, such as `1`, `1.0`,
 `(COMPLEX 1)`, and `(COMPLEX 1.0)`.  Its probably best if you think of
 `COMPARE` as the ordering equivalent of a hash function.  The results
 aren't necessarily meaningful, but they do have useful properties for
-specific use cases.  In fact, `COMPARE` will back to comparing hashes
-if it has nothing else to go on.  If you want to have a meaningful
-ordering, you can simply define your own comparator function.  The
+specific use cases.  If you want to have a meaningful ordering, you
+can simply define your own comparator function.  The
 `PFDS.SHCL.IO/COMPARE` package exports comparators for many common
 types to help facilitate writing your own comparator.
 
