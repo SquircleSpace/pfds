@@ -126,7 +126,6 @@ whole goal of a purely function data structure is to forbid mutation,
 and so class redefinition cannot be permitted.  Similarly, the
 initialization methods used by `DEFCLASS` are problematic.  Mutation
 is an essential part of how instances are initialized.
-pre-initialization state.
 
 For purely functional data structures, less is more.  By restricting
 ourselves to `DEFSTRUCT`, we get some substantial benefits.  We're
