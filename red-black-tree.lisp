@@ -46,7 +46,7 @@
 (define-adt rb-tree
     ()
   ((tree-nil (:constructor %make-tree-nil)))
-  ((tree-node (:constructor #:make-tree-node))
+  ((tree-node (:constructor nil))
    (color :black :type color)
    (left (tree-nil) :type rb-tree)
    (right (tree-nil) :type rb-tree)))
