@@ -33,9 +33,9 @@ structures as well.
 - `IS-MEMBER`: `O(log(n))`
 - `IS-EMPTY`: `O(1)`
 
-## Queues
+### Queues
 
-### `BATCHED-QUEUE`
+#### `BATCHED-QUEUE`
 
 - `MAKE-BATCHED-QUEUE`: `O(n)`
 - `WITH-LAST`, `WITHOUT-FIRST`: `O(1)` amortized
@@ -45,9 +45,9 @@ structures as well.
 Note: this queue *is* purely functional, but the asymptotic bounds
 given above assume the queue is not used persistently.
 
-## Deques
+### Deques
 
-### `BATCHED-DEQUE`
+#### `BATCHED-DEQUE`
 
 - `MAKE-BATCHED-DEQUE`: `O(n)`
 - `WITH-LAST`, `WITHOUT-LAST`, `WITH-FIRST`, `WITHOUT-FIRST`: `O(1)` amortized
