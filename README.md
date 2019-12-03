@@ -45,6 +45,22 @@ structures as well.
 Note: this queue *is* purely functional, but the asymptotic bounds
 given above assume the queue is not used persistently.
 
+## Deques
+
+### `BATCHED-DEQUE`
+
+- `MAKE-BATCHED-DEQUE`: `O(n)`
+- `WITH-LAST`, `WITHOUT-LAST`, `WITH-FIRST`, `WITHOUT-FIRST`: `O(1)` amortized
+- `PEEK-FIRST`: `O(1)`
+- `PEEK-LAST`: `O(1)`
+- `IS-EMPTY`: `O(1)`
+
+Note: this queue *is* purely functional, but the asymptotic bounds
+given above assume the queue is not used persistently.  Also be aware
+that this data structure requires more consing than `BATCHED-QUEUE`,
+so if you only need a queue then you should consider using
+`BATCHED-QUEUE` instead.
+
 ### Heaps
 
 #### `LEFTIST-HEAP`
@@ -149,11 +165,19 @@ have them!
 
 ## Impure data structures
 
-Some algorithms are best implemented with impure data structures.
-When that happens, this library may also provide the impure data
-structure it used.  Right now there is only one such data structure:
-`IMPURE-QUEUE`.
+Some algorithms are best implemented with impure data structures.  The
+following data structures were useful when implementing pure data
+structures.  They are provided for your convenience.
+
+### `IMPURE-QUEUE`
 
 The `IMPURE-QUEUE` is a queue that uses a circular buffer.  The queue
 will automatically grow or shrink the buffer as the number of elements
 changes.
+
+### `IMPURE-LIST-BUILDER`
+
+The `IMPURE-LIST-BUILDER` is an object that allows you to construct a
+list in FIFO order.  Instead of repeatedly pushing elements onto a
+list and then reversing the result, you can instead add elements to
+the list builder and then extract the result.
