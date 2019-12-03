@@ -20,7 +20,8 @@
    #:compare #:compare* #:compare-objects)
   (:export
    #:with-head #:head #:tail #:is-empty #:empty #:empty-pure-list
-   #:empty-list #:list-+ #:update #:pure-list #:pure-list* #:pure-list-cons))
+   #:empty-list #:update #:pure-list #:pure-list* #:pure-list-cons
+   #:list-append #:list-take #:list-reverse))
 (in-package :pfds.shcl.io/list)
 
 (define-interface list
@@ -30,10 +31,37 @@
   is-empty
   empty)
 
-(defun list-+ (left-list right-list)
+(defun list-append (left-list right-list)
   (if (is-empty left-list)
       right-list
-      (with-head (head left-list) (list-+ (tail left-list) right-list))))
+      (with-head (head left-list) (list-append (tail left-list) right-list))))
+
+(defun list-take (list count)
+  (check-type count (integer 0))
+  (cond
+    ((is-empty list)
+     list)
+    ((zerop count)
+     (empty list))
+    (t
+     (with-head (head list) (list-take (tail list) (1- count))))))
+
+(defun list-drop (list count)
+  (check-type count (integer 0))
+  (cond
+    ((or (is-empty list)
+         (zerop count))
+     list)
+    (t
+     (list-drop (tail list) (1- count)))))
+
+(defun list-reverse (list)
+  (let ((result (empty list)))
+    (loop :while (not (is-empty list)) :do
+          (let ((head (head list)))
+            (setf result (with-head head result))
+            (setf list (tail list))))
+    result))
 
 (defun update (list index value)
   (cond
