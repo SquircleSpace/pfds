@@ -33,7 +33,7 @@
   (back-stack nil :type list))
 
 (defmethod to-list ((queue batched-queue))
-  (append (batched-queue-front-stack queue) (batched-queue-back-stack queue)))
+  (append (batched-queue-front-stack queue) (reverse (batched-queue-back-stack queue))))
 
 (defmethod print-object ((queue batched-queue) stream)
   (write
@@ -52,9 +52,13 @@
   (make-batched-queue* :items items))
 
 (defmethod with-last ((queue batched-queue) item)
-  (%make-batched-queue
-   :front-stack (batched-queue-front-stack queue)
-   :back-stack (cons item (batched-queue-back-stack queue))))
+  (if (batched-queue-front-stack queue)
+      (%make-batched-queue
+       :front-stack (batched-queue-front-stack queue)
+       :back-stack (cons item (batched-queue-back-stack queue)))
+      (%make-batched-queue
+       :front-stack (cons item nil)
+       :back-stack nil)))
 
 (defmethod without-first ((queue batched-queue))
   (let ((front-stack (batched-queue-front-stack queue)))
@@ -66,9 +70,13 @@
           (value (car front-stack))
           (back-stack (batched-queue-back-stack queue)))
       (values
-       (if new-front-stack
-           (%make-batched-queue :front-stack new-front-stack :back-stack back-stack)
-           (make-batched-queue* :items (reverse back-stack)))
+       (cond
+         (new-front-stack
+          (%make-batched-queue :front-stack new-front-stack :back-stack back-stack))
+         (back-stack
+          (%make-batched-queue :front-stack (reverse back-stack)))
+         (t
+          *empty-batched-queue*))
        value
        t))))
 
