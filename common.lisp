@@ -16,6 +16,7 @@
   (:use :common-lisp)
   (:import-from :pfds.shcl.io/compare
    #:compare #:define-type-id #:compare* #:compare-objects)
+  (:import-from :pfds.shcl.io/structure-mop #:register-structure)
   (:export
    #:is-empty #:empty #:with-member
    #:define-interface #:compare #:compare* #:define-type-id
@@ -41,21 +42,24 @@
                 (error "Invalid interface")))))
      ',name))
 
-(defmacro define-adt (base-name common-slots &body subtypes)
+(defmacro define-adt (name-and-options common-slots &body subtypes)
   (unless subtypes
-    (warn "An ADT without subtypes cannot be initialized"))
-  (labels
-      ((handle-subtype (definition)
-         (destructuring-bind (name &rest slots) definition
-           (when (symbolp name)
-             (setf name `(,name)))
-           (destructuring-bind (real-name &rest options) name
-             (setf name `(,real-name (:include ,base-name) ,@options)))
-           `(define-structure ,name ,@slots))))
-    `(progn
-       (define-structure (,base-name (:constructor ,(gensym (symbol-name base-name))))
-         ,@common-slots)
-       ,@(mapcar #'handle-subtype subtypes))))
+    (warn "An ADT without subtypes isn't very useful"))
+  (when (symbolp name-and-options)
+    (setf name-and-options (list name-and-options)))
+  (destructuring-bind (base-name &rest options) name-and-options
+    (labels
+        ((handle-subtype (definition)
+           (destructuring-bind (name &rest slots) definition
+             (when (symbolp name)
+               (setf name `(,name)))
+             (destructuring-bind (real-name &rest options) name
+               (setf name `(,real-name (:include ,base-name) ,@options)))
+             `(define-structure ,name ,@slots))))
+      `(progn
+         (define-structure (,base-name (:constructor nil) ,@options)
+           ,@common-slots)
+         ,@(mapcar #'handle-subtype subtypes)))))
 
 (defmacro define-structure (name-and-options &body slots)
   (labels
@@ -72,4 +76,5 @@
       `(progn
          (defstruct ,name-and-options
            ,@(mapcar #'handle-slot slots))
+         (register-structure ,name-and-options ,@slots)
          (define-type-id ,name)))))
