@@ -115,19 +115,16 @@
                                       (left (tree-node-left tree))
                                       (right (tree-node-right tree))
                                       (value (tree-node-value tree)))
-  (when (and (eq left (tree-node-left tree))
-             (eq right (tree-node-right tree))
-             (eq value (tree-node-value tree)))
-    (return-from tree-node-with-changes tree))
-
   (etypecase tree
     (uneql-tree-node
-     (make-uneql-tree-node
+     (copy-uneql-tree-node
+      tree
       :left left
       :right right
       :value value))
     (tree-node
-     (make-tree-node
+     (copy-tree-node
+      tree
       :left left
       :right right
       :value value))))

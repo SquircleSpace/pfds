@@ -176,67 +176,16 @@
                                       (color (tree-node-color tree))
                                       (left (tree-node-left tree))
                                       (right (tree-node-right tree)))
-  (when (and (eq color (tree-node-color tree))
-             (eq left (tree-node-left tree))
-             (eq right (tree-node-right tree)))
-    (return-from tree-node-with-changes tree))
-
   (etypecase tree
     (tree-node-n
-     (make-tree-node-n
-      :color color
-      :left left
-      :right right
-      :values (tree-node-n-values tree)))
+     (copy-tree-node-n tree :color color :left left :right right))
     (tree-node-1
-     (make-tree-node-1
-      :color color
-      :left left
-      :right right
-      :key (tree-node-1-key tree)
-      :value (tree-node-1-value tree)))))
-
-(defun tree-node-n-with-changes (tree &key
-                                        (color (tree-node-color tree))
-                                        (left (tree-node-left tree))
-                                        (right (tree-node-right tree))
-                                        (values (tree-node-n-values tree)))
-  (when (and (eq color (tree-node-color tree))
-             (eq left (tree-node-left tree))
-             (eq right (tree-node-right tree))
-             (eq values (tree-node-n-values tree)))
-    (return-from tree-node-n-with-changes tree))
-
-  (make-tree-node-n
-   :color color
-   :left left
-   :right right
-   :values values))
-
-(defun tree-node-1-with-changes (tree &key
-                                        (color (tree-node-color tree))
-                                        (left (tree-node-left tree))
-                                        (right (tree-node-right tree))
-                                        (key (tree-node-1-key tree))
-                                        (value (tree-node-1-value tree)))
-  (when (and (eq color (tree-node-color tree))
-             (eq left (tree-node-left tree))
-             (eq right (tree-node-right tree))
-             (eq value (tree-node-1-value tree))
-             (eq key (tree-node-1-key tree)))
-    (return-from tree-node-1-with-changes tree))
-
-  (make-tree-node-1
-   :color color
-   :left left
-   :right right
-   :key key
-   :value value))
+     (copy-tree-node-1 tree :color color :left left :right right))))
 
 (defun tree-node-with-uneql-member (tree key value)
   (etypecase tree
     (tree-node-n
-     (tree-node-n-with-changes tree :values (eql-map-with (tree-node-n-values tree) key value)))
+     (copy-tree-node-n tree :values (eql-map-with (tree-node-n-values tree) key value)))
     (tree-node-1
      (assert (not (eql key (tree-node-1-key tree))))
      (make-tree-node-n
@@ -253,7 +202,7 @@
        (assert (plusp (eql-map-count new-map)))
        (when (> (eql-map-count new-map) 1)
          (return-from tree-node-without-uneql-member
-           (tree-node-n-with-changes tree :values new-map)))
+           (copy-tree-node-n tree :values new-map)))
        (multiple-value-bind (key value) (eql-map-representative new-map)
          (make-tree-node-1
           :color (tree-node-color tree)
@@ -605,11 +554,11 @@
              (:equal
               (etypecase tree
                 (tree-node-n
-                 (tree-node-n-with-changes
+                 (copy-tree-node-n
                   tree
                   :values (eql-map-with (tree-node-n-values tree) key value)))
                 (tree-node-1
-                 (tree-node-1-with-changes
+                 (copy-tree-node-1
                   tree
                   :value value))))
              (:unequal
