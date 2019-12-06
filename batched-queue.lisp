@@ -53,12 +53,12 @@
 
 (defmethod with-last ((queue batched-queue) item)
   (if (batched-queue-front-stack queue)
-      (%make-batched-queue
-       :front-stack (batched-queue-front-stack queue)
+      (copy-batched-queue
+       queue
        :back-stack (cons item (batched-queue-back-stack queue)))
-      (%make-batched-queue
-       :front-stack (cons item nil)
-       :back-stack nil)))
+      (copy-batched-queue
+       queue
+       :front-stack (cons item nil))))
 
 (defmethod without-first ((queue batched-queue))
   (let ((front-stack (batched-queue-front-stack queue)))
@@ -72,9 +72,9 @@
       (values
        (cond
          (new-front-stack
-          (%make-batched-queue :front-stack new-front-stack :back-stack back-stack))
+          (copy-batched-queue queue :front-stack new-front-stack))
          (back-stack
-          (%make-batched-queue :front-stack (reverse back-stack)))
+          (copy-batched-queue queue :front-stack (reverse back-stack) :back-stack nil))
          (t
           *empty-batched-queue*))
        value

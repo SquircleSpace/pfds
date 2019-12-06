@@ -103,18 +103,16 @@
   (make-batched-deque* :items items))
 
 (defun add-last (deque item)
-  (%make-batched-deque
-   :front-stack (batched-deque-front-stack deque)
-   :front-count (batched-deque-front-count deque)
+  (copy-batched-deque
+   deque
    :back-stack (cons item (batched-deque-back-stack deque))
    :back-count (1+ (batched-deque-back-count deque))))
 
 (defun add-first (deque item)
-  (%make-batched-deque
+  (copy-batched-deque
+   deque
    :front-stack (cons item (batched-deque-front-stack deque))
-   :front-count (1+ (batched-deque-front-count deque))
-   :back-stack (batched-deque-back-stack deque)
-   :back-count (batched-deque-back-count deque)))
+   :front-count (1+ (batched-deque-front-count deque))))
 
 (defmethod with-last ((deque batched-deque) item)
   (if (batched-deque-front-stack deque)
@@ -125,7 +123,8 @@
   (cond
     ((null (batched-deque-back-stack deque))
      (assert (equal 1 (batched-deque-front-count deque)))
-     (%make-batched-deque
+     (copy-batched-deque
+      deque
       :front-stack (cons item nil)
       :front-count 1
       :back-stack (batched-deque-front-stack deque)
@@ -162,10 +161,12 @@
             (split-back new-back-stack new-back-count)))
 
     (values
-     (%make-batched-deque :front-stack new-front-stack
-                          :front-count new-front-count
-                          :back-stack new-back-stack
-                          :back-count new-back-count)
+     (copy-batched-deque
+      deque
+      :front-stack new-front-stack
+      :front-count new-front-count
+      :back-stack new-back-stack
+      :back-count new-back-count)
      value
      t)))
 
@@ -199,10 +200,12 @@
             (split-front new-front-stack new-front-count)))
 
     (values
-     (%make-batched-deque :front-stack new-front-stack
-                          :front-count new-front-count
-                          :back-stack new-back-stack
-                          :back-count new-back-count)
+     (copy-batched-deque
+      deque
+      :front-stack new-front-stack
+      :front-count new-front-count
+      :back-stack new-back-stack
+      :back-count new-back-count)
      value
      t)))
 
