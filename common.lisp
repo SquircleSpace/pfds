@@ -103,7 +103,8 @@
              ,@(mapcar #'handle-slot slots))
            (register-structure (,name ,@options) ,@slots)
            ,@(when copier
-               `((define-changer-function ,copier ,name)))
+               `((declaim (inline ,copier))
+                 (define-changer-function ,copier ,name)))
            (define-type-id ,name)
            ',name)))))
 
