@@ -14,7 +14,7 @@
 
 (defpackage :pfds.shcl.io/eql-map
   (:use :common-lisp)
-  (:import-from :pfds.shcl.io/common #:define-structure #:to-list)
+  (:import-from :pfds.shcl.io/common #:define-immutable-structure #:to-list)
   (:export
    #:make-eql-map
    #:make-eql-map*
@@ -31,7 +31,7 @@
    #:do-eql-map))
 (in-package :pfds.shcl.io/eql-map)
 
-(define-structure (eql-map (:constructor %make-eql-map) (:copier %copy-eql-map))
+(define-immutable-structure (eql-map (:constructor %make-eql-map) (:copier %copy-eql-map))
   (table (make-hash-table :test 'eql) :type hash-table))
 
 (defmethod to-list ((eql-map eql-map))

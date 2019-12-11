@@ -32,6 +32,7 @@
    #:define-struct)
   (:export
    #:immutable-structure
+   #:define-immutable-structure
    #:define-adt
    #:structure-convert))
 (in-package :pfds.shcl.io/immutable-structure)
@@ -69,6 +70,14 @@
            (define-changer-function ,copier ,(struct-class-name struct))
            ',(struct-class-name struct))
         (call-next-method))))
+
+(defmacro define-immutable-structure (name-and-options &body slots)
+  (when (symbolp name-and-options)
+    (setf name-and-options (list name-and-options)))
+  `(define-struct (,(car name-and-options)
+                   (:metaclass immutable-structure)
+                   ,@(cdr name-and-options))
+     ,@slots))
 
 (defmacro define-adt (name-and-options common-slots &body subtypes)
   (unless subtypes

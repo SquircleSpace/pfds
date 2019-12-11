@@ -15,7 +15,7 @@
 (defpackage :pfds.shcl.io/unbalanced-set
   (:use :common-lisp)
   (:import-from :pfds.shcl.io/common
-   #:define-interface #:define-adt #:compare #:define-structure
+   #:define-interface #:define-adt #:compare #:define-immutable-structure
    #:to-list)
   (:import-from :pfds.shcl.io/set
    #:is-empty #:empty #:with-member #:without-member #:is-member)
@@ -50,7 +50,7 @@
 
 (defvar *tree-nil* (make-tree-nil))
 
-(define-structure (uneql-tree-node (:include tree-node)))
+(define-immutable-structure (uneql-tree-node (:include tree-node)))
 
 (defun tree-node-representative-value (tree)
   (etypecase tree
@@ -59,7 +59,7 @@
     (tree-node
      (tree-node-value tree))))
 
-(define-structure (unbalanced-set (:constructor %make-unbalanced-set))
+(define-immutable-structure (unbalanced-set (:constructor %make-unbalanced-set))
   (tree (tree-nil) :type unbalanced-tree)
   (comparator 'compare))
 

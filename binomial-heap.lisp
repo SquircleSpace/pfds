@@ -15,7 +15,7 @@
 (defpackage :pfds.shcl.io/binomial-heap
   (:use :common-lisp)
   (:import-from :pfds.shcl.io/common
-   #:define-interface #:define-adt #:define-structure #:to-list)
+   #:define-interface #:define-adt #:define-immutable-structure #:to-list)
   (:import-from :pfds.shcl.io/compare
    #:compare #:define-type-id)
   (:import-from :pfds.shcl.io/heap
@@ -50,7 +50,7 @@
    :value (tree-node-value left)
    :children (cons right (tree-node-children left))))
 
-(define-structure ranked-tree
+(define-immutable-structure ranked-tree
   (tree (error "required arg") :type heap-tree)
   (rank (error "required arg") :type (integer 0)))
 
@@ -236,7 +236,7 @@
      (do-tree-f (lambda (,value) ,@body) ,tree)
      ,result))
 
-(define-structure (binomial-heap (:constructor %make-binomial-heap))
+(define-immutable-structure (binomial-heap (:constructor %make-binomial-heap))
   (comparator 'compare)
   (size 0 :type (integer 0))
   (ranked-trees nil :type list))

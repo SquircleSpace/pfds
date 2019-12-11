@@ -15,7 +15,7 @@
 (defpackage :pfds.shcl.io/batched-queue
   (:use :common-lisp)
   (:import-from :pfds.shcl.io/common
-   #:define-structure #:to-list)
+   #:define-immutable-structure #:to-list)
   (:import-from :pfds.shcl.io/queue
    #:with-last #:without-first #:peek-first #:is-empty #:empty)
   (:export
@@ -28,7 +28,7 @@
    #:make-batched-queue*))
 (in-package :pfds.shcl.io/batched-queue)
 
-(define-structure (batched-queue (:constructor %make-batched-queue))
+(define-immutable-structure (batched-queue (:constructor %make-batched-queue))
   (front-stack nil :type list)
   (back-stack nil :type list))
 

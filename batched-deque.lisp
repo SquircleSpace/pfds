@@ -15,7 +15,7 @@
 (defpackage :pfds.shcl.io/batched-deque
   (:use :common-lisp)
   (:import-from :pfds.shcl.io/common
-   #:define-structure #:to-list)
+   #:define-immutable-structure #:to-list)
   (:import-from :pfds.shcl.io/deque
    #:with-last #:without-first #:peek-first #:is-empty #:empty
    #:with-first #:without-last #:peek-last)
@@ -35,7 +35,7 @@
    #:make-batched-deque*))
 (in-package :pfds.shcl.io/batched-deque)
 
-(define-structure (batched-deque (:constructor %make-batched-deque))
+(define-immutable-structure (batched-deque (:constructor %make-batched-deque))
   (front-stack nil :type list)
   (front-count 0 :type (integer 0))
   (back-stack nil :type list)

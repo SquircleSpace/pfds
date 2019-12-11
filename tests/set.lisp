@@ -15,7 +15,7 @@
 (defpackage :pfds.shcl.io/tests/set
   (:use :common-lisp)
   (:import-from :pfds.shcl.io/common
-   #:define-structure #:to-list)
+   #:define-immutable-structure #:to-list)
   (:import-from :pfds.shcl.io/compare
    #:compare #:compare-objects)
   (:import-from :pfds.shcl.io/set
@@ -34,7 +34,7 @@
         (push item collected)))
     (nreverse collected)))
 
-(define-structure token
+(define-immutable-structure token
   value)
 
 (defmethod compare-objects ((left token) (right token))

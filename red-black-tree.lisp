@@ -15,7 +15,7 @@
 (defpackage :pfds.shcl.io/red-black-tree
   (:use :common-lisp)
   (:import-from :pfds.shcl.io/common
-   #:define-interface #:define-adt #:compare #:define-structure
+   #:define-interface #:define-adt #:compare #:define-immutable-structure
    #:to-list)
   (:import-from :pfds.shcl.io/set
    #:with-member #:without-member #:is-member)
@@ -46,16 +46,16 @@
 (define-adt rb-tree
     ()
   ((tree-nil (:constructor %make-tree-nil)))
-  ((tree-node (:constructor nil))
+  ((tree-node (:constructor nil) (:copier nil))
    (color :black :type color)
    (left (tree-nil) :type rb-tree)
    (right (tree-nil) :type rb-tree)))
 
-(define-structure (tree-node-1 (:include tree-node) (:constructor %make-tree-node-1))
+(define-immutable-structure (tree-node-1 (:include tree-node) (:constructor %make-tree-node-1))
   (key (error "required"))
   value)
 
-(define-structure (tree-node-n (:include tree-node) (:constructor %make-tree-node-n))
+(define-immutable-structure (tree-node-n (:include tree-node) (:constructor %make-tree-node-n))
   (values (make-eql-map) :type eql-map))
 
 (defmethod print-object ((tree tree-node-1) stream)
@@ -623,13 +623,13 @@
      (do-tree-f ,tree (lambda (,key ,value) ,@body) ,reverse-p)
      ,result))
 
-(define-structure (red-black-tree (:constructor #:make-red-black-tree))
+(define-immutable-structure (red-black-tree (:constructor #:make-red-black-tree))
   (tree (tree-nil) :type rb-tree)
   (count 0 :type (integer 0))
   (comparator 'compare))
 
-(define-structure (red-black-tree-set (:include red-black-tree)
-                                      (:constructor %make-red-black-tree-set)))
+(define-immutable-structure (red-black-tree-set (:include red-black-tree)
+                                                (:constructor %make-red-black-tree-set)))
 
 (defun red-black-tree-set-to-list (set)
   (let (items)
@@ -697,8 +697,8 @@
 (defun make-red-black-tree-set (comparator &rest items)
   (make-red-black-tree-set* comparator :items items))
 
-(define-structure (red-black-tree-map (:include red-black-tree)
-                                      (:constructor %make-red-black-tree-map)))
+(define-immutable-structure (red-black-tree-map (:include red-black-tree)
+                                                (:constructor %make-red-black-tree-map)))
 
 (defun red-black-tree-map-to-list (map)
   (let (items)
