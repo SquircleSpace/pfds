@@ -98,6 +98,9 @@
    (effective-slots-table
     :reader struct-class-effective-slots-table)))
 
+(defmethod make-load-form ((struct struct-class) &optional environment)
+  (make-load-form-saving-slots struct :environment environment))
+
 (defclass direct-slot ()
   ((name
     :initarg :name
@@ -137,6 +140,9 @@
     :reader direct-slot-reader
     :initform (error "required"))))
 
+(defmethod make-load-form ((slot direct-slot) &optional environment)
+  (make-load-form-saving-slots slot :environment environment))
+
 (defun intern-conc (package &rest things)
   (let ((name (with-output-to-string (stream)
                 (dolist (thing things)
@@ -162,6 +168,9 @@
    (readers
     :initarg :readers
     :reader effective-slot-readers)))
+
+(defmethod make-load-form ((slot effective-slot) &optional environment)
+  (make-load-form-saving-slots slot :environment environment))
 
 (defgeneric direct-slot-definition-class (struct-metaobject))
 
@@ -269,7 +278,7 @@
 (defmethod shared-initialize ((struct-class struct-class) slots &rest initargs
                               &key ((:direct-slots direct-slots-arg) nil direct-slots-p)
                                 ((:slot-overrides slot-overrides-arg) nil slot-overrides-p))
-  (setf initargs (initargs-remove initargs #(:direct-slots :slot-overrides :superclass)))
+  (setf initargs (initargs-remove initargs #(:direct-slots :slot-overrides)))
 
   (prog1
       (apply #'call-next-method struct-class slots initargs)
@@ -295,7 +304,7 @@
             (setf direct-slots (mapcar (lambda (form) (make-slot direct-slot-class form))
                                        direct-slots-arg))))
 
-        (when slot-overrides-p
+        (when (and slot-overrides-p slot-overrides)
           (let ((override-slot-class (direct-slot-definition-class (struct-class-superclass struct-class))))
             (setf slot-overrides (mapcar (lambda (form) (make-slot override-slot-class form))
                                          slot-overrides-arg)))))
@@ -367,8 +376,9 @@
                (setf (gethash option-name seen-options) t)
                (cond
                  ((eq option-name :constructor)
-                  (push (second (normalize-option name option-name option-args))
-                        constructors)
+                  (let ((constructor (second (normalize-option name option-name option-args))))
+                    (when constructor
+                      (push constructor constructors)))
                   nil)
                  ((not seen-p)
                   (normalize-option name option-name option-args))
@@ -394,6 +404,10 @@
                                &key ((:metaclass input-metaclass))
                                  ((:superclass superclass-name))
                                &allow-other-keys)
+  (when (consp input-metaclass)
+    (when (cdr input-metaclass)
+      (error ":metaclass should only have one value"))
+    (setf input-metaclass (car input-metaclass)))
   (let* ((superclass (when superclass-name
                        (find-struct-class superclass-name :error-p t)))
          (resolved-metaclass
@@ -402,8 +416,8 @@
               (unless (subtypep input-metaclass (class-of superclass))
                 (error "The given metaclass isn't a subclass of the :include'd struct's metaclass"))
               input-metaclass)
-             ((and input-metaclass (car input-metaclass))
-              (car input-metaclass))
+             (input-metaclass
+              input-metaclass)
              (superclass
               (class-of superclass))
              (t
@@ -431,14 +445,17 @@
 (defgeneric struct-definition-options (struct))
 
 (defmethod struct-definition-options ((struct struct-class))
-  `((:copier ,(struct-class-copier struct))
+  (let ((constructor-forms (mapcar (lambda (c) `(:constructor ,@(if (symbolp c) (list c) c)))
+                                   (struct-class-constructors struct))))
+    (unless constructor-forms
+      (setf constructor-forms '((:constructor nil))))
+    `((:copier ,(struct-class-copier struct))
     (:predicate ,(struct-class-predicate struct))
     (:conc-name ,(struct-class-conc-name struct))
     ,@(when (struct-class-superclass struct)
         `((:include ,(struct-class-name (struct-class-superclass struct))
                     ,@(mapcar 'slot-definition-form (struct-class-slot-overrides struct)))))
-    ,@(mapcar (lambda (c) `(:constructor ,@(if (symbolp c) (list c) c)))
-              (struct-class-constructors struct))))
+    ,@constructor-forms)))
 
 (defgeneric struct-definition-form (struct))
 
