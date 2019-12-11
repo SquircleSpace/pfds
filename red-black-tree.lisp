@@ -69,7 +69,7 @@
     (push (tree-node-1-key tree) rep)
     (push (tree-node-1-value tree) rep)
     (push (tree-node-right tree) rep)
-    (print-object (nreverse rep) stream)))
+    (write (nreverse rep) :stream stream)))
 
 (defmethod print-object ((tree tree-node-n) stream)
   (when *print-readably*
@@ -81,7 +81,7 @@
     (push (tree-node-color tree) rep)
     (push (tree-node-n-values tree) rep)
     (push (tree-node-right tree) rep)
-    (print-object (nreverse rep) stream)))
+    (write (nreverse rep) :stream stream)))
 
 (defmethod print-object ((tree tree-nil) stream)
   (when *print-readably*
