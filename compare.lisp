@@ -156,7 +156,7 @@ function is not intended to be called directly.  You should call
 (defun compare-vectors (left right &optional (element-compare-fn 'compare))
   (declare (type vector left right)
            (type (or symbol function) element-compare-fn))
-  (when (eql left right)
+  (when (eq left right)
     (return-from compare-vectors :equal))
 
   (when (symbolp element-compare-fn)
@@ -188,7 +188,7 @@ function is not intended to be called directly.  You should call
 (declaim (inline compare-packages))
 (defun compare-packages (left right)
   (declare (type package left right))
-  (when (eql left right)
+  (when (eq left right)
     (return-from compare-packages :equal))
 
   (unequalify
@@ -212,7 +212,7 @@ function is not intended to be called directly.  You should call
 (declaim (inline compare-symbols))
 (defun compare-symbols (left right)
   (declare (type symbol left right))
-  (when (eql left right)
+  (when (eq left right)
     (return-from compare-symbols :equal))
 
   (unequalify
@@ -224,7 +224,7 @@ function is not intended to be called directly.  You should call
 (declaim (inline compare-classes))
 (defun compare-classes (left right)
   (declare (type class left right))
-  (when (eql left right)
+  (when (eq left right)
     (return-from compare-classes :equal))
 
   (unequalify
@@ -243,7 +243,7 @@ function is not intended to be called directly.  You should call
   ;; means that complex numbers appear in an unpredictable order in
   ;; sets and maps... and we pay a significant performance penalty to
   ;; boot.
-  (when (eql left right)
+  (when (eq left right)
     (return-from compare-complexes :equal))
 
   (compare*
@@ -278,7 +278,7 @@ function is not intended to be called directly.  You should call
 (declaim (inline compare-arrays))
 (defun compare-arrays (left right &optional (element-compare-fn 'compare))
   (declare (type array left right))
-  (when (eql left right)
+  (when (eq left right)
     (return-from compare-arrays :equal))
 
   (when (symbolp element-compare-fn)
@@ -320,7 +320,7 @@ function is not intended to be called directly.  You should call
 (declaim (inline compare-cons))
 (defun compare-cons (left right &optional (car-compare-fn 'compare) (cdr-compare-fn 'compare))
   (declare (type cons left right))
-  (when (eql left right)
+  (when (eq left right)
     (return-from compare-cons :equal))
 
   (compare*
@@ -330,7 +330,7 @@ function is not intended to be called directly.  You should call
 
 (defun compare-lists (left right &optional (car-compare-fn 'compare))
   (declare (type list left right))
-  (when (eql left right)
+  (when (eq left right)
     (return-from compare-lists :equal))
   (unless left
     (return-from compare-lists :less))
@@ -344,7 +344,7 @@ function is not intended to be called directly.  You should call
 (declaim (inline compare-pathnames))
 (defun compare-pathnames (left right)
   (declare (type pathname left right))
-  (when (eql left right)
+  (when (eq left right)
     (return-from compare-pathnames :equal))
 
   (compare*
@@ -362,7 +362,7 @@ function is not intended to be called directly.  You should call
                             (closure-p-compare-fn 'compare)
                             (name-compare-fn 'compare))
   (declare (type function left right))
-  (when (eql left right)
+  (when (eq left right)
     (return-from compare-functions :equal))
 
   (multiple-value-bind
