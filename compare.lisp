@@ -349,12 +349,15 @@ following assertion should never fail.
   (when (eql left right)
     (return-from compare :equal))
 
-  (let ((result (compare-objects left right)))
-    (check-type result comparison)
-    result))
+  (compare*
+    (unequalify (compare-classes (class-of left) (class-of right)))
+    (compare-objects left right)))
 
 (defmethod compare-objects (left right)
   (compare-other-objects left right))
+
+(defmethod compare-objects ((left class) (right class))
+  (compare-classes left right))
 
 (defmethod compare-objects ((left real) (right real))
   (compare-reals left right))
