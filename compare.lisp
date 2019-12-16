@@ -380,8 +380,9 @@ function is not intended to be called directly.  You should call
 
 (declaim (inline compare-other-objects))
 (defun compare-other-objects (left right)
-  (unequalify (compare-reals (type-id left) (type-id right))))
-(declaim (notinline compare-other-objects))
+  (if (eq left right)
+      :equal
+      :unequal))
 
 (defun compare (left right)
   "Determine the relative ordering between `LEFT' and `RIGHT'.
