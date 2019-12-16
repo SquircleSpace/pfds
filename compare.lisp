@@ -392,6 +392,12 @@ This function will return either `:GREATER', `:LESS', `:EQUAL', or
 `LEFT' and `RIGHT' are eql then `COMPARE' will return `:EQUAL' without
 calling `COMPARE-OBJECTS'.
 
+If `LEFT' and `RIGHT' are different types then `COMPARE' will instead
+compare the classes of `LEFT' and `RIGHT' rather than the objects
+themselves.  A special exception is made for some builtin types.
+E.g. `BASE-STRING' and `STRING' are considered to be the same class
+for the purposes of this check.
+
 The ordering provided by this function obeys the transitivity law.
 That means that if X and Y have ordering C and Y and Z also have
 ordering C, then X and Z have ordering C as well.  In code, this means
