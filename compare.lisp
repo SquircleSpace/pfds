@@ -305,6 +305,18 @@ function is not intended to be called directly.  You should call
     result))
 (declaim (notinline compare-arrays))
 
+(declaim (inline canonical-class-of))
+(defun canonical-class-of (object)
+  (cond
+    ((stringp object)
+     #.(find-class 'string))
+    ((arrayp object)
+     #.(find-class 'array))
+    ((realp object)
+     #.(find-class 'real))
+    (t
+     (class-of object))))
+
 (declaim (inline compare-cons))
 (defun compare-cons (left right &optional (car-compare-fn 'compare) (cdr-compare-fn 'compare))
   (declare (type cons left right))
@@ -400,9 +412,11 @@ following assertion should never fail.
   (when (eql left right)
     (return-from compare :equal))
 
-  (compare*
-    (unequalify (compare-classes (class-of left) (class-of right)))
-    (compare-objects left right)))
+  (let ((left-class (canonical-class-of left))
+        (right-class (canonical-class-of right)))
+    (if (eq left-class right-class)
+        (compare-objects left right)
+        (unequalify (compare-classes left-class right-class)))))
 
 (defmethod compare-objects (left right)
   (locally
