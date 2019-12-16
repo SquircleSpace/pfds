@@ -307,12 +307,12 @@ function is not intended to be called directly.  You should call
 
 (declaim (inline canonical-class-of))
 (defun canonical-class-of (object)
-  (cond
-    ((stringp object)
+  (etypecase object
+    (string
      #.(find-class 'string))
-    ((arrayp object)
+    (array
      #.(find-class 'array))
-    ((realp object)
+    (real
      #.(find-class 'real))
     (t
      (class-of object))))
