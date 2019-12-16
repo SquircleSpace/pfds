@@ -122,12 +122,15 @@ function is not intended to be called directly.  You should call
                        (return-from ,compare* ,value)))))
          ,result))))
 
+(declaim (inline unequalify))
 (defun unequalify (value)
   (if (eq value :equal)
       :unequal
       value))
 
+(declaim (inline compare-reals))
 (defun compare-reals (left right)
+  (declare (type real left right))
   (cond
     ((> left right)
      :greater)
@@ -136,9 +139,101 @@ function is not intended to be called directly.  You should call
     ((eql left right)
      :equal)
     (t
-     (unequalify (compare-type-ids (type-id left) (type-id right))))))
+     (locally
+         ;; Just to quiet the compiler.  Otherwise it will get all
+         ;; uppity when we declaim compare-classes as inline, but
+         ;; we're only doing that so we can make it locally inline in
+         ;; the method definition at the bottom!
+         (declare (notinline compare-classes))
+       (unequalify (compare-classes (class-of left) (class-of right)))))))
 
+(declaim (inline compare-characters))
+(defun compare-characters (left right)
+  (declare (type character left right))
+  (compare-reals (char-code left) (char-code right)))
+
+(declaim (inline compare-vectors))
+(defun compare-vectors (left right &optional (element-compare-fn 'compare))
+  (declare (type vector left right)
+           (type (or symbol function) element-compare-fn))
+  (when (eql left right)
+    (return-from compare-vectors :equal))
+
+  (when (symbolp element-compare-fn)
+    (setf element-compare-fn (symbol-function element-compare-fn)))
+
+  (let ((comparison (compare-reals (length left) (length right))))
+    (unless (eq :equal comparison)
+      (return-from compare-vectors comparison)))
+
+  (let ((result :equal))
+    (loop :for left-element :across left
+          :for right-element :across right :do
+            (let ((comparison (funcall element-compare-fn left-element right-element)))
+              (ecase comparison
+                (:equal)
+                (:unequal
+                 (setf result :unequal))
+                ((:greater :less)
+                 (return-from compare-vectors comparison)))))
+
+    result))
+(declaim (notinline compare-vectors))
+
+(declaim (inline compare-strings))
+(defun compare-strings (left right)
+  (declare (type string left right))
+  (compare-vectors left right #'compare-characters))
+
+(declaim (inline compare-packages))
+(defun compare-packages (left right)
+  (declare (type package left right))
+  (when (eql left right)
+    (return-from compare-packages :equal))
+
+  (unequalify
+   (compare-strings (package-name left) (package-name right))))
+(declaim (notinline compare-packages))
+
+(declaim (inline compare-packages-or-nil))
+(defun compare-packages-or-nil (left right)
+  (declare (type (or package null) left right))
+  (cond
+    ((and (null left) (null right))
+     :equal)
+    ((null left)
+     :less)
+    ((null right)
+     :greater)
+    (t
+     (compare-packages left right))))
+(declaim (notinline compare-packages-or-nil))
+
+(declaim (inline compare-symbols))
+(defun compare-symbols (left right)
+  (declare (type symbol left right))
+  (when (eql left right)
+    (return-from compare-symbols :equal))
+
+  (unequalify
+   (compare*
+     (compare-strings (symbol-name left) (symbol-name right))
+     (compare-packages-or-nil (symbol-package left) (symbol-package right)))))
+(declaim (notinline compare-symbols))
+
+(declaim (inline compare-classes))
+(defun compare-classes (left right)
+  (declare (type class left right))
+  (when (eql left right)
+    (return-from compare-classes :equal))
+
+  (unequalify
+   (compare-symbols (class-name left) (class-name right))))
+(declaim (notinline compare-classes))
+
+(declaim (inline compare-complexes))
 (defun compare-complexes (left right)
+  (declare (type complex left right))
   ;; There is no way to order complex numbers... if you care about
   ;; algebra working consistently.  This ordering relation has
   ;; transitivity, and that's good enough for use in sets and maps.
@@ -154,8 +249,11 @@ function is not intended to be called directly.  You should call
   (compare*
    (compare-reals (realpart left) (realpart right))
    (compare-reals (imagpart left) (imagpart right))))
+(declaim (notinline compare-complexes))
 
+(declaim (inline compare-type-ids))
 (defun compare-type-ids (left right)
+  (declare (type (or integer null) left right))
   (cond
     ((and left right)
      (cond
@@ -177,104 +275,49 @@ function is not intended to be called directly.  You should call
     (t
      :unequal)))
 
-(defun compare-characters (left right)
-  (compare-reals (char-code left) (char-code right)))
-
-(defun compare-vectors (left right &key (element-compare-fn 'compare))
-  (when (eql left right)
-    (return-from compare-vectors :equal))
-
-  (let ((comparison (compare-reals (length left) (length right))))
-    (unless (eq :equal comparison)
-      (return-from compare-vectors comparison)))
-
-  (let ((result :equal))
-    (loop :for left-element :across left
-          :for right-element :across right :do
-            (let ((comparison (funcall element-compare-fn left-element right-element)))
-              (ecase comparison
-                (:equal)
-                (:unequal
-                 (setf result :unequal))
-                ((:greater :less)
-                 (return-from compare-vectors comparison)))))
-
-    result))
-
-(defun compare-arrays (left right &key (element-compare-fn 'compare))
+(declaim (inline compare-arrays))
+(defun compare-arrays (left right &optional (element-compare-fn 'compare))
+  (declare (type array left right))
   (when (eql left right)
     (return-from compare-arrays :equal))
 
-  (labels
-      ((list-comparator (left right)
-         (compare-lists left right
-                        :car-compare-fn 'compare-reals
-                        :cdr-compare-fn #'list-comparator)))
-    (let ((comparison (list-comparator (array-dimensions left)
-                                       (array-dimensions right))))
-      (unless (eq :equal comparison)
-        (return-from compare-arrays comparison)))
+  (when (symbolp element-compare-fn)
+    (setf element-compare-fn (symbol-function element-compare-fn)))
 
-    (let ((result :equal))
-      (loop :for index :below (array-total-size left) :do
-        (let ((comparison (funcall element-compare-fn
-                                   (row-major-aref left index)
-                                   (row-major-aref right index))))
-          (ecase comparison
-            (:equal)
-            (:unequal
-             (setf result :unequal))
-            ((:greater :less)
-             (return-from compare-arrays comparison)))))
+  (let ((comparison (compare-lists (array-dimensions left)
+                                   (array-dimensions right)
+                                   #'compare-reals)))
+    (unless (eq :equal comparison)
+      (return-from compare-arrays comparison)))
 
-      result)))
+  (let ((result :equal))
+    (loop :for index :below (array-total-size left) :do
+      (let ((comparison (funcall element-compare-fn
+                                 (row-major-aref left index)
+                                 (row-major-aref right index))))
+        (ecase comparison
+          (:equal)
+          (:unequal
+           (setf result :unequal))
+          ((:greater :less)
+           (return-from compare-arrays comparison)))))
 
-(defun compare-strings (left right)
-  (compare-vectors left right :element-compare-fn 'compare-characters))
+    result))
+(declaim (notinline compare-arrays))
 
-(defun compare-packages (left right)
-  (when (eql left right)
-    (return-from compare-packages :equal))
-
-  (unequalify
-   (compare-strings (package-name left) (package-name right))))
-
-(defun compare-packages-or-nil (left right)
-  (cond
-    ((and (null left) (null right))
-     :equal)
-    ((null left)
-     :less)
-    ((null right)
-     :greater)
-    (t
-     (compare-packages left right))))
-
-(defun compare-symbols (left right)
-  (when (eql left right)
-    (return-from compare-symbols :equal))
-
-  (unequalify
-   (compare*
-     (compare-strings (symbol-name left) (symbol-name right))
-     (compare-packages-or-nil (symbol-package left) (symbol-package right)))))
-
-(defun compare-classes (left right)
-  (when (eql left right)
-    (return-from compare-classes :equal))
-
-  (unequalify
-   (compare-symbols (class-name left) (class-name right))))
-
-(defun compare-cons (left right &key (car-compare-fn 'compare) (cdr-compare-fn 'compare))
+(declaim (inline compare-cons))
+(defun compare-cons (left right &optional (car-compare-fn 'compare) (cdr-compare-fn 'compare))
+  (declare (type cons left right))
   (when (eql left right)
     (return-from compare-cons :equal))
 
   (compare*
    (funcall car-compare-fn (car left) (car right))
    (funcall cdr-compare-fn (cdr left) (cdr right))))
+(declaim (notinline compare-cons))
 
-(defun compare-lists (left right &key (car-compare-fn 'compare) (cdr-compare-fn 'compare))
+(defun compare-lists (left right &optional (car-compare-fn 'compare))
+  (declare (type list left right))
   (when (eql left right)
     (return-from compare-lists :equal))
   (unless left
@@ -284,9 +327,11 @@ function is not intended to be called directly.  You should call
 
   (compare*
     (funcall car-compare-fn (car left) (car right))
-    (funcall cdr-compare-fn (cdr left) (cdr right))))
+    (compare-lists (cdr left) (cdr right) car-compare-fn)))
 
+(declaim (inline compare-pathnames))
 (defun compare-pathnames (left right)
+  (declare (type pathname left right))
   (when (eql left right)
     (return-from compare-pathnames :equal))
 
@@ -297,11 +342,14 @@ function is not intended to be called directly.  You should call
    (compare (pathname-device left) (pathname-device right))
    (compare (pathname-host left) (pathname-host right))
    (compare (pathname-version left) (pathname-version right))))
+(declaim (notinline compare-pathnames))
 
+(declaim (inline compare-functions))
 (defun compare-functions (left right
-                          &key (lambda-expression-compare-fn 'compare)
+                          &optional (lambda-expression-compare-fn 'compare)
                             (closure-p-compare-fn 'compare)
                             (name-compare-fn 'compare))
+  (declare (type function left right))
   (when (eql left right)
     (return-from compare-functions :equal))
 
@@ -316,9 +364,12 @@ function is not intended to be called directly.  You should call
          (funcall name-compare-fn left-name right-name)
          (funcall closure-p-compare-fn left-closure-p right-closure-p)
          (funcall lambda-expression-compare-fn left-expression right-expression))))))
+(declaim (notinline compare-functions))
 
+(declaim (inline compare-other-objects))
 (defun compare-other-objects (left right)
   (unequalify (compare-reals (type-id left) (type-id right))))
+(declaim (notinline compare-other-objects))
 
 (defun compare (left right)
   "Determine the relative ordering between `LEFT' and `RIGHT'.
@@ -354,40 +405,66 @@ following assertion should never fail.
     (compare-objects left right)))
 
 (defmethod compare-objects (left right)
-  (compare-other-objects left right))
+  (locally
+      (declare (inline compare-other-objects))
+    (compare-other-objects left right)))
 
 (defmethod compare-objects ((left class) (right class))
-  (compare-classes left right))
+  (locally
+      (declare (inline compare-classes))
+    (compare-classes left right)))
 
 (defmethod compare-objects ((left real) (right real))
-  (compare-reals left right))
+  (locally
+      (declare (inline compare-reals))
+    (compare-reals left right)))
 
 (defmethod compare-objects ((left complex) (right complex))
-  (compare-complexes left right))
+  (locally
+      (declare (inline compare-complexes))
+    (compare-complexes left right)))
 
 (defmethod compare-objects ((left character) (right character))
-  (compare-characters left right))
+  (locally
+      (declare (inline compare-characters))
+    (compare-characters left right)))
 
 (defmethod compare-objects ((left vector) (right vector))
-  (compare-vectors left right))
+  (locally
+      (declare (inline compare-vectors))
+    (compare-vectors left right)))
 
 (defmethod compare-objects ((left array) (right array))
-  (compare-arrays left right))
+  (locally
+      (declare (inline compare-arrays))
+    (compare-arrays left right)))
 
 (defmethod compare-objects ((left string) (right string))
-  (compare-strings left right))
+  (locally
+      (declare (inline compare-strings))
+    (compare-strings left right)))
 
 (defmethod compare-objects ((left symbol) (right symbol))
-  (compare-symbols left right))
+  (locally
+      (declare (inline compare-symbols))
+    (compare-symbols left right)))
 
 (defmethod compare-objects ((left package) (right package))
-  (compare-packages left right))
+  (locally
+      (declare (inline compare-packages))
+    (compare-packages left right)))
 
-(defmethod compare-objects ((left list) (right list))
-  (compare-lists left right))
+(defmethod compare-objects ((left cons) (right cons))
+  (locally
+      (declare (inline compare-cons))
+    (compare-cons left right #'compare #'compare)))
 
 (defmethod compare-objects ((left pathname) (right pathname))
-  (compare-pathnames left right))
+  (locally
+      (declare (inline compare-pathnames))
+    (compare-pathnames left right)))
 
 (defmethod compare-objects ((left function) (right function))
-  (compare-functions left right))
+  (locally
+      (declare (inline compare-functions))
+    (compare-functions left right)))
