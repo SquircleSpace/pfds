@@ -16,7 +16,7 @@
   (:use :common-lisp)
   (:import-from :pfds.shcl.io/compare #:define-type-id)
   (:export
-   #:make-list-builder
+   #:make-impure-list-builder
    #:impure-list-builder
    #:impure-list-builder-add
    #:impure-list-builder-extract))
@@ -43,7 +43,14 @@
               tail head)))
   (values))
 
-(defun impure-list-builder-extract (list-builder)
+(defun impure-list-builder-extract (list-builder &optional tail)
+  (with-accessors
+        ((builder-tail impure-list-builder-tail))
+      list-builder
+    (if builder-tail
+        (setf (cdr builder-tail) tail)
+        (return-from impure-list-builder-extract tail)))
+
   (prog1 (impure-list-builder-head list-builder)
     (setf (impure-list-builder-head list-builder) nil)
     (setf (impure-list-builder-tail list-builder) nil)))
