@@ -110,7 +110,7 @@
   ())
 
 (defmethod compare-objects ((left some-class) (right some-class))
-  :equal)
+  (compare-objects-using-slots left right))
 
 (defclass another-class (some-class)
   ((value
@@ -167,53 +167,62 @@
 
 (register-constructor 'function 'function-constructor)
 
-(defun compare-< (left right)
-  (eq :less (compare left right)))
+(defun compare-< (comparator left right)
+  (eq :less (funcall comparator left right)))
 
-(defun split-equals (list comparison)
+(defun sorted (comparator sequence)
+  (sort (copy-seq sequence) (lambda (l r) (compare-< comparator l r))))
+
+(defun split-equals (comparator list comparison)
   (let* ((first (first list))
          (rest (cdr list))
          (equals (list first)))
     (loop :while rest
-          :while (or (eq comparison (compare first (car rest)))
+          :while (or (eq comparison (funcall comparator first (car rest)))
                      (eql first (car rest)))
           :do (push (pop rest) equals))
     (values equals rest)))
 
-(defun validate-equals (equals rest comparison)
+(defun validate-equals (comparator equals rest comparison)
   (loop :for first-tail :on equals
         :for first = (car first-tail)
         :do (loop :for second :in (cdr first-tail) :do
                   (assert (or (eql first second)
-                              (eq comparison (compare first second))) nil
+                              (eq comparison (funcall comparator first second))) nil
                           "equal or unequal things should all be mutually equal/unequal")))
   (loop :for equal :in equals
         :do (loop :for other :in rest :do
-          (assert (eq :less (compare equal rest)) nil
+          (assert (eq :less (funcall comparator equal other)) nil
                   "equal or unequal things should all behave the same when compared to other objects"))))
 
-(defun validate-ordering (list)
+(defun validate-ordering (comparator list)
   (unless (and list (cdr list))
     (return-from validate-ordering))
 
-  (let ((first (first list))
-        (second (second list)))
-    (let ((comparison (compare first second)))
-      (ecase comparison
-        (:less
-         (dolist (other (cdr (cdr list)))
-           (let ((next-comparison (compare first other)))
-             (assert (eq :less next-comparison) nil
-                     "The list should be ordered")))
-         (validate-ordering (cdr list)))
-        ((:equal :unequal)
-         (multiple-value-bind (equals rest) (split-equals list comparison)
-           (validate-equals equals rest comparison)
-           (validate-ordering rest)))
-        (:greater
-         (error "Sort order violated?!"))))))
+  (loop :for list-head :on list :do
+    (when (cdr list-head)
+      (let* ((first (first list-head))
+             (first-comparison (funcall comparator first (second list-head)))
+             (tail (ecase first-comparison
+                     (:less
+                      (cdr (cdr list-head)))
+                     ((:equal :unequal)
+                      (multiple-value-bind (equals rest) (split-equals comparator list-head first-comparison)
+                        (validate-equals comparator equals rest first-comparison)
+                        rest))
+                     (:greater
+                      (error "~A and ~A should compare as less but they comapre as greater"
+                             first (second list-head))))))
+        (loop :for second :in tail
+              :for comparison = (funcall comparator first second)
+              :do
+          (ecase comparison
+            (:less)
+            ((:equal :unequal :greater)
+             (error "Unexpected comparison result ~A for ~A ~A"
+                    comparison first second))))))))
 
-(defun test-ordering ()
+(defun make-test-objects ()
   (labels
       ((get-objects (type fn)
          (let ((result (funcall fn)))
@@ -221,11 +230,14 @@
              (unless (typep object type)
                (error "Constructor ~A returned object not of type ~A: ~A" fn type object)))
            result)))
-    (let ((objects (loop :for type :being :the :hash-keys :of *constructors* :using (hash-value fn) :nconc (get-objects type fn))))
-      (setf objects (sort objects 'compare-<))
-      (validate-ordering objects))
-    t))
+    (loop :for type :being :the :hash-keys :of *constructors* :using (hash-value fn) :nconc (get-objects type fn))))
 
-(defun run-tests ()
-  (ok (test-ordering)
+(defun test-ordering (comparator)
+  (let ((objects (make-test-objects)))
+    (setf objects (sorted comparator objects))
+    (validate-ordering comparator objects))
+  t)
+
+(defun run-tests (&optional (comparator 'compare))
+  (ok (test-ordering comparator)
       "compare seems to produce well ordered results"))
