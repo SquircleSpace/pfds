@@ -21,10 +21,8 @@
    #:with-member #:without-member #:is-member)
   (:import-from :pfds.shcl.io/map
    #:with-entry #:without-entry #:lookup-entry)
-  (:import-from :pfds.shcl.io/eql-map
-   #:make-eql-map #:eql-map-with #:eql-map-count
-   #:eql-map-representative #:eql-map-lookup #:do-eql-map
-   #:eql-map-without #:eql-map #:make-eql-map*)
+  (:import-from :pfds.shcl.io/list-utility
+   #:list-map-with #:list-map-without #:list-map-lookup)
   (:export
    #:is-empty
    #:empty
@@ -56,7 +54,7 @@
   value)
 
 (define-immutable-structure (tree-node-n (:include tree-node) (:constructor %make-tree-node-n))
-  (values (make-eql-map) :type eql-map))
+  (values nil :type list))
 
 (defmethod print-object ((tree tree-node-1) stream)
   (when *print-readably*
@@ -96,11 +94,13 @@
   (check-type right rb-tree)
   (%make-tree-node-1 :color color :left left :right right :value value :key key))
 
-(defun make-tree-node-n (&key (color :black) (left (tree-nil)) (right (tree-nil)) (values (make-eql-map)))
+(defun make-tree-node-n (&key (color :black) (left (tree-nil)) (right (tree-nil)) (values nil))
   (check-type color color)
   (check-type left rb-tree)
   (check-type right rb-tree)
-  (check-type values eql-map)
+  (check-type values list)
+  (unless (cdr values)
+    (error "tree-node-n must have multiple values"))
   (%make-tree-node-n :color color :left left :right right :values values))
 
 (defvar *tree-nil*
@@ -149,7 +149,9 @@
 (defun tree-node-representative (tree)
   (etypecase tree
     (tree-node-n
-     (eql-map-representative (tree-node-n-values tree)))
+     (let ((first-pair (car (tree-node-n-values tree))))
+       (assert first-pair)
+       (values (car first-pair) (cdr first-pair))))
     (tree-node-1
      (values (tree-node-1-key tree) (tree-node-1-value tree)))))
 
@@ -182,34 +184,33 @@
     (tree-node-1
      (copy-tree-node-1 tree :color color :left left :right right))))
 
-(defun tree-node-with-uneql-member (tree key value)
+(defun tree-node-with-unequal-member (comparator tree key value)
   (etypecase tree
     (tree-node-n
-     (copy-tree-node-n tree :values (eql-map-with (tree-node-n-values tree) key value)))
+     (copy-tree-node-n tree :values (list-map-with comparator (tree-node-n-values tree) key value)))
     (tree-node-1
      (assert (not (eql key (tree-node-1-key tree))))
      (make-tree-node-n
       :color (tree-node-color tree)
       :left (tree-node-left tree)
       :right (tree-node-right tree)
-      :values (make-eql-map (tree-node-1-key tree) (tree-node-1-value tree)
-                            key value)))))
+      :values (list (cons key value)
+                    (cons (tree-node-1-key tree) (tree-node-1-value tree)))))))
 
-(defun tree-node-without-uneql-member (tree key)
+(defun tree-node-without-unequal-member (comparator tree key)
   (etypecase tree
     (tree-node-n
-     (let ((new-map (eql-map-without (tree-node-n-values tree) key)))
-       (assert (plusp (eql-map-count new-map)))
-       (when (> (eql-map-count new-map) 1)
-         (return-from tree-node-without-uneql-member
-           (copy-tree-node-n tree :values new-map)))
-       (multiple-value-bind (key value) (eql-map-representative new-map)
-         (make-tree-node-1
-          :color (tree-node-color tree)
-          :left (tree-node-left tree)
-          :right (tree-node-right tree)
-          :key key
-          :value value))))
+     (let ((new-values (list-map-without comparator (tree-node-n-values tree) key)))
+       (assert new-values)
+       (when (cdr new-values)
+         (return-from tree-node-without-unequal-member
+           (copy-tree-node-n tree :values new-values)))
+       (make-tree-node-1
+        :color (tree-node-color tree)
+        :left (tree-node-left tree)
+        :right (tree-node-right tree)
+        :key (car (car new-values))
+        :value (cdr (car new-values)))))
     (tree-node-1
      (assert (not (eq key (tree-node-1-key tree))))
      tree)))
@@ -320,7 +321,7 @@
         (:unequal
          (etypecase tree
            (tree-node-n
-            (eql-map-lookup (tree-node-n-values tree) key))
+            (list-map-lookup comparator (tree-node-n-values tree) key))
            (tree-node-1
             (values nil nil))))))))
 
@@ -482,7 +483,7 @@
              (:unequal
               (etypecase tree
                 (tree-node-n
-                 (let ((replacement-tree (tree-node-without-uneql-member tree key)))
+                 (let ((replacement-tree (tree-node-without-unequal-member comparator tree key)))
                    (when (eq replacement-tree tree)
                      (return-from tree-remove original-tree))
                    (values replacement-tree t)))
@@ -491,7 +492,7 @@
              (:equal
               (etypecase tree
                 (tree-node-n
-                 (let ((replacement-tree (tree-node-without-uneql-member tree key)))
+                 (let ((replacement-tree (tree-node-without-unequal-member comparator tree key)))
                    (when (eq replacement-tree tree)
                      (return-from tree-remove original-tree))
                    (values replacement-tree t)))
@@ -556,13 +557,13 @@
                 (tree-node-n
                  (copy-tree-node-n
                   tree
-                  :values (eql-map-with (tree-node-n-values tree) key value)))
+                  :values (list-map-with comparator (tree-node-n-values tree) key value)))
                 (tree-node-1
                  (copy-tree-node-1
                   tree
                   :value value))))
              (:unequal
-              (tree-node-with-uneql-member tree key value))))))
+              (tree-node-with-unequal-member comparator tree key value))))))
 
     ;; I see a red black tree and I want it painted blaaaack
     (let ((result (tree-node-with-changes (insert tree) :color :black)))
@@ -606,8 +607,8 @@
            (tree-node-1
             (funcall fn (tree-node-1-key tree) (tree-node-1-value tree)))
            (tree-node-n
-            (do-eql-map (key value (tree-node-n-values tree))
-              (funcall fn key value))))))
+            (dolist (pair (tree-node-n-values tree))
+              (funcall fn (car pair) (cdr pair)))))))
     (declare (dynamic-extent #'emit))
 
     (let ((first-child (tree-node-left tree))
