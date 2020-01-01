@@ -20,9 +20,11 @@
    #:list-map-with
    #:list-map-without
    #:list-map-lookup
+   #:list-map
    #:list-set-with
    #:list-set-without
-   #:list-set-is-member))
+   #:list-set-is-member
+   #:list-set))
 (in-package :pfds.shcl.io/list-utility)
 
 (defun list-remove-index (list index)
@@ -69,6 +71,14 @@
             (values (cdr pair) t))))
   (values nil nil))
 
+(defun list-map (comparator &rest plist)
+  (let (map)
+    (loop :while plist
+          :for key = (pop plist)
+          :for value = (if plist (pop plist) (error "odd number of elements in plist"))
+          :do (setf map (list-map-with comparator map key value)))
+    map))
+
 (defun list-set-with (comparator list key)
   (loop :for item :in list
         :do
@@ -91,3 +101,9 @@
         (when (compare-equal-p comparator key item)
           (return-from list-set-is-member t)))
   nil)
+
+(defun list-set (comparator &rest items)
+  (let (set)
+    (dolist (item items)
+      (setf set (list-set-with comparator set item)))
+    set))

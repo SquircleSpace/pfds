@@ -14,6 +14,7 @@
 
 (defpackage :pfds.shcl.io/structure-mop
   (:use :common-lisp)
+  (:import-from :pfds.shcl.io/utility #:intern-conc)
   (:export
    #:find-struct-class
    #:struct-class
@@ -142,18 +143,6 @@
 
 (defmethod make-load-form ((slot direct-slot) &optional environment)
   (make-load-form-saving-slots slot :environment environment))
-
-(defun intern-conc (package &rest things)
-  (let ((name (with-output-to-string (stream)
-                (dolist (thing things)
-                  (etypecase thing
-                    (string
-                     (write-string thing stream))
-                    (symbol
-                     (write-string (symbol-name thing) stream)))))))
-    (if package
-        (intern name package)
-        (make-symbol name))))
 
 (defclass effective-slot ()
   ((name

@@ -21,7 +21,7 @@
   (:import-from :pfds.shcl.io/set
    #:is-empty #:empty #:with-member #:without-member #:is-member)
   (:import-from :pfds.shcl.io/red-black-tree #:make-red-black-tree-set*)
-  (:import-from :pfds.shcl.io/unbalanced-set #:make-unbalanced-set*)
+  (:import-from :pfds.shcl.io/unbalanced-tree #:make-unbalanced-set*)
   (:import-from :prove #:is #:subtest #:ok #:pass #:fail))
 (in-package :pfds.shcl.io/tests/set)
 
