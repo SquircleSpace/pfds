@@ -19,11 +19,27 @@
   (:import-from :pfds.shcl.io/compare
    #:compare #:compare-objects)
   (:import-from :pfds.shcl.io/set
-   #:is-empty #:empty #:with-member #:without-member #:is-member)
-  (:import-from :pfds.shcl.io/red-black-tree #:make-red-black-tree-set*)
+   #:is-empty #:empty #:is-member)
+  (:import-from :pfds.shcl.io/red-black-tree
+   #:make-red-black-set* #:red-black-set #:validate-tree)
   (:import-from :pfds.shcl.io/unbalanced-tree #:make-unbalanced-set*)
   (:import-from :prove #:is #:subtest #:ok #:pass #:fail))
 (in-package :pfds.shcl.io/tests/set)
+
+(defgeneric validate (thing))
+
+(defmethod validate (thing)
+  thing)
+
+(defmethod validate ((set red-black-set))
+  (pfds.shcl.io/red-black-tree::validate-tree set)
+  set)
+
+(defun with-member (set item)
+  (validate (pfds.shcl.io/set:with-member set item)))
+
+(defun without-member (set item)
+  (validate (pfds.shcl.io/set:without-member set item)))
 
 (defun eql-unique (items)
   (let ((table (make-hash-table :test 'eql))
@@ -64,14 +80,14 @@
 (defparameter *random-numbers* (list* 666.0 666 666 (loop :for i :below 1000 :collect (random 1000))))
 (defparameter *random-numbers-uniqued* (eql-unique *random-numbers*))
 
-(defun red-black-tree-set-constructor (&optional items)
-  (make-red-black-tree-set* 'compare :items items))
+(defun red-black-set-constructor (&optional items)
+  (make-red-black-set* 'compare :items items))
 
 (defun unbalanced-set-constructor (&optional items)
   (make-unbalanced-set* 'compare :items items))
 
 (defparameter *constructors*
-  '(red-black-tree-set-constructor
+  '(red-black-set-constructor
     unbalanced-set-constructor))
 
 (defun compare-< (left right)

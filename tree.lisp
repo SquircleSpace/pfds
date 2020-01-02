@@ -34,6 +34,7 @@
                                     (define-lookup-p t)
                                     (define-insert-p t)
                                     (define-remove-p t)
+                                    (define-maker-p t)
                                     insert-left-balancer insert-right-balancer
                                     remove-left-balancer remove-right-balancer)
                        &body extra-node-slots)
@@ -54,6 +55,7 @@
          (node-left (intern-conc *package* node-base-type "-LEFT"))
          (node-right (intern-conc *package* node-base-type "-RIGHT"))
          (to-list (intern-conc *package* base-name "-TO-LIST"))
+         (node-copy (intern-conc *package* "COPY-" node-base-type))
          (do-tree (intern-conc *package* "DO-" base-name))
          (do-tree-f (gensym "DO-TREE"))
          (insert (when define-insert-p (intern-conc *package* base-name "-INSERT")))
@@ -65,8 +67,7 @@
          (without-unequal (gensym "NODE-WITHOUT-UNEQUAL"))
          (representative-key (gensym "NODE-REPRESENTATIVE"))
          (remove-min (gensym "REMOVE-MIN"))
-         (append (gensym "APPEND-TREES"))
-         (node-copy (gensym "COPY-NODE"))
+         (append-children (gensym "APPEND-CHILD-TREES"))
          (balance-needed-p (gensym "BALANCE-NEEDED-P"))
          (values (gensym "VALUES"))
          (result (gensym "RESULT"))
@@ -75,8 +76,6 @@
          (key (gensym "KEY"))
          (value (gensym "VALUE"))
          (value-list (when map-p `(,value)))
-         (left (gensym "LEFT"))
-         (right (gensym "RIGHT"))
          (min (gensym "MIN"))
          (without-min (gensym "WITHOUT-MIN"))
          (body (gensym "BODY"))
@@ -107,7 +106,7 @@
            ()
          (,nil-type)
 
-         (,node-base-type
+         ((,node-base-type (:copier nil))
           (left (,nil-type) :type ,base-name)
           (right (,nil-type) :type ,base-name)
           ,@extra-node-slots))
@@ -226,23 +225,24 @@
                     (:equal
                      (values (,with-equal ,comparator ,tree ,key ,@value-list) nil))
                     (:unequal
-                     (values (,with-unequal ,comparator ,tree ,key ,@value-list) nil))))))
+                     (values (,with-unequal ,comparator ,tree ,key ,@value-list) nil))))))))
 
-             ,(if map-p
-                  `(defun ,maker (,comparator &key ,alist ,plist)
-                     (let ((,tree (,nil-type)))
-                       (loop :while ,plist
-                             :for ,key = (pop ,plist)
-                             :for ,value = (if ,plist (pop ,plist) (error "Odd number of items in plist"))
-                             :do (setf ,tree (,insert ,comparator ,tree ,key ,value)))
-                       (dolist (,value ,alist)
-                         (setf ,tree (,insert ,comparator ,tree (car ,value) (cdr ,value))))
-                       ,tree))
-                  `(defun ,maker (,comparator &key ,items)
-                     (let ((,tree (,nil-type)))
-                       (dolist (,value ,items)
-                         (setf ,tree (,insert ,comparator ,tree ,value)))
-                       ,tree)))))
+       ,@(when (and define-insert-p define-maker-p)
+           (if map-p
+               `((defun ,maker (,comparator &key ,alist ,plist)
+                   (let ((,tree (,nil-type)))
+                     (loop :while ,plist
+                           :for ,key = (pop ,plist)
+                           :for ,value = (if ,plist (pop ,plist) (error "Odd number of items in plist"))
+                           :do (setf ,tree (,insert ,comparator ,tree ,key ,value)))
+                     (dolist (,value ,alist)
+                       (setf ,tree (,insert ,comparator ,tree (car ,value) (cdr ,value))))
+                     ,tree)))
+               `((defun ,maker (,comparator &key ,items)
+                   (let ((,tree (,nil-type)))
+                     (dolist (,value ,items)
+                       (setf ,tree (,insert ,comparator ,tree ,value)))
+                     ,tree)))))
 
        ,@(when define-lookup-p
            `((defun ,lookup (,comparator ,tree ,key)
@@ -279,9 +279,28 @@
                       (multiple-value-bind (,result ,value) (,remove-min (,node-left ,tree))
                         (values ,result (,remove-left-balancer ,tree :left ,value)))))))
 
-             (defun ,append (,left ,right)
-               (multiple-value-bind (,min ,without-min) (,remove-min ,right)
-                 (,remove-right-balancer ,min :left ,left :right ,without-min)))
+             (defun ,append-children (,tree)
+               (multiple-value-bind (,min ,without-min) (,remove-min (,node-right ,tree))
+                 ;; Now we make a version of tree that has all the
+                 ;; same metadata but the value(s) of min.  We're
+                 ;; just migrating the min values up to the position
+                 ;; of tree.  Afterwards, we'll run the balancer to
+                 ;; update the metadata.
+                 (setf ,tree (etypecase ,tree
+                               (,node-1-type
+                                (etypecase ,min
+                                  (,node-1-type
+                                   (,node-copy ,tree :key (,1-type-key ,min) ,@(when map-p `(:value (,1-type-value ,min)))))
+                                  (,node-n-type
+                                   (structure-convert (,node-n-type ,node-1-type) ,tree :values (,n-type-values ,min)))))
+                               (,node-n-type
+                                (etypecase ,min
+                                  (,node-1-type
+                                   (structure-convert (,node-1-type ,node-n-type) ,tree :key (,1-type-key ,min)
+                                                      ,@(when map-p `(:value (,1-type-value ,min)))))
+                                  (,node-n-type
+                                   (,node-copy ,tree :values (,n-type-values ,min)))))))
+                 (,remove-right-balancer ,tree :right ,without-min)))
 
              (defun ,remove (,comparator ,tree ,key)
                (etypecase ,tree
@@ -308,7 +327,7 @@
                                      ((,nil-type-p (,node-right ,tree))
                                       (,node-left ,tree))
                                      (t
-                                      (,append (,node-left ,tree) (,node-right ,tree))))
+                                      (,append-children ,tree)))
                                    t)
                            (values ,result nil))))
                     (:unequal
