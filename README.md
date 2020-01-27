@@ -15,9 +15,9 @@ structures as well.
 
 ### Maps
 
-#### `RED-BLACK-TREE-MAP`
+#### `RED-BLACK-MAP`
 
-- `MAKE-RED-BLACK-TREE-MAP`: `O(n log(n))`
+- `MAKE-RED-BLACK-MAP`: `O(n log(n))`
 - `WITH-ENTRY`: `O(log(n))`
 - `WITHOUT-ENTRY`: `O(log(n))`
 - `LOOKUP-ENTRY`: `O(log(n))`
@@ -25,9 +25,9 @@ structures as well.
 
 ### Sets
 
-#### `RED-BLACK-TREE-SET`
+#### `RED-BLACK-SET`
 
-- `MAKE-RED-BLACK-TREE-SET`: `O(n log(n))`
+- `MAKE-RED-BLACK-SET`: `O(n log(n))`
 - `WITH-MEMBER`: `O(log(n))`
 - `WITHOUT-MEMBER`: `O(log(n))`
 - `IS-MEMBER`: `O(log(n))`
