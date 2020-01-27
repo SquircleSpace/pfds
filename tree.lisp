@@ -26,8 +26,19 @@
    #:list-set-with #:list-set-without #:list-set #:list-set-is-member
    #:list-map-with #:list-map-without #:list-map #:list-map-lookup)
   (:export
-   #:define-tree))
+   #:define-tree #:print-graphviz #:print-node-properties #:graphviz))
 (in-package :pfds.shcl.io/tree)
+
+(defvar *graph-id* 0)
+(defgeneric print-node-properties (tree stream))
+(defgeneric print-graphviz (tree stream))
+
+(defun graphviz (tree &optional (stream *standard-output*))
+  (let ((*graph-id* 0))
+    (format stream "digraph {~%")
+    (print-graphviz tree stream)
+    (format stream "}~%"))
+  (values))
 
 (defmacro define-tree (base-name (&key
                                     (map-p t)
@@ -80,6 +91,7 @@
          (comparator (gensym "COMPARATOR"))
          (comparison (gensym "COMPARISON"))
          (tree (gensym "TREE"))
+         (stream (gensym "STREAM"))
          (key (gensym "KEY"))
          (value (gensym "VALUE"))
          (value-list (when map-p `(,value)))
@@ -388,5 +400,28 @@
 
        (defmethod to-list ((,tree ,base-name))
          (,to-list ,tree))
+
+       (defmethod print-node-properties ((,tree ,base-name) ,stream)
+         (format ,stream "label=\"~A\" shape=box"
+                 (unless (,nil-type-p ,tree)
+                   (etypecase ,tree
+                     (,node-1-type
+                      ,(if map-p
+                           `(cons (,1-type-key ,tree) (,1-type-value ,tree))
+                           `(,1-type-key ,tree)))
+                     (,node-n-type
+                      (,n-type-values ,tree))))))
+
+       (defmethod print-graphviz ((,tree ,base-name) ,stream)
+         (let ((,value (incf *graph-id*)))
+           (format ,stream "ID~A [" ,value)
+           (print-node-properties ,tree ,stream)
+           (format ,stream "]~%")
+           (unless (,nil-type-p ,tree)
+             (let ((,result (print-graphviz (,node-left ,tree) ,stream)))
+               (format ,stream "ID~A -> ID~A~%" ,value ,result))
+             (let ((,result (print-graphviz (,node-right ,tree) ,stream)))
+               (format ,stream "ID~A -> ID~A~%" ,value ,result)))
+           ,value))
 
        ',base-name)))

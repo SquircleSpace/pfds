@@ -15,7 +15,7 @@
 (defpackage :pfds.shcl.io/splay-tree
   (:use :common-lisp)
   (:import-from :pfds.shcl.io/tree
-   #:define-tree)
+   #:define-tree #:print-graphviz)
   (:import-from :pfds.shcl.io/utility
    #:intern-conc)
   (:import-from :pfds.shcl.io/list-utility
@@ -339,6 +339,9 @@
                                    :items ',(impure-splay-set-to-list splay-set))
          :stream stream))
 
+(defmethod print-graphviz ((map impure-splay-set) stream)
+  (print-graphviz (impure-splay-set-tree map) stream))
+
 (define-struct (impure-splay-map (:constructor %make-impure-splay-map))
   (tree (sp-map-nil) :type sp-map)
   (comparator (error "comparator is required")))
@@ -387,3 +390,6 @@
   (write `(make-impure-splay-map* ',(impure-splay-map-comparator splay-map)
                                    :alist ',(impure-splay-map-to-list splay-map))
          :stream stream))
+
+(defmethod print-graphviz ((map impure-splay-map) stream)
+  (print-graphviz (impure-splay-map-tree map) stream))

@@ -23,7 +23,7 @@
   (:import-from :pfds.shcl.io/map
    #:with-entry #:without-entry #:lookup-entry)
   (:import-from :pfds.shcl.io/tree
-   #:define-tree)
+   #:define-tree #:print-node-properties #:print-graphviz)
   (:export
    #:is-empty
    #:empty
@@ -343,37 +343,13 @@
 (defgeneric gf-color (tree))
 (defgeneric gf-contents (tree))
 
-(defvar *graph-id* 0)
+(defmethod print-node-properties ((tree rb-set-node) stream)
+  (call-next-method)
+  (format stream " color=~A" (if (eq :black (rb-set-node-color tree)) "black" "red")))
 
-(defun show (tree)
-  (let* (serial-number
-         (graph (make-string-input-stream
-                 (with-output-to-string (stream)
-                   (format stream "digraph {~%")
-                   (setf serial-number (print-graphviz tree stream))
-                   (format stream "}~%"))))
-         (path (format nil "graph~A.png" serial-number)))
-    (uiop:run-program "dot -Tpng" :input graph :output (uiop:parse-native-namestring path))
-    (uiop:run-program `("firefox" ,path))
-    tree))
-
-(defun print-graphviz (tree stream)
-  (let ((our-id (incf *graph-id*)))
-    (when (gf-empty-p tree)
-      (format stream "ID~A [label=\"nil\" shape=box]~%" our-id)
-      (return-from print-graphviz our-id))
-
-    (format stream "ID~A [label=\"~A\" color=~A]~%"
-            our-id
-            (gf-contents tree)
-            (if (eq :black (gf-color tree))
-                "black"
-                "red"))
-    (let ((child-id (print-graphviz (gf-left tree) stream)))
-      (format stream "ID~A -> ID~A~%" our-id child-id))
-    (let ((child-id (print-graphviz (gf-right tree) stream)))
-      (format stream "ID~A -> ID~A~%" our-id child-id))
-    our-id))
+(defmethod print-node-properties ((tree rb-map-node) stream)
+  (call-next-method)
+  (format stream " color=~A" (if (eq :black (rb-map-node-color tree)) "black" "red")))
 
 (defmacro define-debug-methods (base-name &key (map-p t))
   (let* ((package (symbol-package base-name))
@@ -465,6 +441,9 @@
                          :items (quote ,(rb-set-to-list (red-black-set-tree set))))
    :stream stream))
 
+(defmethod print-graphviz ((tree red-black-set) stream)
+  (print-graphviz (red-black-set-tree tree) stream))
+
 (defmethod is-empty ((set red-black-set))
   (rb-set-nil-p (red-black-set-tree set)))
 
@@ -522,6 +501,9 @@
    `(make-red-black-map* (quote ,(red-black-map-comparator map))
                          :alist (quote ,(rb-map-to-list (red-black-map-tree map))))
    :stream stream))
+
+(defmethod print-graphviz ((tree red-black-map) stream)
+  (print-graphviz (red-black-map-tree tree) stream))
 
 (defmethod is-empty ((map red-black-map))
   (rb-map-nil-p (red-black-map-tree map)))
