@@ -181,3 +181,28 @@ The `IMPURE-LIST-BUILDER` is an object that allows you to construct a
 list in FIFO order.  Instead of repeatedly pushing elements onto a
 list and then reversing the result, you can instead add elements to
 the list builder and then extract the result.
+
+#### `IMPURE-SPLAY-MAP` and `IMPURE-SPLAY-SET`
+
+Note that splay trees are troublesome in a purely functional context.
+Even queries against the tree need to mutate the tree in order to
+maintain balance.  Furthermore, they have poor asymptotic running time
+when used persistently.  The mutability issue can be hidden by the
+implementation using a lock, but the issue with persistence is
+unavoidable.
+
+That's a shame, because splay trees are super fun!  Due to the
+overwhelming fun-ness of splay trees, this library provides an impure
+implementation of splay sets and maps.  Under the hood, these are
+implemented using purely functional trees.  So, you can at least feel
+warm and fuzzy about that.
+
+- `MAKE-IMPURE-SPLAY-SET`: `O(n log(n))`
+- `IMPURE-SPLAY-SET-IS-EMPTY`: `O(1)`
+- `IMPURE-SPLAY-SET-INSERT`, `IMPURE-SPLAY-SET-REMOVE`, `IMPURE-SPLAY-SET-IS-MEMBER`: `O(log(n))` amortized
+- `IMPURE-SPLAY-SET-REMOVE-ALL`: `O(1)`
+
+- `MAKE-IMPURE-SPLAY-MAP`: `O(n log(n))`
+- `IMPURE-SPLAY-MAP-IS-EMPTY`: `O(1)`
+- `IMPURE-SPLAY-MAP-INSERT`, `IMPURE-SPLAY-MAP-REMOVE`, `IMPURE-SPLAY-MAP-LOOKUP`: `O(log(n))` amortized
+- `IMPURE-SPLAY-MAP-REMOVE-ALL`: `O(1)`

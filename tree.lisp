@@ -35,6 +35,7 @@
                                     (define-insert-p t)
                                     (define-remove-p t)
                                     (define-maker-p t)
+                                    (define-representative-p t)
                                     insert-left-balancer insert-right-balancer
                                     remove-left-balancer remove-right-balancer)
                        &body extra-node-slots)
@@ -61,17 +62,23 @@
          (insert (when define-insert-p (intern-conc *package* base-name "-INSERT")))
          (lookup (when define-lookup-p (intern-conc *package* base-name "-LOOKUP")))
          (remove (when define-remove-p (intern-conc *package* base-name "-REMOVE")))
+         (representative-key (if define-representative-p
+                                 ;; We need this function whether they want it or not
+                                 (intern-conc *package* node-base-type "-REPRESENTATIVE")
+                                 (gensym "NODE-REPRESENTATIVE")))
+         (with-key (intern-conc *package* node-base-type "-WITH-KEY"))
+         (without-key (intern-conc *package* node-base-type "-WITHOUT-KEY"))
          (with-equal (gensym "NODE-WITH-EQUAL"))
          (without-equal (gensym "NODE-WITHOUT-EQUAL"))
          (with-unequal (gensym "NODE-WITH-UNEQUAL"))
          (without-unequal (gensym "NODE-WITHOUT-UNEQUAL"))
-         (representative-key (gensym "NODE-REPRESENTATIVE"))
          (remove-min (gensym "REMOVE-MIN"))
          (append-children (gensym "APPEND-CHILD-TREES"))
          (balance-needed-p (gensym "BALANCE-NEEDED-P"))
          (values (gensym "VALUES"))
          (result (gensym "RESULT"))
          (comparator (gensym "COMPARATOR"))
+         (comparison (gensym "COMPARISON"))
          (tree (gensym "TREE"))
          (key (gensym "KEY"))
          (value (gensym "VALUE"))
@@ -182,6 +189,22 @@
             (,without-unequal ,comparator ,tree ,key))
            (,node-1-type
             (,nil-type))))
+
+       (declaim (inline ,with-key))
+       (defun ,with-key (,comparator ,tree ,comparison ,key ,@value-list)
+         (ecase ,comparison
+           (:equal
+            (,with-equal ,comparator ,tree ,key ,@value-list))
+           (:unequal
+            (,with-unequal ,comparator ,tree ,key ,@value-list))))
+
+       (declaim (inline ,without-key))
+       (defun ,without-key (,comparator ,tree ,comparison ,key)
+         (ecase ,comparison
+           (:equal
+            (,without-equal ,comparator ,tree ,key))
+           (:unequal
+            (,without-unequal ,comparator ,tree ,key))))
 
        (declaim (inline ,representative-key))
        (defun ,representative-key (,tree)
