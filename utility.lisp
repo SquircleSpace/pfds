@@ -15,7 +15,7 @@
 (defpackage :pfds.shcl.io/utility
   (:use :common-lisp)
   (:export
-   #:intern-conc #:cassert))
+   #:intern-conc #:cassert #:define-interface))
 (in-package :pfds.shcl.io/utility)
 
 (defun intern-conc (package &rest things)
@@ -37,3 +37,16 @@
            (assert ,condition ,places ,datum ,@args)
          (ignore ()
            (return-from ,done))))))
+
+(defmacro define-interface (name &body functions)
+  `(progn
+     ,@(loop
+         :for thing :in functions
+         :collect
+         (etypecase thing
+           (symbol `',thing)
+           (cons
+            (if (eq (car thing) 'defgeneric)
+                thing
+                (error "Invalid interface")))))
+     ',name))

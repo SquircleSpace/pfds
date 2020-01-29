@@ -16,7 +16,6 @@
   (:use :common-lisp)
   (:export
    #:is-empty #:empty #:with-member
-   #:define-interface
    #:to-list
    #:check-invariants))
 (in-package :pfds.shcl.io/common)
@@ -26,19 +25,6 @@
 (defgeneric is-empty (container))
 (defgeneric empty (container))
 (defgeneric with-member (container item))
-
-(defmacro define-interface (name &body functions)
-  `(progn
-     ,@(loop
-         :for thing :in functions
-         :collect
-         (etypecase thing
-           (symbol `',thing)
-           (cons
-            (if (eq (car thing) 'defgeneric)
-                thing
-                (error "Invalid interface")))))
-     ',name))
 
 (defgeneric check-invariants (object))
 

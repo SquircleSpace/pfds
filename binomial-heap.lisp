@@ -15,7 +15,7 @@
 (defpackage :pfds.shcl.io/binomial-heap
   (:use :common-lisp)
   (:import-from :pfds.shcl.io/common
-   #:define-interface #:to-list)
+   #:to-list)
   (:import-from :pfds.shcl.io/immutable-structure
    #:define-adt #:define-immutable-structure)
   (:import-from :pfds.shcl.io/heap

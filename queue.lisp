@@ -15,7 +15,9 @@
 (defpackage :pfds.shcl.io/queue
   (:use :common-lisp)
   (:import-from :pfds.shcl.io/common
-   #:define-interface #:is-empty #:empty)
+   #:is-empty #:empty)
+  (:import-from :pfds.shcl.io/utility
+   #:define-interface)
   (:export
    #:with-last
    #:without-first
