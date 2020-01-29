@@ -15,7 +15,7 @@
 (defpackage :pfds.shcl.io/batched-deque
   (:use :common-lisp)
   (:import-from :pfds.shcl.io/common
-   #:define-immutable-structure #:to-list)
+   #:define-immutable-structure #:to-list #:check-invariants)
   (:import-from :pfds.shcl.io/deque
    #:with-last #:without-first #:peek-first #:is-empty #:empty
    #:with-first #:without-last #:peek-last)
@@ -40,6 +40,20 @@
   (front-count 0 :type (integer 0))
   (back-stack nil :type list)
   (back-count 0 :type (integer 0)))
+
+(defmethod check-invariants ((deque batched-deque))
+  (with-accessors ((front batched-deque-front-stack)
+                   (front-count batched-deque-front-count)
+                   (back batched-deque-back-stack)
+                   (back-count batched-deque-back-count))
+      queue
+    (cassert (or (null back)
+                 front)
+             nil "back stack cannot be non-nil unless front is non-nil")
+    (cassert (equal front-count (length front))
+             nil "front count has the correct value")
+    (cassert (equal back-count (length back))
+             nil "back count has the correct value")))
 
 (defmethod to-list ((deque batched-deque))
   (append (batched-deque-front-stack deque) (reverse (batched-deque-back-stack deque))))

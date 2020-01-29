@@ -15,7 +15,9 @@
 (defpackage :pfds.shcl.io/batched-queue
   (:use :common-lisp)
   (:import-from :pfds.shcl.io/common
-   #:define-immutable-structure #:to-list)
+   #:define-immutable-structure #:to-list #:check-invariants)
+  (:import-from :pfds.shcl.io/utility
+   #:cassert)
   (:import-from :pfds.shcl.io/queue
    #:with-last #:without-first #:peek-first #:is-empty #:empty)
   (:export
@@ -31,6 +33,14 @@
 (define-immutable-structure (batched-queue (:constructor %make-batched-queue))
   (front-stack nil :type list)
   (back-stack nil :type list))
+
+(defmethod check-invariants ((queue batched-queue))
+  (with-accessors ((front batched-queue-front-stack)
+                   (back batched-queue-back-stack))
+      queue
+    (cassert (or (null back)
+                 front)
+             nil "back stack cannot be non-nil unless front is non-nil")))
 
 (defmethod to-list ((queue batched-queue))
   (append (batched-queue-front-stack queue) (reverse (batched-queue-back-stack queue))))
