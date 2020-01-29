@@ -15,7 +15,7 @@
 (defpackage :pfds.shcl.io/tests/compare
   (:use :common-lisp)
   (:import-from :pfds.shcl.io/compare
-   #:compare #:define-type-id #:compare-objects #:compare-objects-using-slots
+   #:compare #:compare-objects #:compare-objects-using-slots
    #:compare*)
   (:import-from :prove #:is #:subtest #:ok))
 (in-package :pfds.shcl.io/tests/compare)

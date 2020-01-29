@@ -14,8 +14,6 @@
 
 (defpackage :pfds.shcl.io/common
   (:use :common-lisp)
-  (:import-from :pfds.shcl.io/compare
-   #:compare #:define-type-id #:compare* #:compare-objects)
   (:import-from :pfds.shcl.io/immutable-structure
    #:immutable-structure #:define-adt #:structure-convert
    #:define-immutable-structure)
@@ -23,8 +21,8 @@
    #:define-struct)
   (:export
    #:is-empty #:empty #:with-member
-   #:define-interface #:compare #:compare* #:define-type-id
-   #:immutable-structure #:to-list #:compare-objects
+   #:define-interface
+   #:immutable-structure #:to-list
    #:structure-convert #:define-adt #:define-struct
    #:check-invariants))
 (in-package :pfds.shcl.io/common)

@@ -14,7 +14,6 @@
 
 (defpackage :pfds.shcl.io/immutable-structure
   (:use :common-lisp)
-  (:import-from :pfds.shcl.io/compare #:define-type-id)
   (:import-from :pfds.shcl.io/structure-mop
    #:find-struct-class
    #:struct-class

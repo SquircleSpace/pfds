@@ -16,8 +16,6 @@
   (:use :common-lisp)
   (:import-from :pfds.shcl.io/common
    #:define-interface #:define-adt #:define-immutable-structure #:to-list)
-  (:import-from :pfds.shcl.io/compare
-   #:compare #:define-type-id)
   (:import-from :pfds.shcl.io/heap
    #:merge-heaps #:heap-top #:without-heap-top #:with-member #:is-empty #:empty)
   (:export

@@ -14,7 +14,6 @@
 
 (defpackage :pfds.shcl.io/impure-queue
   (:use :common-lisp)
-  (:import-from :pfds.shcl.io/compare #:define-type-id)
   (:import-from :pfds.shcl.io/common #:is-empty #:empty)
   (:export #:make-impure-queue #:enqueue #:dequeue #:impure-queue-count))
 (in-package :pfds.shcl.io/impure-queue)
@@ -29,8 +28,6 @@
   (shrink-factor +default-shrink-factor+ :type (or null (real (0) (1))))
   (front-position 0 :type (integer 0))
   (%count 0 :type (integer 0)))
-
-(define-type-id impure-queue)
 
 (defun impure-queue-count (queue)
   (impure-queue-%count queue))

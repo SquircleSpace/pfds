@@ -34,8 +34,7 @@
    #:compare-functions
    #:compare-other-objects
    #:compare*
-   #:unequalify
-   #:define-type-id))
+   #:unequalify))
 (in-package :pfds.shcl.io/compare)
 
 (deftype comparison ()
@@ -68,42 +67,6 @@ function is not intended to be called directly.  You should call
           ((:greater :less)
            (return-from compare-objects-using-slots slot-result)))))
     result))
-
-(defvar *type-id* 0)
-
-(defgeneric type-id (object))
-
-(defmethod type-id (object)
-  nil)
-
-(defmacro define-type-id (class-name)
-  (let ((id (gensym "ID"))
-        (object (gensym "OBJECT")))
-    `(unless (find-method #'type-id nil '(,class-name) nil)
-       (let ((,id *type-id*))
-         (incf *type-id*)
-         (defmethod type-id ((,object ,class-name))
-           ,id)))))
-
-(define-type-id symbol)
-(define-type-id package)
-(define-type-id integer)
-(define-type-id ratio)
-(define-type-id rational)
-(define-type-id float)
-(define-type-id real)
-(define-type-id complex)
-(define-type-id number)
-(define-type-id vector)
-(define-type-id string)
-(define-type-id array)
-(define-type-id standard-class)
-(define-type-id standard-object)
-(define-type-id built-in-class)
-(define-type-id character)
-(define-type-id cons)
-(define-type-id pathname)
-(define-type-id function)
 
 (defmacro compare* (&body forms)
   (let ((result (gensym "RESULT"))
@@ -250,30 +213,6 @@ function is not intended to be called directly.  You should call
    (compare-reals (realpart left) (realpart right))
    (compare-reals (imagpart left) (imagpart right))))
 (declaim (notinline compare-complexes))
-
-(declaim (inline compare-type-ids))
-(defun compare-type-ids (left right)
-  (declare (type (or integer null) left right))
-  (cond
-    ((and left right)
-     (cond
-       ((> left right)
-        :greater)
-       ((< left right)
-        :less)
-       ((= left right)
-        :equal)))
-    ;; Having an id now means that any type
-    ;; assigned an id later will have a larger one.
-    ;; So, if left has an id now but right doesn't
-    ;; then right's id can only be larger when its
-    ;; assigned.
-    (left
-     :less)
-    (right
-     :greater)
-    (t
-     :unequal)))
 
 (declaim (inline compare-arrays))
 (defun compare-arrays (left right &optional (element-compare-fn 'compare))

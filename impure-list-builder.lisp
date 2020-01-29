@@ -14,7 +14,6 @@
 
 (defpackage :pfds.shcl.io/impure-list-builder
   (:use :common-lisp)
-  (:import-from :pfds.shcl.io/compare #:define-type-id)
   (:export
    #:make-impure-list-builder
    #:impure-list-builder
@@ -25,8 +24,6 @@
 (defstruct (impure-list-builder (:constructor %make-impure-list-builder))
   head
   tail)
-
-(define-type-id impure-list-builder)
 
 (defun make-impure-list-builder ()
   (%make-impure-list-builder))
