@@ -15,7 +15,9 @@
 (defpackage :pfds.shcl.io/unbalanced-tree
   (:use :common-lisp)
   (:import-from :pfds.shcl.io/common
-   #:define-immutable-structure #:to-list #:is-empty #:empty)
+   #:to-list #:is-empty #:empty)
+  (:import-from :pfds.shcl.io/immutable-structure
+   #:define-immutable-structure)
   (:import-from :pfds.shcl.io/set
    #:with-member #:without-member #:is-member)
   (:import-from :pfds.shcl.io/map

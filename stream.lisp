@@ -18,7 +18,9 @@
   (:import-from :pfds.shcl.io/list
    #:with-head #:head #:tail #:is-empty #:empty)
   (:import-from :pfds.shcl.io/common
-   #:define-adt #:to-list)
+   #:to-list)
+  (:import-from :pfds.shcl.io/immutable-structure
+   #:define-adt)
   (:export
    #:lazy-cons
    #:lazy-nil

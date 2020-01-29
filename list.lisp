@@ -15,7 +15,9 @@
 (defpackage :pfds.shcl.io/list
   (:use :common-lisp)
   (:import-from :pfds.shcl.io/common
-   #:define-interface #:is-empty #:empty #:define-adt #:to-list)
+   #:define-interface #:is-empty #:empty #:to-list)
+  (:import-from :pfds.shcl.io/immutable-structure
+   #:define-adt)
   (:import-from :pfds.shcl.io/compare
    #:compare #:compare* #:compare-objects)
   (:export

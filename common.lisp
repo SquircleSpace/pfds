@@ -14,16 +14,13 @@
 
 (defpackage :pfds.shcl.io/common
   (:use :common-lisp)
-  (:import-from :pfds.shcl.io/immutable-structure
-   #:immutable-structure #:define-adt #:structure-convert
-   #:define-immutable-structure)
   (:import-from :pfds.shcl.io/structure-mop
    #:define-struct)
   (:export
    #:is-empty #:empty #:with-member
    #:define-interface
-   #:immutable-structure #:to-list
-   #:structure-convert #:define-adt #:define-struct
+   #:to-list
+   #:define-struct
    #:check-invariants))
 (in-package :pfds.shcl.io/common)
 

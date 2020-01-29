@@ -15,8 +15,9 @@
 (defpackage :pfds.shcl.io/tests/set
   (:use :common-lisp)
   (:import-from :pfds.shcl.io/common
-   #:define-immutable-structure #:to-list
-   #:check-invariants)
+   #:to-list #:check-invariants)
+  (:import-from :pfds.shcl.io/immutable-structure
+   #:define-immutable-structure)
   (:import-from :pfds.shcl.io/compare
    #:compare #:compare-objects)
   (:import-from :pfds.shcl.io/set

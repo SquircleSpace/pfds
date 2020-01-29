@@ -15,7 +15,9 @@
 (defpackage :pfds.shcl.io/leftist-heap
   (:use :common-lisp)
   (:import-from :pfds.shcl.io/common
-   #:define-interface #:define-adt #:to-list)
+   #:define-interface #:to-list)
+  (:import-from :pfds.shcl.io/immutable-structure
+   #:define-adt)
   (:import-from :pfds.shcl.io/heap
    #:merge-heaps #:heap-top #:without-heap-top #:with-member #:is-empty #:empty)
   (:import-from :pfds.shcl.io/impure-queue
