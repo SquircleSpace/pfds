@@ -14,13 +14,10 @@
 
 (defpackage :pfds.shcl.io/common
   (:use :common-lisp)
-  (:import-from :pfds.shcl.io/structure-mop
-   #:define-struct)
   (:export
    #:is-empty #:empty #:with-member
    #:define-interface
    #:to-list
-   #:define-struct
    #:check-invariants))
 (in-package :pfds.shcl.io/common)
 
