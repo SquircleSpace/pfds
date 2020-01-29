@@ -58,18 +58,6 @@
       (setf result :unequal))
     result))
 
-(defmethod compare-objects ((left token) (right number))
-  (let ((result (compare (token-value left) right)))
-    (when (eq :equal result)
-      (setf result :unequal))
-    result))
-
-(defmethod compare-objects ((left number) (right token))
-  (let ((result (compare left (token-value right))))
-    (when (eq :equal result)
-      (setf result :unequal))
-    result))
-
 (defparameter *sorted-numbers* (loop :for i :below 1000 :collect i))
 (defparameter *even-numbers* (loop :for i :below 1000 :collect (* 2 i)))
 (defparameter *odd-numbers* (mapcar '1+ *even-numbers*))
