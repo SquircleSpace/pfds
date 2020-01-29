@@ -15,7 +15,7 @@
 (defpackage :pfds.shcl.io/leftist-heap
   (:use :common-lisp)
   (:import-from :pfds.shcl.io/common
-   #:define-interface #:define-adt #:compare #:to-list)
+   #:define-interface #:define-adt #:to-list)
   (:import-from :pfds.shcl.io/heap
    #:merge-heaps #:heap-top #:without-heap-top #:with-member #:is-empty #:empty)
   (:import-from :pfds.shcl.io/impure-queue
@@ -70,7 +70,7 @@
       (format stream "}~%"))))
 
 (define-adt leftist-heap
-    ((comparator 'compare)
+    ((comparator (error "comparator is required"))
      (guts (guts-nil)))
   ((height-biased-leftist-heap (:constructor %make-height-biased-leftist-heap)))
   ((weight-biased-leftist-heap (:constructor %make-weight-biased-leftist-heap))))

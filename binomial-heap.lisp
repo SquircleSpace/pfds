@@ -237,7 +237,7 @@
      ,result))
 
 (define-immutable-structure (binomial-heap (:constructor %make-binomial-heap))
-  (comparator 'compare)
+  (comparator (error "comparator is required"))
   (size 0 :type (integer 0))
   (ranked-trees nil :type list))
 
