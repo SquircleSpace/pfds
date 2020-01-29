@@ -25,7 +25,8 @@
    #:is-empty #:empty #:with-member
    #:define-interface #:compare #:compare* #:define-type-id
    #:immutable-structure #:to-list #:compare-objects
-   #:structure-convert #:define-adt #:define-struct))
+   #:structure-convert #:define-adt #:define-struct
+   #:check-invariants))
 (in-package :pfds.shcl.io/common)
 
 (defgeneric to-list (object))
@@ -46,3 +47,9 @@
                 thing
                 (error "Invalid interface")))))
      ',name))
+
+(defgeneric check-invariants (object))
+
+(defmethod check-invariants (object)
+  ;; looks fine to me!
+  )

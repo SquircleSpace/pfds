@@ -298,6 +298,9 @@
   (tree (sp-set-nil) :type sp-set)
   (comparator (error "comparator is required") :read-only t))
 
+(defmethod check-invariants ((set impure-splay-set))
+  (check-sp-set (impure-splay-set-tree set) (impure-splay-set-comparator set)))
+
 (defun impure-splay-set-is-empty (splay-set)
   (sp-set-nil-p (impure-splay-set-tree splay-set)))
 
@@ -345,6 +348,9 @@
 (define-struct (impure-splay-map (:constructor %make-impure-splay-map))
   (tree (sp-map-nil) :type sp-map)
   (comparator (error "comparator is required")))
+
+(defmethod check-invariants ((map impure-splay-map))
+  (check-sp-map (impure-splay-map-tree map) (impure-splay-map-comparator map)))
 
 (defun impure-splay-map-is-empty (splay-map)
   (sp-map-nil-p (impure-splay-map-tree splay-map)))

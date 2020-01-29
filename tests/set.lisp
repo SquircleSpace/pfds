@@ -15,31 +15,27 @@
 (defpackage :pfds.shcl.io/tests/set
   (:use :common-lisp)
   (:import-from :pfds.shcl.io/common
-   #:define-immutable-structure #:to-list)
+   #:define-immutable-structure #:to-list
+   #:check-invariants)
   (:import-from :pfds.shcl.io/compare
    #:compare #:compare-objects)
   (:import-from :pfds.shcl.io/set
    #:is-empty #:empty #:is-member)
   (:import-from :pfds.shcl.io/red-black-tree
-   #:make-red-black-set* #:red-black-set #:validate-tree)
+   #:make-red-black-set* #:red-black-set)
   (:import-from :pfds.shcl.io/unbalanced-tree #:make-unbalanced-set*)
   (:import-from :prove #:is #:subtest #:ok #:pass #:fail))
 (in-package :pfds.shcl.io/tests/set)
 
-(defgeneric validate (thing))
-
-(defmethod validate (thing)
+(defun checked (thing)
+  (check-invariants thing)
   thing)
 
-(defmethod validate ((set red-black-set))
-  (pfds.shcl.io/red-black-tree::validate-tree set)
-  set)
-
 (defun with-member (set item)
-  (validate (pfds.shcl.io/set:with-member set item)))
+  (checked (pfds.shcl.io/set:with-member set item)))
 
 (defun without-member (set item)
-  (validate (pfds.shcl.io/set:without-member set item)))
+  (checked (pfds.shcl.io/set:without-member set item)))
 
 (defun eql-unique (items)
   (let ((table (make-hash-table :test 'eql))

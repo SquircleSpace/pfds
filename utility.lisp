@@ -15,7 +15,7 @@
 (defpackage :pfds.shcl.io/utility
   (:use :common-lisp)
   (:export
-   #:intern-conc))
+   #:intern-conc #:cassert))
 (in-package :pfds.shcl.io/utility)
 
 (defun intern-conc (package &rest things)
@@ -29,3 +29,11 @@
     (if package
         (intern name package)
         (make-symbol name))))
+
+(defmacro cassert (condition &optional places datum &rest args)
+  (let ((done (gensym "DONE")))
+    `(block ,done
+       (restart-case
+           (assert ,condition ,places ,datum ,@args)
+         (ignore ()
+           (return-from ,done))))))

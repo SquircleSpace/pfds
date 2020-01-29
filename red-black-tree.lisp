@@ -15,15 +15,17 @@
 (defpackage :pfds.shcl.io/red-black-tree
   (:use :common-lisp)
   (:import-from :pfds.shcl.io/common
-   #:define-immutable-structure #:to-list #:is-empty #:empty #:compare)
+   #:define-immutable-structure #:to-list #:is-empty #:empty #:compare
+   #:check-invariants)
   (:import-from :pfds.shcl.io/utility
-   #:intern-conc)
+   #:intern-conc #:cassert)
   (:import-from :pfds.shcl.io/set
    #:with-member #:without-member #:is-member)
   (:import-from :pfds.shcl.io/map
    #:with-entry #:without-entry #:lookup-entry)
   (:import-from :pfds.shcl.io/tree
-   #:define-tree #:print-node-properties #:print-graphviz)
+   #:define-tree #:print-node-properties #:print-graphviz
+   #:node-left #:node-right #:nil-tree-p)
   (:export
    #:is-empty
    #:empty
@@ -337,11 +339,13 @@
       (setf tree (rb-map-insert-from-root comparator tree (car pair) (cdr pair))))
     tree))
 
-(defgeneric gf-empty-p (tree))
-(defgeneric gf-left (tree))
-(defgeneric gf-right (tree))
-(defgeneric gf-color (tree))
-(defgeneric gf-contents (tree))
+(defgeneric node-color (tree))
+
+(defmethod node-color ((tree rb-map-node))
+  (rb-map-node-color tree))
+
+(defmethod node-color ((tree rb-set-node))
+  (rb-set-node-color tree))
 
 (defmethod print-node-properties ((tree rb-set-node) stream)
   (call-next-method)
@@ -351,86 +355,47 @@
   (call-next-method)
   (format stream " color=~A" (if (eq :black (rb-map-node-color tree)) "black" "red")))
 
-(defmacro define-debug-methods (base-name &key (map-p t))
-  (let* ((package (symbol-package base-name))
-         (nil-type (intern-conc package base-name "-NIL"))
-         (node-type (intern-conc package base-name "-NODE"))
-         (left (intern-conc package node-type "-LEFT"))
-         (right (intern-conc package node-type "-RIGHT"))
-         (color (intern-conc package node-type "-COLOR"))
-         (node-1-type (intern-conc package node-type "-1"))
-         (node-n-type (intern-conc package node-type "-N"))
-         (key (intern-conc package node-1-type "-KEY"))
-         (values (intern-conc package node-n-type "-VALUES")))
-    `(progn
-       (defmethod gf-empty-p ((tree ,nil-type))
-         t)
-
-       (defmethod gf-empty-p ((tree ,node-type))
-         nil)
-
-       (defmethod gf-left ((tree ,node-type))
-         (,left tree))
-
-       (defmethod gf-right ((tree ,node-type))
-         (,right tree))
-
-       (defmethod gf-color ((tree ,node-type))
-         (,color tree))
-
-       (defmethod gf-contents ((tree ,node-1-type))
-         ,(if map-p
-              `(list
-                (cons (,key tree)
-                      (,(intern-conc (symbol-package base-name) base-name "-NODE-1-VALUE") tree)))
-              `(,key tree)))
-
-       (defmethod gf-contents ((tree ,node-n-type))
-         (,values tree)))))
-
-(define-debug-methods rb-set :map-p nil)
-(define-debug-methods rb-map :map-p t)
-
 (defun black-depth (tree)
-  (if (gf-empty-p tree)
+  (if (nil-tree-p tree)
       1
-      (if (eq :black (gf-color tree))
-          (1+ (black-depth (gf-left tree)))
-          (black-depth (gf-left tree)))))
+      (if (eq :black (node-color tree))
+          (1+ (black-depth (node-left tree)))
+          (black-depth (node-left tree)))))
 
-(defun validate-black-depth (tree expected)
-  (if (gf-empty-p tree)
-      (unless (equal expected 1)
-        (cerror "ignore" "Black depth violation"))
-      (let ((new-expected (if (eq :black (gf-color tree))
+(defun check-black-depth (tree expected)
+  (if (nil-tree-p tree)
+      (cassert (equal expected 1) nil "Black depth violation")
+      (let ((new-expected (if (eq :black (node-color tree))
                               (1- expected)
                               expected)))
-        (validate-black-depth (gf-left tree) new-expected)
-        (validate-black-depth (gf-right tree) new-expected))))
+        (check-black-depth (node-left tree) new-expected)
+        (check-black-depth (node-right tree) new-expected))))
 
-(defun gf-red-p (tree)
-  (and (not (gf-empty-p tree))
-       (eq :red (gf-color tree))))
+(defun node-red-p (tree)
+  (and (not (nil-tree-p tree))
+       (eq :red (node-color tree))))
 
-(defun validate-red-invariant (tree)
-  (unless (gf-empty-p tree)
-    (when (and (gf-red-p tree)
-               (or (gf-red-p (gf-left tree))
-                   (gf-red-p (gf-right tree))))
-      (cerror "ignore" "red-red violation"))))
+(defun check-red-invariant (tree)
+  (unless (nil-tree-p tree)
+    (cassert (or (not (node-red-p tree))
+                 (and (not (node-red-p (node-left tree)))
+                      (not (node-red-p (node-right tree)))))
+             nil "red-red violation")
 
-(defgeneric validate-tree (tree))
+    (check-red-invariant (node-left tree))
+    (check-red-invariant (node-right tree))))
 
-(defmethod validate-tree (tree)
-  (validate-red-invariant tree)
-  (validate-black-depth tree (black-depth tree)))
+(defun check-balance (tree)
+  (check-red-invariant tree)
+  (check-black-depth tree (black-depth tree)))
 
 (define-immutable-structure (red-black-set (:constructor %make-red-black-set))
   (tree (rb-set-nil) :type rb-set)
   (comparator (error "required")))
 
-(defmethod validate-tree ((set red-black-set))
-  (validate-tree (red-black-set-tree set)))
+(defmethod check-invariants ((set red-black-set))
+  (check-rb-set (red-black-set-tree set) (red-black-set-comparator set))
+  (check-balance (red-black-set-tree set)))
 
 (defmethod to-list ((set red-black-set))
   (rb-set-to-list (red-black-set-tree set)))
@@ -490,8 +455,9 @@
   (tree (rb-map-nil) :type rb-map)
   (comparator (error "required")))
 
-(defmethod validate-tree ((map red-black-map))
-  (validate-tree (red-black-map-tree map)))
+(defmethod check-invariants ((map red-black-map))
+  (check-rb-map (red-black-map-tree map) (red-black-map-comparator map))
+  (check-balance (red-black-map-tree map)))
 
 (defmethod to-list ((map red-black-map))
   (rb-map-to-list (red-black-map-tree map)))
