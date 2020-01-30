@@ -25,7 +25,8 @@
   (:import-from :pfds.shcl.io/red-black-tree
    #:make-red-black-set* #:red-black-set)
   (:import-from :pfds.shcl.io/unbalanced-tree #:make-unbalanced-set*)
-  (:import-from :prove #:is #:subtest #:ok #:pass #:fail))
+  (:import-from :prove #:is #:subtest #:ok #:pass #:fail)
+  (:export #:run-tests #:test-set))
 (in-package :pfds.shcl.io/tests/set)
 
 (defun checked (thing)
@@ -161,11 +162,14 @@
       (is list nil
           "The set should be empty after removing everything"))))
 
+(defun test-set (constructor)
+  (test-construction constructor)
+  (test-unnecessary-removal constructor)
+  (test-unnecessary-insert constructor)
+  (test-unequal-members constructor)
+  (test-buildup-and-teardown constructor))
+
 (defun run-tests (&optional (constructors *constructors*))
   (dolist (constructor constructors)
     (subtest (symbol-name constructor)
-      (test-construction constructor)
-      (test-unnecessary-removal constructor)
-      (test-unnecessary-insert constructor)
-      (test-unequal-members constructor)
-      (test-buildup-and-teardown constructor))))
+      (test-set constructor))))
