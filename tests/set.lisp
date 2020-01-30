@@ -21,7 +21,7 @@
   (:import-from :pfds.shcl.io/compare
    #:compare #:compare-objects)
   (:import-from :pfds.shcl.io/set
-   #:is-empty #:empty #:is-member)
+   #:is-empty #:empty #:is-member #:with-member #:without-member)
   (:import-from :pfds.shcl.io/red-black-tree
    #:make-red-black-set* #:red-black-set)
   (:import-from :pfds.shcl.io/unbalanced-tree #:make-unbalanced-set*)
@@ -33,11 +33,11 @@
   (check-invariants thing)
   thing)
 
-(defun with-member (set item)
-  (checked (pfds.shcl.io/set:with-member set item)))
+(defun with (set item)
+  (checked (with-member set item)))
 
-(defun without-member (set item)
-  (checked (pfds.shcl.io/set:without-member set item)))
+(defun without (set item)
+  (checked (without-member set item)))
 
 (defun eql-unique (items)
   (let ((table (make-hash-table :test 'eql))
@@ -103,7 +103,7 @@
 (defun test-unnecessary-removal (constructor)
   (let ((set (funcall constructor *even-numbers*)))
     (dolist (odd *odd-numbers*)
-      (let ((new-set (without-member set odd)))
+      (let ((new-set (without set odd)))
         (unless (eq new-set set)
           (fail (format nil "removing ~A resulted in a different set" odd))
           (return-from test-unnecessary-removal)))))
@@ -113,7 +113,7 @@
 (defun test-unnecessary-insert (constructor)
   (let ((set (funcall constructor *sorted-numbers*)))
     (dolist (number *sorted-numbers*)
-      (let ((new-set (with-member set number)))
+      (let ((new-set (with set number)))
         (unless (eq new-set set)
           (fail (format nil "inserting ~A resulted in a different set" number))
           (return-from test-unnecessary-insert)))))
@@ -131,7 +131,7 @@
       (unless (is-member set token)
         (fail "Token couldn't be found")
         (return))
-      (let ((new-set (without-member set token)))
+      (let ((new-set (without set token)))
         (when (eq new-set set)
           (fail "Removing a token returned the same set")
           (return))
@@ -147,13 +147,13 @@
          (tokens (loop :for i :below 100 :collect (make-token :value i)))
          (items (nconc tokens numbers)))
     (dolist (item items)
-      (setf set (with-member set item))
+      (setf set (with set item))
       (unless (is-member set item)
         (fail "A just-inserted item couldn't be found")
         (return-from test-buildup-and-teardown)))
 
     (dolist (item items)
-      (setf set (without-member set item))
+      (setf set (without set item))
       (when (is-member set item)
         (fail "A just-removed item couldn't be found")
         (return-from test-buildup-and-teardown)))
