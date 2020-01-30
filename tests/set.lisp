@@ -66,15 +66,9 @@
 (defparameter *random-numbers* (list* 666.0 666 666 (loop :for i :below 1000 :collect (random 1000))))
 (defparameter *random-numbers-uniqued* (eql-unique *random-numbers*))
 
-(defun red-black-set-constructor (&optional items)
-  (make-red-black-set* 'compare :items items))
-
-(defun unbalanced-set-constructor (&optional items)
-  (make-unbalanced-set* 'compare :items items))
-
-(defparameter *constructors*
-  '(red-black-set-constructor
-    unbalanced-set-constructor))
+(defparameter *makers*
+  '(make-red-black-set*
+    make-unbalanced-set*))
 
 (defun compare-< (left right)
   (eq :less (compare left right)))
@@ -169,7 +163,11 @@
   (test-unequal-members constructor)
   (test-buildup-and-teardown constructor))
 
-(defun run-tests (&optional (constructors *constructors*))
-  (dolist (constructor constructors)
-    (subtest (symbol-name constructor)
-      (test-set constructor))))
+(defun constructor (maker)
+  (lambda (&optional items)
+    (funcall maker 'compare :items items)))
+
+(defun run-tests (&optional (makers *makers*))
+  (dolist (maker makers)
+    (subtest (symbol-name maker)
+      (test-set (constructor maker)))))
