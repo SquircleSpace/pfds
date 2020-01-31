@@ -198,7 +198,8 @@ That's a shame, because splay trees are super fun!  Due to the
 overwhelming fun-ness of splay trees, this library provides an impure
 implementation of splay sets and maps.  Under the hood, these are
 implemented using purely functional trees.  So, you can at least feel
-warm and fuzzy about that.
+warm and fuzzy about that... assuming consing makes you feel warm and
+fuzzy.
 
 - `MAKE-IMPURE-SPLAY-SET`: `O(n log(n))`
 - `IMPURE-SPLAY-SET-IS-EMPTY`: `O(1)`
