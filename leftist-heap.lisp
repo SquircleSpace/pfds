@@ -177,7 +177,7 @@
 
 (defun make-leftist-heap* (comparator &key (bias :height) items)
   (check-type bias (member :height :weight))
-  (let ((guts (make-guts comparator :height items)))
+  (let ((guts (make-guts comparator bias items)))
     (ecase bias
       (:height
        (%make-height-biased-leftist-heap :comparator comparator :guts guts))
