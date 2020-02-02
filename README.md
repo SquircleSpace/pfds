@@ -84,7 +84,7 @@ so if you only need a queue then you should consider using
 #### `SPLAY-HEAP`
 
 - `MAKE-SPLAY-HEAP`: `O(n log(n))` amortized
-- `HEAP-TOP`: `O(n)`
+- `HEAP-TOP`: `O(1)`
 - `WITH-MEMBER`: `O(log(n))` amortized
 - `WITHOUT-HEAP-TOP`: `O(log(n))` amortized
 - `MERGE-HEAPS`: `O(n)` amortized

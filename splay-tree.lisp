@@ -83,7 +83,7 @@
                      :define-maker-p nil
                      :define-lookup-p nil))
 
-(defmacro define-splay-operations (base-name &key map-p)
+(defmacro define-splay-operations (base-name &key map-p copier make-node-1)
   (let* ((splay (intern-conc *package* base-name "-SPLAY"))
          (splay-inner (gensym "SPLAY"))
          (nil-p (intern-conc *package* base-name "-NIL-P"))
@@ -91,14 +91,14 @@
          (representative (intern-conc *package* base-name "-NODE-REPRESENTATIVE"))
          (left (intern-conc *package* base-name "-NODE-LEFT"))
          (right (intern-conc *package* base-name "-NODE-RIGHT"))
-         (node-copy (intern-conc *package* "COPY-" base-name "-NODE"))
+         (node-copy (or copier (intern-conc *package* "COPY-" base-name "-NODE")))
          (value (when map-p (gensym "VALUE")))
          (value-list (when map-p (list value)))
          (insert (intern-conc *package* base-name "-INSERT"))
          (remove (intern-conc *package* base-name "-REMOVE"))
          (lookup (intern-conc *package* base-name "-LOOKUP"))
          (node-1-type (intern-conc *package* base-name "-NODE-1"))
-         (make-node-1 (intern-conc *package* "MAKE-" node-1-type))
+         (make-node-1 (or make-node-1 (intern-conc *package* "MAKE-" node-1-type)))
          (node-1-value (when map-p (intern-conc *package* node-1-type "-VALUE")))
          (node-n-type (intern-conc *package* base-name "-NODE-N"))
          (node-n-values (intern-conc *package* node-n-type "-VALUES"))
@@ -427,43 +427,58 @@
 (defmethod print-graphviz ((map impure-splay-map) stream)
   (print-graphviz (impure-splay-map-tree map) stream))
 
+(define-tree sp-heap (:map-p nil
+                      :define-insert-p nil
+                      :define-remove-p nil
+                      :define-maker-p nil
+                      :define-lookup-p nil)
+  (min (error "min is required")))
+
+(defun sp-heap-node-update (base &key (left (sp-heap-node-left base)) (right (sp-heap-node-right base)))
+  (copy-sp-heap-node base :left left :right right :min (if (sp-heap-nil-p left)
+                                                           (sp-heap-node-1-key base)
+                                                           (sp-heap-node-min left))))
+
+(defun make-sp-heap-node (&key (key (error "key is required")) (left (sp-heap-nil)) (right (sp-heap-nil)))
+  (make-sp-heap-node-1 :key key :left left :right right :min (if (sp-heap-nil-p left)
+                                                                 key
+                                                                 (sp-heap-node-min left))))
+
+(define-splay-operations sp-heap :copier sp-heap-node-update :make-node-1 make-sp-heap-node)
+
 (define-immutable-structure (splay-heap (:constructor %make-splay-heap))
-  (tree (sp-set-nil) :type sp-set)
+  (tree (sp-heap-nil) :type sp-heap)
   (comparator (error "comparator is required")))
 
-(defun sp-heap-split (comparator sp-set pivot)
-  (when (sp-set-nil-p sp-set)
+(defun sp-heap-split (comparator sp-heap pivot)
+  (when (sp-heap-nil-p sp-heap)
     (return-from sp-heap-split
-      (values (sp-set-nil) (sp-set-nil))))
+      (values (sp-heap-nil) (sp-heap-nil))))
 
-  (multiple-value-bind (splayed comparison) (sp-set-splay comparator sp-set pivot)
+  (multiple-value-bind (splayed comparison) (sp-heap-splay comparator sp-heap pivot)
     (ecase comparison
       (:less
-       (values (copy-sp-set-node-1 splayed :right (sp-set-nil))
-               (sp-set-node-right splayed)))
+       (values (sp-heap-node-update splayed :right (sp-heap-nil))
+               (sp-heap-node-right splayed)))
       ((:greater :equal :unequal)
-       (values (sp-set-node-left splayed)
-               (copy-sp-set-node-1 splayed :left (sp-set-nil)))))))
+       (values (sp-heap-node-left splayed)
+               (sp-heap-node-update splayed :left (sp-heap-nil)))))))
 
-(defun sp-heap-top (sp-set)
-  (cond
-    ((sp-set-nil-p sp-set)
-     (values nil nil))
-    ((sp-set-nil-p (sp-set-node-left sp-set))
-     (values (sp-set-node-1-key sp-set) t))
-    (t
-     (sp-heap-top (sp-set-node-left sp-set)))))
+(defun sp-heap-top (sp-heap)
+  (if (sp-heap-nil-p sp-heap)
+      (values nil nil)
+      (values (sp-heap-node-min sp-heap) t)))
 
 (defmethod heap-top ((heap splay-heap))
   (sp-heap-top (splay-heap-tree heap)))
 
-(defun sp-heap-with-member (comparator sp-set item)
-  (when (sp-set-nil-p sp-set)
+(defun sp-heap-with-member (comparator sp-heap item)
+  (when (sp-heap-nil-p sp-heap)
     (return-from sp-heap-with-member
-      (make-sp-set-node-1 :key item)))
+      (make-sp-heap-node :key item)))
 
-  (multiple-value-bind (lesser greater) (sp-heap-split comparator sp-set item)
-    (make-sp-set-node-1 :key item :left lesser :right greater)))
+  (multiple-value-bind (lesser greater) (sp-heap-split comparator sp-heap item)
+    (make-sp-heap-node :key item :left lesser :right greater)))
 
 (defmethod with-member ((heap splay-heap) item)
   (copy-splay-heap heap
@@ -471,16 +486,16 @@
                                               (splay-heap-tree heap)
                                               item)))
 
-(defun sp-heap-without-heap-top (sp-set)
-  (when (sp-set-nil-p sp-set)
+(defun sp-heap-without-heap-top (sp-heap)
+  (when (sp-heap-nil-p sp-heap)
     (return-from sp-heap-without-heap-top
-      (values sp-set nil nil)))
+      (values sp-heap nil nil)))
 
-  (let ((splayed (sp-set-splay (constantly :greater) sp-set nil)))
-    (assert (sp-set-nil-p (sp-set-node-left splayed)))
+  (let ((splayed (sp-heap-splay (constantly :greater) sp-heap nil)))
+    (assert (sp-heap-nil-p (sp-heap-node-left splayed)))
     (values
-     (sp-set-node-right splayed)
-     (sp-set-node-1-key splayed)
+     (sp-heap-node-right splayed)
+     (sp-heap-node-1-key splayed)
      t)))
 
 (defmethod without-heap-top ((heap splay-heap))
@@ -492,16 +507,16 @@
             valid-p)))
 
 (defun sp-heap-merge (comparator left right)
-  (when (sp-set-nil-p left)
+  (when (sp-heap-nil-p left)
     (return-from sp-heap-merge right))
-  (when (sp-set-nil-p right)
+  (when (sp-heap-nil-p right)
     (return-from sp-heap-merge left))
 
   (multiple-value-bind
         (lesser greater)
-      (sp-heap-split comparator left (sp-set-node-1-key right))
-    (copy-sp-set-node-1 right :left (sp-heap-merge comparator lesser (sp-set-node-left right))
-                              :right (sp-heap-merge comparator greater (sp-set-node-right right)))))
+      (sp-heap-split comparator left (sp-heap-node-1-key right))
+    (sp-heap-node-update right :left (sp-heap-merge comparator lesser (sp-heap-node-left right))
+                               :right (sp-heap-merge comparator greater (sp-heap-node-right right)))))
 
 (defmethod merge-heaps ((first splay-heap) (second splay-heap))
   (unless (eq (splay-heap-comparator first)
@@ -514,31 +529,35 @@
                     :comparator (splay-heap-comparator first)))
 
 (defmethod is-empty ((heap splay-heap))
-  (sp-set-nil-p (splay-heap-tree heap)))
+  (sp-heap-nil-p (splay-heap-tree heap)))
 
 (defmethod empty ((heap splay-heap))
   (%make-splay-heap :comparator (splay-heap-comparator heap)))
 
 (defmethod to-list ((heap splay-heap))
   (let ((builder (make-impure-list-builder)))
-    (do-sp-set (key (splay-heap-tree heap))
+    (do-sp-heap (key (splay-heap-tree heap))
       (impure-list-builder-add builder key))
     (impure-list-builder-extract builder)))
 
-(defun check-sp-heap (sp-set comparator)
-  (etypecase sp-set
-    (sp-set-nil)
-    (sp-set-node-1
-     (do-sp-set (key (sp-set-node-left sp-set))
-       (cassert (not (eq :greater (funcall comparator key (sp-set-node-1-key sp-set))))))
-     (do-sp-set (key (sp-set-node-right sp-set))
-       (cassert (not (eq :less (funcall comparator key (sp-set-node-1-key sp-set)))))))))
+(defun check-sp-heap (sp-heap comparator)
+  (etypecase sp-heap
+    (sp-heap-nil)
+    (sp-heap-node-1
+     (let (min-compared-p)
+       (do-sp-heap (key (sp-heap-node-left sp-heap))
+         (cassert (not (eq :greater (funcall comparator key (sp-heap-node-1-key sp-heap)))))
+         (unless min-compared-p
+           (cassert (eq key (sp-heap-node-min sp-heap)))
+           (setf min-compared-p t))))
+     (do-sp-heap (key (sp-heap-node-right sp-heap))
+       (cassert (not (eq :less (funcall comparator key (sp-heap-node-1-key sp-heap)))))))))
 
 (defmethod check-invariants ((heap splay-heap))
   (check-sp-heap (splay-heap-tree heap) (splay-heap-comparator heap)))
 
 (defun make-splay-heap* (comparator &key items)
-  (let ((set (sp-set-nil)))
+  (let ((set (sp-heap-nil)))
     (dolist (key items)
       (setf set (sp-heap-with-member comparator set key)))
     (%make-splay-heap :tree set :comparator comparator)))
