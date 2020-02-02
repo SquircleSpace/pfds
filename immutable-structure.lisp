@@ -129,11 +129,11 @@
                                 slot-keywords slot-vars)))))
       `(progn
          (defmethod clone ((,object ,structure-name) &key ,@key-args)
-           (unless (eq (class-of ,object) ,(find-class structure-name))
+           (unless (eq (class-of ,object) (find-class ',structure-name))
              (warn "No clone method for ~A, falling back to ~A cloner" (class-of ,object) ',structure-name))
            ,body)
          (defun ,name (,object &key ,@key-args)
-           (if (eq (class-of ,object) ,(find-class structure-name))
+           (if (eq (class-of ,object) (find-class ',structure-name))
                ,body
                (clone ,object ,@(mapcan (lambda (keyword var)
                                           `(,keyword ,var))
