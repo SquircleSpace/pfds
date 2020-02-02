@@ -17,7 +17,8 @@
   (:import-from :pfds.shcl.io/compare
    #:compare #:compare-objects #:compare-objects-using-slots
    #:compare*)
-  (:import-from :prove #:is #:subtest #:ok))
+  (:import-from :prove #:is #:subtest #:ok)
+  (:export #:run-tests))
 (in-package :pfds.shcl.io/tests/compare)
 
 (defvar *constructors* (make-hash-table :test 'eq))

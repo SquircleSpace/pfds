@@ -20,7 +20,8 @@
   (:import-from :pfds.shcl.io/leftist-heap #:make-leftist-heap*)
   (:import-from :pfds.shcl.io/binomial-heap #:make-binomial-heap*)
   (:import-from :pfds.shcl.io/splay-tree #:make-splay-heap*)
-  (:import-from :prove #:is #:subtest #:ok))
+  (:import-from :prove #:is #:subtest #:ok)
+  (:export #:run-tests))
 (in-package :pfds.shcl.io/tests/heap)
 
 (defvar *sorted-numbers* (loop :for i :below 100000 :collect i))

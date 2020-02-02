@@ -29,7 +29,8 @@
   (:import-from :pfds.shcl.io/unbalanced-tree
    #:make-unbalanced-map*)
   (:import-from :pfds.shcl.io/tests/set #:test-set)
-  (:import-from :prove #:is #:subtest #:ok #:pass #:fail))
+  (:import-from :prove #:is #:subtest #:ok #:pass #:fail)
+  (:export #:run-tests))
 (in-package :pfds.shcl.io/tests/map)
 
 (defun checked (thing)
