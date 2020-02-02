@@ -32,6 +32,16 @@
   (:import-from :prove #:is #:subtest #:ok #:pass #:fail))
 (in-package :pfds.shcl.io/tests/map)
 
+(defun checked (thing)
+  (check-invariants thing)
+  thing)
+
+(defun with (map key value)
+  (checked (with-entry map key value)))
+
+(defun without (map key)
+  (checked (without-entry map key)))
+
 (define-immutable-structure set-wrapper
   (map (error "required")))
 

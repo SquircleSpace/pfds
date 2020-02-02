@@ -14,14 +14,24 @@
 
 (defpackage :pfds.shcl.io/splay-tree
   (:use :common-lisp)
+  (:import-from :pfds.shcl.io/common
+   #:to-list #:check-invariants)
+  (:import-from :pfds.shcl.io/impure-list-builder
+   #:make-impure-list-builder #:impure-list-builder-add
+   #:impure-list-builder-extract)
   (:import-from :pfds.shcl.io/tree
    #:define-tree #:print-graphviz)
   (:import-from :pfds.shcl.io/utility
-   #:intern-conc)
+   #:intern-conc #:cassert)
   (:import-from :pfds.shcl.io/list-utility
    #:list-set-is-member #:list-map-lookup)
   (:import-from :pfds.shcl.io/structure-mop
    #:define-struct)
+  (:import-from :pfds.shcl.io/immutable-structure
+   #:define-immutable-structure)
+  (:import-from :pfds.shcl.io/heap
+   #:merge-heaps #:heap-top #:without-heap-top
+   #:with-member #:is-empty #:empty)
   (:export
    #:impure-splay-set
    #:make-impure-splay-set
@@ -47,7 +57,18 @@
    #:impure-splay-map-remove
    #:impure-splay-map-remove-all
    #:impure-splay-map-lookup
-   #:impure-splay-map-to-list))
+   #:impure-splay-map-to-list
+
+   #:splay-heap
+   #:splay-heap-p
+   #:make-splay-heap
+   #:make-splay-heap*
+   #:merge-heaps
+   #:heap-top
+   #:without-heap-top
+   #:with-member
+   #:is-empty
+   #:empty))
 (in-package :pfds.shcl.io/splay-tree)
 
 (define-tree sp-set (:map-p nil
@@ -405,3 +426,129 @@
 
 (defmethod print-graphviz ((map impure-splay-map) stream)
   (print-graphviz (impure-splay-map-tree map) stream))
+
+(define-immutable-structure (splay-heap (:constructor %make-splay-heap))
+  (tree (sp-set-nil) :type sp-set)
+  (comparator (error "comparator is required")))
+
+(defun sp-heap-split (comparator sp-set pivot)
+  (when (sp-set-nil-p sp-set)
+    (return-from sp-heap-split
+      (values (sp-set-nil) (sp-set-nil))))
+
+  (multiple-value-bind (splayed comparison) (sp-set-splay comparator sp-set pivot)
+    (ecase comparison
+      (:less
+       (values (copy-sp-set-node-1 splayed :right (sp-set-nil))
+               (sp-set-node-right splayed)))
+      ((:greater :equal :unequal)
+       (values (sp-set-node-left splayed)
+               (copy-sp-set-node-1 splayed :left (sp-set-nil)))))))
+
+(defun sp-heap-top (sp-set)
+  (cond
+    ((sp-set-nil-p sp-set)
+     (values nil nil))
+    ((sp-set-nil-p (sp-set-node-left sp-set))
+     (values (sp-set-node-1-key sp-set) t))
+    (t
+     (sp-heap-top (sp-set-node-left sp-set)))))
+
+(defmethod heap-top ((heap splay-heap))
+  (sp-heap-top (splay-heap-tree heap)))
+
+(defun sp-heap-with-member (comparator sp-set item)
+  (when (sp-set-nil-p sp-set)
+    (return-from sp-heap-with-member
+      (make-sp-set-node-1 :key item)))
+
+  (multiple-value-bind (lesser greater) (sp-heap-split comparator sp-set item)
+    (make-sp-set-node-1 :key item :left lesser :right greater)))
+
+(defmethod with-member ((heap splay-heap) item)
+  (copy-splay-heap heap
+                   :tree (sp-heap-with-member (splay-heap-comparator heap)
+                                              (splay-heap-tree heap)
+                                              item)))
+
+(defun sp-heap-without-heap-top (sp-set)
+  (when (sp-set-nil-p sp-set)
+    (return-from sp-heap-without-heap-top
+      (values sp-set nil nil)))
+
+  (let ((splayed (sp-set-splay (constantly :greater) sp-set nil)))
+    (assert (sp-set-nil-p (sp-set-node-left splayed)))
+    (values
+     (sp-set-node-right splayed)
+     (sp-set-node-1-key splayed)
+     t)))
+
+(defmethod without-heap-top ((heap splay-heap))
+  (multiple-value-bind
+        (new-tree value valid-p)
+      (sp-heap-without-heap-top (splay-heap-tree heap))
+    (values (copy-splay-heap heap :tree new-tree)
+            value
+            valid-p)))
+
+(defun sp-heap-merge (comparator left right)
+  (when (sp-set-nil-p left)
+    (return-from sp-heap-merge right))
+  (when (sp-set-nil-p right)
+    (return-from sp-heap-merge left))
+
+  (multiple-value-bind
+        (lesser greater)
+      (sp-heap-split comparator left (sp-set-node-1-key right))
+    (copy-sp-set-node-1 right :left (sp-heap-merge comparator lesser (sp-set-node-left right))
+                              :right (sp-heap-merge comparator greater (sp-set-node-right right)))))
+
+(defmethod merge-heaps ((first splay-heap) (second splay-heap))
+  (unless (eq (splay-heap-comparator first)
+              (splay-heap-comparator second))
+    (error "Heaps have different comparators"))
+
+  (%make-splay-heap :tree (sp-heap-merge (splay-heap-comparator first)
+                                         (splay-heap-tree first)
+                                         (splay-heap-tree second))
+                    :comparator (splay-heap-comparator first)))
+
+(defmethod is-empty ((heap splay-heap))
+  (sp-set-nil-p (splay-heap-tree heap)))
+
+(defmethod empty ((heap splay-heap))
+  (%make-splay-heap :comparator (splay-heap-comparator heap)))
+
+(defmethod to-list ((heap splay-heap))
+  (let ((builder (make-impure-list-builder)))
+    (do-sp-set (key (splay-heap-tree heap))
+      (impure-list-builder-add builder key))
+    (impure-list-builder-extract builder)))
+
+(defun check-sp-heap (sp-set comparator)
+  (etypecase sp-set
+    (sp-set-nil)
+    (sp-set-node-1
+     (do-sp-set (key (sp-set-node-left sp-set))
+       (cassert (not (eq :greater (funcall comparator key (sp-set-node-1-key sp-set))))))
+     (do-sp-set (key (sp-set-node-right sp-set))
+       (cassert (not (eq :less (funcall comparator key (sp-set-node-1-key sp-set)))))))))
+
+(defmethod check-invariants ((heap splay-heap))
+  (check-sp-heap (splay-heap-tree heap) (splay-heap-comparator heap)))
+
+(defun make-splay-heap* (comparator &key items)
+  (let ((set (sp-set-nil)))
+    (dolist (key items)
+      (setf set (sp-heap-with-member comparator set key)))
+    (%make-splay-heap :tree set :comparator comparator)))
+
+(defun make-splay-heap (comparator &rest items)
+  (make-splay-heap* comparator :items items))
+
+(defmethod print-object ((heap splay-heap) stream)
+  (write `(make-splay-heap* ',(splay-heap-comparator heap) :items ',(to-list heap))
+         :stream stream))
+
+(defmethod print-graphviz ((heap splay-heap) stream)
+  (print-graphviz (splay-heap-tree heap) stream))

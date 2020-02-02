@@ -81,6 +81,18 @@ so if you only need a queue then you should consider using
 - `MERGE-HEAPS`: `O(log(n))`
 - `IS-EMPTY`: `O(1)`
 
+#### `SPLAY-HEAP`
+
+- `MAKE-SPLAY-HEAP`: `O(n log(n))` amortized
+- `HEAP-TOP`: `O(n)`
+- `WITH-MEMBER`: `O(log(n))` amortized
+- `WITHOUT-HEAP-TOP`: `O(log(n))` amortized
+- `MERGE-HEAPS`: `O(n)` amortized
+- `IS-EMPTY`: `O(1)`
+
+Note: this heap *is* purely functional, but the asymptotic bounds
+given above assume the heap is not used persistently.
+
 ## Design decisions
 
 ### Dependencies

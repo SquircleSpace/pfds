@@ -19,6 +19,7 @@
    #:merge-heaps #:heap-top #:without-heap-top #:with-member #:is-empty #:empty)
   (:import-from :pfds.shcl.io/leftist-heap #:make-leftist-heap*)
   (:import-from :pfds.shcl.io/binomial-heap #:make-binomial-heap*)
+  (:import-from :pfds.shcl.io/splay-tree #:make-splay-heap*)
   (:import-from :prove #:is #:subtest #:ok))
 (in-package :pfds.shcl.io/tests/heap)
 
@@ -36,10 +37,14 @@
 (defun binomial-heap-constructor (&optional items)
   (make-binomial-heap* 'compare :items items))
 
+(defun splay-heap-constructor (&optional items)
+  (make-splay-heap* 'compare :items items))
+
 (defvar *constructors*
   '(weight-biased-leftist-heap-constructor
     height-biased-leftist-heap-constructor
-    binomial-heap-constructor))
+    binomial-heap-constructor
+    splay-heap-constructor))
 
 (defun heap-sort (heap expected)
   (let (sorted)
