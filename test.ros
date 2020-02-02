@@ -4,8 +4,10 @@
 exec ros -Q -- "$0" "$@"
 |#
 
-(eval-when (:compile-toplevel :load-toplevel :execute)
-  (require :asdf))
+(setf *debugger-hook* (lambda (error hook)
+                        (declare (ignore hook))
+                        (format *error-output* "Error while running tests:~%~A~%" error)
+                        (uiop:quit 1)))
 
 (push (truename ".") asdf:*central-registry*)
 
