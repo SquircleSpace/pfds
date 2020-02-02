@@ -83,6 +83,10 @@
                      :define-maker-p nil
                      :define-lookup-p nil))
 
+(declaim (inline max-splay-depth))
+(defun max-splay-depth ()
+  1000)
+
 (defmacro define-splay-operations (base-name &key map-p copier make-node-1)
   (let* ((splay (intern-conc *package* base-name "-SPLAY"))
          (splay-inner (gensym "SPLAY"))
@@ -131,16 +135,43 @@
              ;; into making the tree, we avoid that unnecessary
              ;; allocation and give the calling function the
              ;; information it conveniently needed anyway.
-             ((,splay-inner (tree)
+
+             ;; For degenerate trees (i.e. very unbalanced trees), we
+             ;; can actually stack overflow trying to get to the
+             ;; bottom.  We could work around that by re-working the
+             ;; algorithm to be non-recursive and using an explicit
+             ;; stack to store state required for splaying on the way
+             ;; back up.  For now, its easier to just perform very
+             ;; deep splays in multiple stages.  This screws up the
+             ;; amortized asymptotics of the data structure,
+             ;; but... meh?  It will only make the tree more balanced
+             ;; than it would have been otherwise.  The first splay
+             ;; after making a stick is more expensive than it should
+             ;; be, but all subsequent operations are cheaper than
+             ;; they would have been.  That seems like a fine trade.
+             ;; Especially since consing up an explicit stack will
+             ;; probably make the common case slower.  How often are
+             ;; we going to see trees with height measured in the
+             ;; thousands, anyway?
+             ((,splay-inner (tree depth)
                 (assert (not (,nil-p tree)))
 
                 (let ((first-comparison (funcall comparator (,representative tree) pivot)))
+                  (when (> depth (max-splay-depth))
+                    (return-from ,splay-inner
+                      (values (,left tree)
+                              tree
+                              (,right tree)
+                              first-comparison
+                              nil)))
+
                   (ecase first-comparison
                     ((:equal :unequal)
                      (values (,left tree)
                              tree
                              (,right tree)
-                             first-comparison))
+                             first-comparison
+                             t))
 
                     (:less
                      (let ((right (,right tree)))
@@ -149,7 +180,8 @@
                            (values (,left tree)
                                    tree
                                    right
-                                   first-comparison)))
+                                   first-comparison
+                                   t)))
 
                        (let ((second-comparison (funcall comparator (,representative right) pivot)))
                          (ecase second-comparison
@@ -157,7 +189,8 @@
                             (values (,node-copy tree :right (,left right))
                                     right
                                     (,right right)
-                                    second-comparison))
+                                    second-comparison
+                                    t))
 
                            (:less
                             (let ((target (,right right)))
@@ -166,16 +199,18 @@
                                   (values (,node-copy tree :right (,left right))
                                           right
                                           (,right right)
-                                          second-comparison)))
+                                          second-comparison
+                                          t)))
 
-                              (multiple-value-bind (small center big comparison) (,splay-inner target)
+                              (multiple-value-bind (small center big comparison bottom-p) (,splay-inner target (1+ depth))
                                 (values
                                  (,node-copy right
                                              :left (,node-copy tree :right (,left right))
                                              :right small)
                                  center
                                  big
-                                 comparison))))
+                                 comparison
+                                 bottom-p))))
 
                            (:greater
                             (let ((target (,left right)))
@@ -184,14 +219,16 @@
                                   (values (,node-copy tree :right (,left right))
                                           right
                                           (,right right)
-                                          second-comparison)))
+                                          second-comparison
+                                          t)))
 
-                              (multiple-value-bind (small center big comparison) (,splay-inner target)
+                              (multiple-value-bind (small center big comparison bottom-p) (,splay-inner target (1+ depth))
                                 (values
                                  (,node-copy tree :right small)
                                  center
                                  (,node-copy right :left big)
-                                 comparison))))))))
+                                 comparison
+                                 bottom-p))))))))
 
                     (:greater
                      (let ((left (,left tree)))
@@ -200,7 +237,8 @@
                            (values left
                                    tree
                                    (,right tree)
-                                   first-comparison)))
+                                   first-comparison
+                                   t)))
 
                        (let ((second-comparison (funcall comparator (,representative left) pivot)))
                          (ecase second-comparison
@@ -208,7 +246,8 @@
                             (values (,left left)
                                     left
                                     (,node-copy tree :left (,right left))
-                                    second-comparison))
+                                    second-comparison
+                                    t))
 
                            (:less
                             (let ((target (,right left)))
@@ -217,14 +256,16 @@
                                   (values (,left left)
                                           left
                                           (,node-copy tree :left (,right left))
-                                          second-comparison)))
+                                          second-comparison
+                                          t)))
 
-                              (multiple-value-bind (small center big comparison) (,splay-inner target)
+                              (multiple-value-bind (small center big comparison bottom-p) (,splay-inner target (1+ depth))
                                 (values
                                  (,node-copy left :right small)
                                  center
                                  (,node-copy tree :left big)
-                                 comparison))))
+                                 comparison
+                                 bottom-p))))
 
                            (:greater
                             (let ((target (,left left)))
@@ -233,23 +274,29 @@
                                   (values (,left left)
                                           left
                                           (,node-copy tree :left (,right left))
-                                          second-comparison)))
+                                          second-comparison
+                                          t)))
 
-                              (multiple-value-bind (small center big comparison) (,splay-inner target)
+                              (multiple-value-bind (small center big comparison bottom-p) (,splay-inner target (1+ depth))
                                 (values
                                  small
                                  center
                                  (,node-copy left
                                              :left big
                                              :right (,node-copy tree :left (,right left)))
-                                 comparison))))))))))))
+                                 comparison
+                                 bottom-p))))))))))))
            (declare (dynamic-extent #',splay-inner))
 
            (when (,nil-p tree)
              (return-from ,splay (values tree nil)))
 
-           (multiple-value-bind (small center big comparison) (,splay-inner tree)
-             (values (,node-copy center :left small :right big) comparison))))
+           (loop
+             (multiple-value-bind (small center big comparison bottom-p) (,splay-inner tree 0)
+               (if bottom-p
+                   (return-from ,splay
+                     (values (,node-copy center :left small :right big) comparison))
+                   (setf tree (,node-copy center :left small :right big)))))))
 
        (defun ,insert (comparator tree key ,@value-list)
          (multiple-value-bind (splayed comparison) (,splay comparator tree key)
