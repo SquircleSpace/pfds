@@ -237,11 +237,17 @@
              (return-from ,insert
                (,with-key comparator tree comparison key ,@value-list)))
 
-           (if (,nil-p splayed)
-               (,make-node-1 :key key ,@(when value `(:value ,value)))
-               (,make-node-1 :key key ,@(when value `(:value ,value))
-                             :left (,node-copy splayed :right (,nil-type))
-                             :right (,right splayed)))))
+           (cond
+             ((,nil-p splayed)
+              (,make-node-1 :key key ,@(when value `(:value ,value))))
+             ((eq comparison :less)
+              (,make-node-1 :key key ,@(when value `(:value ,value))
+                            :left (,node-copy splayed :right (,nil-type))
+                            :right (,right splayed)))
+             ((eq comparison :greater)
+              (,make-node-1 :key key ,@(when value `(:value ,value))
+                            :left (,left splayed)
+                            :right (,node-copy splayed :left (,nil-type)))))))
 
        (defun ,join (left right)
          (cond
