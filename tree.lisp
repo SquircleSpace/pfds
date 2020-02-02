@@ -53,6 +53,7 @@
                                     (define-remove-p t)
                                     (define-maker-p t)
                                     (define-representative-p t)
+                                    (define-checker-p t)
                                     insert-left-balancer insert-right-balancer
                                     remove-left-balancer remove-right-balancer)
                        &body extra-node-slots)
@@ -83,7 +84,7 @@
                                  ;; We need this function whether they want it or not
                                  (intern-conc *package* node-base-type "-REPRESENTATIVE")
                                  (gensym "NODE-REPRESENTATIVE")))
-         (checker (intern-conc *package* "CHECK-" base-name))
+         (checker (when define-checker-p (intern-conc *package* "CHECK-" base-name)))
          (with-key (intern-conc *package* node-base-type "-WITH-KEY"))
          (without-key (intern-conc *package* node-base-type "-WITHOUT-KEY"))
          (with-equal (gensym "NODE-WITH-EQUAL"))
@@ -455,34 +456,35 @@
        (defmethod node-values ((,tree ,node-n-type))
          (,n-type-values ,tree))
 
-       (defun ,checker (,tree ,comparator)
-         (unless (,nil-type-p ,tree)
-           (labels
-               ((,check (,key)
-                  (,do-tree (,other ,@value-list (,node-left ,tree))
-                    (declare (ignore ,@value-list))
-                    (cassert (eq :less (funcall ,comparator ,other ,key))
-                             nil "All left children must be less than all their parents"))
-                  (,do-tree (,other ,@value-list (,node-right ,tree))
-                    (declare (ignore ,@value-list))
-                    (cassert (eq :greater (funcall ,comparator ,other ,key))
-                             nil "All right children must be greater than all their parents"))))
-             (declare (dynamic-extent #',check))
+       ,@(when define-checker-p
+           `((defun ,checker (,tree ,comparator)
+               (unless (,nil-type-p ,tree)
+                 (labels
+                     ((,check (,key)
+                        (,do-tree (,other ,@value-list (,node-left ,tree))
+                          (declare (ignore ,@value-list))
+                          (cassert (eq :less (funcall ,comparator ,other ,key))
+                                   nil "All left children must be less than all their parents"))
+                        (,do-tree (,other ,@value-list (,node-right ,tree))
+                          (declare (ignore ,@value-list))
+                          (cassert (eq :greater (funcall ,comparator ,other ,key))
+                                   nil "All right children must be greater than all their parents"))))
+                   (declare (dynamic-extent #',check))
 
-             (etypecase ,tree
-               (,node-1-type
-                (,check (,1-type-key ,tree)))
-               (,node-n-type
-                (cassert (cdr (,n-type-values ,tree))
-                         nil "n-type nodes must have multiple values")
-                (dolist (,value (,n-type-values ,tree))
-                  (,check ,(if map-p `(car ,value) value)))
-                (loop :for ,sublist :on (,n-type-values ,tree)
-                      :for ,key = ,(if map-p `(car (car ,sublist)) `(car ,sublist)) :do
-                        (loop :for ,other :in (cdr ,sublist) :do
-                          (cassert (eq :unequal (funcall ,comparator ,key ,(if map-p `(car ,other) other)))
-                                   nil "Peer values in n-type must be mutually :unequal")))))
-             (,checker (,node-left ,tree) ,comparator)
-             (,checker (,node-right ,tree) ,comparator))))
+                   (etypecase ,tree
+                     (,node-1-type
+                      (,check (,1-type-key ,tree)))
+                     (,node-n-type
+                      (cassert (cdr (,n-type-values ,tree))
+                               nil "n-type nodes must have multiple values")
+                      (dolist (,value (,n-type-values ,tree))
+                        (,check ,(if map-p `(car ,value) value)))
+                      (loop :for ,sublist :on (,n-type-values ,tree)
+                            :for ,key = ,(if map-p `(car (car ,sublist)) `(car ,sublist)) :do
+                              (loop :for ,other :in (cdr ,sublist) :do
+                                (cassert (eq :unequal (funcall ,comparator ,key ,(if map-p `(car ,other) other)))
+                                         nil "Peer values in n-type must be mutually :unequal")))))
+                   (,checker (,node-left ,tree) ,comparator)
+                   (,checker (,node-right ,tree) ,comparator))))))
 
        ',base-name)))

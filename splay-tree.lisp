@@ -431,7 +431,8 @@
                       :define-insert-p nil
                       :define-remove-p nil
                       :define-maker-p nil
-                      :define-lookup-p nil)
+                      :define-lookup-p nil
+                      :define-checker-p nil)
   (min (error "min is required")))
 
 (defun sp-heap-node-update (base &key (left (sp-heap-node-left base)) (right (sp-heap-node-right base)))
