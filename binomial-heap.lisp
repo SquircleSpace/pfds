@@ -31,7 +31,11 @@
    #:is-empty
    #:empty
    #:empty-binomial-heap
-   #:make-binomial-heap))
+   #:make-binomial-heap
+   #:make-binomial-heap*
+   #:binomial-heap-p
+   #:binomial-heap-comparator
+   #:binomial-heap-size))
 (in-package :pfds.shcl.io/binomial-heap)
 
 (define-adt heap-tree
