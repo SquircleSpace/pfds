@@ -76,7 +76,7 @@
          (to-list (intern-conc *package* base-name "-TO-LIST"))
          (node-copy (intern-conc *package* "COPY-" node-base-type))
          (do-tree (intern-conc *package* "DO-" base-name))
-         (do-tree-f (gensym "DO-TREE"))
+         (do-tree-f (intern-conc *package* do-tree "-F"))
          (insert (when define-insert-p (intern-conc *package* base-name "-INSERT")))
          (lookup (when define-lookup-p (intern-conc *package* base-name "-LOOKUP")))
          (remove (when define-remove-p (intern-conc *package* base-name "-REMOVE")))
