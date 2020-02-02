@@ -141,18 +141,24 @@
              ;; bottom.  We could work around that by re-working the
              ;; algorithm to be non-recursive and using an explicit
              ;; stack to store state required for splaying on the way
-             ;; back up.  For now, its easier to just perform very
-             ;; deep splays in multiple stages.  This screws up the
-             ;; amortized asymptotics of the data structure,
-             ;; but... meh?  It will only make the tree more balanced
-             ;; than it would have been otherwise.  The first splay
-             ;; after making a stick is more expensive than it should
-             ;; be, but all subsequent operations are cheaper than
-             ;; they would have been.  That seems like a fine trade.
-             ;; Especially since consing up an explicit stack will
-             ;; probably make the common case slower.  How often are
-             ;; we going to see trees with height measured in the
-             ;; thousands, anyway?
+             ;; back up.  Storing our state (a few pointers) in the
+             ;; call stack is almost certainly faster than storing it
+             ;; in an explicit stack.  It puts less pressure on the
+             ;; GC!  So, switching to an explicit stack would probably
+             ;; slow down every splay just so that degenerate trees
+             ;; won't crash.
+
+             ;; Although this iterative splaying technique will mess
+             ;; up the amortized bounds, its probably not a bad thing.
+             ;; The end result will be a tree that is more balanced
+             ;; than it would have been otherwise.  Since it only
+             ;; kicks in when the tree is *very* tall (much taller
+             ;; than any balanced tree would plausibly be), the tree
+             ;; desperately needs rebalancing anyway.  As long as the
+             ;; tree will continue to be used after our repeated
+             ;; splaying, the extra balance will save time in the
+             ;; future.  Yeah, its hand-wavy.  Sue me.  Or, better
+             ;; yet, just don't build degenerate splay trees!
              ((,splay-inner (tree depth)
                 (assert (not (,nil-p tree)))
 
