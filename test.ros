@@ -1,0 +1,15 @@
+#!/bin/sh
+#| -*- mode:lisp -*- |#
+#|
+exec ros -Q -- "$0" "$@"
+|#
+
+(eval-when (:compile-toplevel :load-toplevel :execute)
+  (require :asdf))
+
+(push (truename ".") asdf:*central-registry*)
+
+(eval-when (:compile-toplevel :load-toplevel :execute)
+  (ql:quickload :pfds.shcl.io/tests/main))
+
+(pfds.shcl.io/tests/main:main)

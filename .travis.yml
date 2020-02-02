@@ -1,0 +1,12 @@
+dist: bionic
+os:
+  - linux
+  - osx
+
+env:
+  - LISP=sbcl-bin
+  - LISP=ccl-bin
+
+script:
+  - curl -L https://raw.githubusercontent.com/snmsts/roswell/release/scripts/install-for-ci.sh | sh
+  - ./test.ros
