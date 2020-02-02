@@ -136,7 +136,8 @@
            ()
          (,nil-type)
 
-         ((,node-base-type (:copier nil))
+         ((,node-base-type (:copier nil)
+                           (:constructor nil))
           (left (,nil-type) :type ,base-name)
           (right (,nil-type) :type ,base-name)
           ,@extra-node-slots))
