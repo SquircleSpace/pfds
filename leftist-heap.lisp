@@ -15,7 +15,7 @@
 (defpackage :pfds.shcl.io/leftist-heap
   (:use :common-lisp)
   (:import-from :pfds.shcl.io/common
-   #:to-list)
+   #:to-list #:print-graphviz #:next-graphviz-id)
   (:import-from :pfds.shcl.io/immutable-structure
    #:define-adt)
   (:import-from :pfds.shcl.io/heap
@@ -52,30 +52,28 @@
 (defun guts-nil ()
   *guts-nil*)
 
-(defun show-structure (guts &optional (stream *standard-output*))
-  (let ((id 0))
-    (labels
-        ((visit (guts)
-           (when (guts-nil-p guts)
-             (return-from visit))
-           (let ((our-id (incf id)))
-             (format stream "ID~A [label=\"~A (~A)\"]~%" our-id (guts-node-value guts) (guts-node-rank guts))
-             (let ((left-id (visit (guts-node-left guts))))
-               (when left-id
-                 (format stream "ID~A -> ID~A [color=red]~%" our-id left-id)))
-             (let ((right-id (visit (guts-node-right guts))))
-               (when right-id
-                 (format stream "ID~A -> ID~A~%" our-id right-id)))
-             our-id)))
-      (format stream "digraph {~%")
-      (visit guts)
-      (format stream "}~%"))))
+(defmethod print-graphviz ((guts guts-nil) stream id-vendor)
+  (let ((id (next-graphviz-id id-vendor)))
+    (format stream "ID~A [label=\"nil\"]~%" id)
+    id))
+
+(defmethod print-graphviz ((guts guts) stream id-vendor)
+  (let ((id (next-graphviz-id id-vendor)))
+    (format stream "ID~A [label=\"~A, ~A\" shape=box]~%" id (guts-node-rank guts) (guts-node-value guts))
+    (let ((child-id (print-graphviz (guts-node-left guts) stream id-vendor)))
+      (format stream "ID~A -> ID~A~%" id child-id))
+    (let ((child-id (print-graphviz (guts-node-right guts) stream id-vendor)))
+      (format stream "ID~A -> ID~A~%" id child-id))
+    id))
 
 (define-adt leftist-heap
     ((comparator (error "comparator is required"))
      (guts (guts-nil)))
   ((height-biased-leftist-heap (:constructor %make-height-biased-leftist-heap)))
   ((weight-biased-leftist-heap (:constructor %make-weight-biased-leftist-heap))))
+
+(defmethod print-graphviz ((heap leftist-heap) stream id-vendor)
+  (print-graphviz (leftist-heap-guts heap) stream id-vendor))
 
 (defun leftist-heap-bias (heap)
   (etypecase heap
