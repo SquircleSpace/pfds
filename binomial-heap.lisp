@@ -15,7 +15,7 @@
 (defpackage :pfds.shcl.io/binomial-heap
   (:use :common-lisp)
   (:import-from :pfds.shcl.io/common
-   #:to-list)
+   #:to-list #:print-graphviz #:next-graphviz-id)
   (:import-from :pfds.shcl.io/immutable-structure
    #:define-adt #:define-immutable-structure)
   (:import-from :pfds.shcl.io/heap
@@ -43,6 +43,19 @@
 (defun tree-nil ()
   *tree-nil*)
 
+(defmethod print-graphviz ((heap tree-nil) stream id-vendor)
+  (let ((id (next-graphviz-id id-vendor)))
+    (format stream "ID~A [label=\"nil\"]~%" id)
+    id))
+
+(defmethod print-graphviz ((heap tree-node) stream id-vendor)
+  (let ((id (next-graphviz-id id-vendor)))
+    (format stream "ID~A [label=\"~A\" shape=box]~%" id (tree-node-value heap))
+    (dolist (child (tree-node-children heap))
+      (let ((child-id (print-graphviz child stream id-vendor)))
+        (format stream "ID~A -> ID~A~%" id child-id)))
+    id))
+
 (defun tree-link (left right comparator)
   (when (eq :greater (funcall comparator (tree-node-value left) (tree-node-value right)))
     (rotatef left right))
@@ -54,28 +67,12 @@
   (tree (error "required arg") :type heap-tree)
   (rank (error "required arg") :type (integer 0)))
 
-(defun show-structure (ranked-tree-list &optional (stream *standard-output*))
-  (format stream "digraph {~%")
-  (let ((id 0))
-    (labels
-        ((visit (tree)
-           (let ((our-id (incf id)))
-             (when (tree-nil-p tree)
-               (format stream "ID~A [label=\"nil\"]~%" our-id)
-               (return-from visit our-id))
-             (format stream "ID~A [label=\"~A\"]~%" our-id (tree-node-value tree))
-             (dolist (child (tree-node-children tree))
-               (let ((child-id (visit child)))
-                 (format stream "ID~A -> ID~A~%" our-id child-id)))
-             our-id)))
-
-      (dolist (ranked-tree ranked-tree-list)
-        (let ((our-id (incf id)))
-          (format stream "ID~A [label=\"rank ~A\"]~%" our-id (ranked-tree-rank ranked-tree))
-          (let ((tree-id (visit (ranked-tree-tree ranked-tree))))
-            (format stream "ID~A -> ID~A~%" our-id tree-id))))))
-
-  (format stream "}~%"))
+(defmethod print-graphviz ((ranked-tree ranked-tree) stream id-vendor)
+  (let ((id (next-graphviz-id id-vendor)))
+    (format stream "ID~A [label=\"rank ~A\"]~%" id (ranked-tree-rank ranked-tree))
+    (let ((child-id (print-graphviz (ranked-tree-tree ranked-tree) stream id-vendor)))
+      (format stream "ID~A -> ID~A~%" id child-id))
+    id))
 
 (defun ranked-tree-link (left right comparator)
   (assert (equal (ranked-tree-rank left)
@@ -240,6 +237,14 @@
   (comparator (error "comparator is required"))
   (size 0 :type (integer 0))
   (ranked-trees nil :type list))
+
+(defmethod print-graphviz ((heap binomial-heap) stream id-vendor)
+  (let ((id (next-graphviz-id id-vendor)))
+    (format stream "ID~A [label=\"top\"]~%" id)
+    (dolist (tree (binomial-heap-ranked-trees heap))
+      (let ((child-id (print-graphviz tree stream id-vendor)))
+        (format stream "ID~A -> ID~A~%" id child-id)))
+    id))
 
 (defun binomial-heap-to-list (heap)
   (let (items)
