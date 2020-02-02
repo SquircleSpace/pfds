@@ -455,7 +455,7 @@
        (defmethod node-values ((,tree ,node-n-type))
          (,n-type-values ,tree))
 
-       (defmethod ,checker (,tree ,comparator)
+       (defun ,checker (,tree ,comparator)
          (unless (,nil-type-p ,tree)
            (labels
                ((,check (,key)
