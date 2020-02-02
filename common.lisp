@@ -17,7 +17,10 @@
   (:export
    #:is-empty #:empty #:with-member
    #:to-list
-   #:check-invariants))
+   #:check-invariants
+   #:graphviz
+   #:print-graphviz
+   #:next-graphviz-id))
 (in-package :pfds.shcl.io/common)
 
 (defgeneric to-list (object))
@@ -31,3 +34,16 @@
 (defmethod check-invariants (object)
   ;; looks fine to me!
   )
+
+(defun next-graphviz-id (id-vendor)
+  (incf (symbol-value id-vendor)))
+
+(defgeneric print-graphviz (object stream id-vendor))
+
+(defun graphviz (object &optional (stream *standard-output*))
+  (let ((id-vendor (gensym "ID-VENDOR")))
+    (setf (symbol-value id-vendor) 0)
+    (format stream "digraph {~%")
+    (print-graphviz object stream id-vendor)
+    (format stream "}~%"))
+  (values))

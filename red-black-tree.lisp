@@ -15,7 +15,8 @@
 (defpackage :pfds.shcl.io/red-black-tree
   (:use :common-lisp)
   (:import-from :pfds.shcl.io/common
-   #:to-list #:is-empty #:empty #:check-invariants)
+   #:to-list #:is-empty #:empty #:check-invariants
+   #:print-graphviz)
   (:import-from :pfds.shcl.io/immutable-structure
    #:define-immutable-structure)
   (:import-from :pfds.shcl.io/utility
@@ -25,7 +26,7 @@
   (:import-from :pfds.shcl.io/map
    #:with-entry #:without-entry #:lookup-entry)
   (:import-from :pfds.shcl.io/tree
-   #:define-tree #:print-node-properties #:print-graphviz
+   #:define-tree #:print-tree-node-properties
    #:node-left #:node-right #:nil-tree-p)
   (:export
    #:is-empty
@@ -348,11 +349,11 @@
 (defmethod node-color ((tree rb-set-node))
   (rb-set-node-color tree))
 
-(defmethod print-node-properties ((tree rb-set-node) stream)
+(defmethod print-tree-node-properties ((tree rb-set-node) stream)
   (call-next-method)
   (format stream " color=~A" (if (eq :black (rb-set-node-color tree)) "black" "red")))
 
-(defmethod print-node-properties ((tree rb-map-node) stream)
+(defmethod print-tree-node-properties ((tree rb-map-node) stream)
   (call-next-method)
   (format stream " color=~A" (if (eq :black (rb-map-node-color tree)) "black" "red")))
 
@@ -407,8 +408,8 @@
                          :items (quote ,(rb-set-to-list (red-black-set-tree set))))
    :stream stream))
 
-(defmethod print-graphviz ((tree red-black-set) stream)
-  (print-graphviz (red-black-set-tree tree) stream))
+(defmethod print-graphviz ((tree red-black-set) stream id-vendor)
+  (print-graphviz (red-black-set-tree tree) stream id-vendor))
 
 (defmethod is-empty ((set red-black-set))
   (rb-set-nil-p (red-black-set-tree set)))
@@ -469,8 +470,8 @@
                          :alist (quote ,(rb-map-to-list (red-black-map-tree map))))
    :stream stream))
 
-(defmethod print-graphviz ((tree red-black-map) stream)
-  (print-graphviz (red-black-map-tree tree) stream))
+(defmethod print-graphviz ((tree red-black-map) stream id-vendor)
+  (print-graphviz (red-black-map-tree tree) stream id-vendor))
 
 (defmethod is-empty ((map red-black-map))
   (rb-map-nil-p (red-black-map-tree map)))

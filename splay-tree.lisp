@@ -15,12 +15,12 @@
 (defpackage :pfds.shcl.io/splay-tree
   (:use :common-lisp)
   (:import-from :pfds.shcl.io/common
-   #:to-list #:check-invariants)
+   #:to-list #:check-invariants #:print-graphviz)
   (:import-from :pfds.shcl.io/impure-list-builder
    #:make-impure-list-builder #:impure-list-builder-add
    #:impure-list-builder-extract)
   (:import-from :pfds.shcl.io/tree
-   #:define-tree #:print-graphviz)
+   #:define-tree)
   (:import-from :pfds.shcl.io/utility
    #:intern-conc #:cassert)
   (:import-from :pfds.shcl.io/list-utility
@@ -422,8 +422,8 @@
                                    :items ',(impure-splay-set-to-list splay-set))
          :stream stream))
 
-(defmethod print-graphviz ((map impure-splay-set) stream)
-  (print-graphviz (impure-splay-set-tree map) stream))
+(defmethod print-graphviz ((map impure-splay-set) stream id-vendor)
+  (print-graphviz (impure-splay-set-tree map) stream id-vendor))
 
 (define-struct (impure-splay-map (:constructor %make-impure-splay-map))
   (tree (sp-map-nil) :type sp-map)
@@ -477,8 +477,8 @@
                                    :alist ',(impure-splay-map-to-list splay-map))
          :stream stream))
 
-(defmethod print-graphviz ((map impure-splay-map) stream)
-  (print-graphviz (impure-splay-map-tree map) stream))
+(defmethod print-graphviz ((map impure-splay-map) stream id-vendor)
+  (print-graphviz (impure-splay-map-tree map) stream id-vendor))
 
 (define-tree sp-heap (:map-p nil
                       :define-insert-p nil
@@ -627,5 +627,5 @@
   (write `(make-splay-heap* ',(splay-heap-comparator heap) :items ',(to-list heap))
          :stream stream))
 
-(defmethod print-graphviz ((heap splay-heap) stream)
-  (print-graphviz (splay-heap-tree heap) stream))
+(defmethod print-graphviz ((heap splay-heap) stream id-vendor)
+  (print-graphviz (splay-heap-tree heap) stream id-vendor))

@@ -14,7 +14,8 @@
 
 (defpackage :pfds.shcl.io/tree
   (:use :common-lisp)
-  (:import-from :pfds.shcl.io/common #:to-list)
+  (:import-from :pfds.shcl.io/common
+   #:to-list #:print-graphviz #:next-graphviz-id)
   (:import-from :pfds.shcl.io/impure-list-builder
    #:make-impure-list-builder #:impure-list-builder-add
    #:impure-list-builder-extract)
@@ -26,20 +27,11 @@
    #:list-set-with #:list-set-without #:list-set #:list-set-is-member
    #:list-map-with #:list-map-without #:list-map #:list-map-lookup)
   (:export
-   #:define-tree #:print-graphviz #:print-node-properties #:graphviz
+   #:define-tree #:print-tree-node-properties
    #:nil-tree-p #:node-left #:node-right #:node-values))
 (in-package :pfds.shcl.io/tree)
 
-(defvar *graph-id* 0)
-(defgeneric print-node-properties (tree stream))
-(defgeneric print-graphviz (tree stream))
-
-(defun graphviz (tree &optional (stream *standard-output*))
-  (let ((*graph-id* 0))
-    (format stream "digraph {~%")
-    (print-graphviz tree stream)
-    (format stream "}~%"))
-  (values))
+(defgeneric print-tree-node-properties (object stream))
 
 (defgeneric nil-tree-p (tree))
 (defgeneric node-left (node))
@@ -113,7 +105,8 @@
          (builder (gensym "BUILDER"))
          (alist (make-symbol "ALIST"))
          (plist (make-symbol "PLIST"))
-         (items (make-symbol "ITEMS")))
+         (items (make-symbol "ITEMS"))
+         (id-vendor (gensym "ID-VENDOR")))
 
     (unless insert-left-balancer
       (setf insert-left-balancer node-copy))
@@ -413,7 +406,7 @@
        (defmethod to-list ((,tree ,base-name))
          (,to-list ,tree))
 
-       (defmethod print-node-properties ((,tree ,base-name) ,stream)
+       (defmethod print-tree-node-properties ((,tree ,base-name) ,stream)
          (format ,stream "label=\"~A\" shape=box"
                  (unless (,nil-type-p ,tree)
                    (etypecase ,tree
@@ -424,15 +417,15 @@
                      (,node-n-type
                       (,n-type-values ,tree))))))
 
-       (defmethod print-graphviz ((,tree ,base-name) ,stream)
-         (let ((,value (incf *graph-id*)))
+       (defmethod print-graphviz ((,tree ,base-name) ,stream ,id-vendor)
+         (let ((,value (next-graphviz-id ,id-vendor)))
            (format ,stream "ID~A [" ,value)
-           (print-node-properties ,tree ,stream)
+           (print-tree-node-properties ,tree ,stream)
            (format ,stream "]~%")
            (unless (,nil-type-p ,tree)
-             (let ((,result (print-graphviz (,node-left ,tree) ,stream)))
+             (let ((,result (print-graphviz (,node-left ,tree) ,stream ,id-vendor)))
                (format ,stream "ID~A -> ID~A~%" ,value ,result))
-             (let ((,result (print-graphviz (,node-right ,tree) ,stream)))
+             (let ((,result (print-graphviz (,node-right ,tree) ,stream ,id-vendor)))
                (format ,stream "ID~A -> ID~A~%" ,value ,result)))
            ,value))
 
