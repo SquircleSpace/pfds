@@ -16,6 +16,9 @@
   (:use :common-lisp)
   (:import-from :pfds.shcl.io/common
    #:to-list #:print-graphviz #:next-graphviz-id)
+  (:import-from :pfds.shcl.io/impure-list-builder
+   #:make-impure-list-builder #:impure-list-builder-add
+   #:impure-list-builder-extract)
   (:import-from :pfds.shcl.io/immutable-structure
    #:define-adt #:define-immutable-structure)
   (:import-from :pfds.shcl.io/heap
@@ -141,67 +144,29 @@
 
 (defun remove-minimum-tree (ranked-tree-list comparator)
   (assert ranked-tree-list)
+  (unless (cdr ranked-tree-list)
+    (values nil (car ranked-tree-list)))
 
-  (labels
-      ;; This is a bit fancy, but it allows us to find the minimum
-      ;; element in the list in a single traversal of the list while
-      ;; allocating the minimum number of new cons cells.  A naive
-      ;; solution would be to walk the list twice or copy the whole
-      ;; list every time.  Is this complexity worth the optimization?
-      ;; Probably not!  Was it fun to write?  Definitely!
-      ((visit (tree-list current-min-tree current-min-value current-min-index here-index)
-         (unless tree-list
-           (return-from visit
-             (values tree-list current-min-tree current-min-index)))
-
-         (let* ((here-tree (car tree-list))
-                (here-value (tree-node-value (ranked-tree-tree here-tree)))
-                (comparison (funcall comparator current-min-value here-value)))
-           (when (eq :greater comparison)
-             (setf current-min-tree here-tree)
-             (setf current-min-value here-value)
-             (setf current-min-index here-index))
-
-           (multiple-value-bind
-                 (new-list min-tree min-index) (visit (cdr tree-list)
-                                                      current-min-tree
-                                                      current-min-value
-                                                      current-min-index
-                                                      (1+ here-index))
-
-             (cond
-               ;; The dropped element occurs earlier in the list.
-               ;; The list we started with is perfectly fine!
-               ((< min-index here-index)
-                (assert (eq (cdr tree-list) new-list))
-                (setf new-list tree-list))
-
-               ;; We're the dropped element!  Nothing to do see here,
-               ;; moving on...
-               ((= min-index here-index)
-                (assert (eq (cdr tree-list) new-list)))
-
-               ;; The element has already been dropped.  Let's attach
-               ;; ours to the front of this list.
-               ((> min-index here-index)
-                (assert (not (eq (cdr tree-list) new-list)))
-                (push here-tree new-list)))
-
-             (values
-              new-list
-              min-tree
-              min-index)))))
-
-    (multiple-value-bind
-          (new-list min-tree min-index)
-        (visit (cdr ranked-tree-list)
-               (car ranked-tree-list)
-               (tree-node-value (ranked-tree-tree (car ranked-tree-list)))
-               0
-               1)
-      (unless (equal 0 min-index)
-        (push (car ranked-tree-list) new-list))
-      (values new-list min-tree min-index))))
+  (let* ((list-builder (make-impure-list-builder))
+         (min-sublist ranked-tree-list)
+         (min-tree (car min-sublist))
+         (min-value (tree-node-value (ranked-tree-tree min-tree))))
+    (loop :for sublist :on (cdr ranked-tree-list)
+          :for tree = (car sublist)
+          :for value = (tree-node-value (ranked-tree-tree tree))
+          :do
+             (when (eq :less (funcall comparator value min-value))
+               (setf min-sublist sublist)
+               (setf min-tree tree)
+               (setf min-value value)))
+    (let ((remaining ranked-tree-list))
+      (loop :until (eq min-sublist remaining) :do
+        (progn
+          (impure-list-builder-add list-builder (car remaining))
+          (pop remaining)))
+      (assert (eq min-sublist remaining))
+      (pop remaining)
+      (values (impure-list-builder-extract list-builder remaining) min-tree))))
 
 (defun remove-minimum (ranked-tree-list comparator)
   (multiple-value-bind (updated-ranked-tree-list minimum-tree) (remove-minimum-tree ranked-tree-list comparator)
