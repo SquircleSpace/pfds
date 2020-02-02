@@ -114,7 +114,8 @@ convenience: `COMPARE`.
 
 The provided `COMPARE` generic function tries to avoid returning
 `:UNEQUAL` as much as possible.  Data structures containing `:UNEQUAL`
-objects typically perform much worse than they ought to.  So, avoiding
+objects typically perform much worse than they ought to.  All
+asymptotic bounds given assume no `:UNEQUAL` objects.  Avoiding
 uneqaulity is very important.  As such, `COMPARE` establishes
 orderings that you may not expect.  For example, `COMPARE` establishes
 an ordering between things that are mutually `=`, such as `1`, `1.0`,
