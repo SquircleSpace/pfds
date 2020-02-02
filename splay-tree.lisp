@@ -550,9 +550,13 @@
          (cassert (not (eq :greater (funcall comparator key (sp-heap-node-1-key sp-heap)))))
          (unless min-compared-p
            (cassert (eq key (sp-heap-node-min sp-heap)))
-           (setf min-compared-p t))))
+           (setf min-compared-p t)))
+       (unless min-compared-p
+         (cassert (eq (sp-heap-node-1-key sp-heap) (sp-heap-node-min sp-heap)))))
      (do-sp-heap (key (sp-heap-node-right sp-heap))
-       (cassert (not (eq :less (funcall comparator key (sp-heap-node-1-key sp-heap)))))))))
+       (cassert (not (eq :less (funcall comparator key (sp-heap-node-1-key sp-heap))))))
+     (check-sp-heap (sp-heap-node-left sp-heap) comparator)
+     (check-sp-heap (sp-heap-node-right sp-heap) comparator))))
 
 (defmethod check-invariants ((heap splay-heap))
   (check-sp-heap (splay-heap-tree heap) (splay-heap-comparator heap)))
