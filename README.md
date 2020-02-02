@@ -197,7 +197,7 @@ list in FIFO order.  Instead of repeatedly pushing elements onto a
 list and then reversing the result, you can instead add elements to
 the list builder and then extract the result.
 
-#### `IMPURE-SPLAY-MAP` and `IMPURE-SPLAY-SET`
+### `IMPURE-SPLAY-MAP` and `IMPURE-SPLAY-SET`
 
 Note that splay trees are troublesome in a purely functional context.
 Even queries against the tree need to mutate the tree in order to
