@@ -30,6 +30,8 @@
    #:make-batched-queue*))
 (in-package :pfds.shcl.io/batched-queue)
 
+;; See "Purely Functional Data Structures" by Chris Okasaki
+
 (define-immutable-structure (batched-queue (:constructor %make-batched-queue))
   (front-stack nil :type list)
   (back-stack nil :type list))

@@ -38,6 +38,8 @@
    #:binomial-heap-size))
 (in-package :pfds.shcl.io/binomial-heap)
 
+;; See "Purely Functional Data Structures" by Chris Okasaki
+
 (define-adt heap-tree
     ()
   (tree-nil)

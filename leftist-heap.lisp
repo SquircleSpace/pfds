@@ -37,6 +37,8 @@
    #:weight-biased-leftist-heap))
 (in-package :pfds.shcl.io/leftist-heap)
 
+;; See "Purely Functional Data Structures" by Chris Okasaki
+
 (define-adt guts
     ()
   ((guts-nil (:constructor %make-guts-nil)))

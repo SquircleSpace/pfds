@@ -33,6 +33,8 @@
    #:stream-append))
 (in-package :pfds.shcl.io/stream)
 
+;; See "Purely Functional Data Structures" by Chris Okasaki
+
 (defvar *empty-lazy-list*)
 
 (defun empty-lazy-list ()

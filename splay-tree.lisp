@@ -71,6 +71,9 @@
    #:empty))
 (in-package :pfds.shcl.io/splay-tree)
 
+;; See "Purely Functional Data Structures" by Chris Okasaki, and
+;; https://en.wikipedia.org/wiki/Splay_tree
+
 (define-tree sp-set (:map-p nil
                      :define-insert-p nil
                      :define-remove-p nil

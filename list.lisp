@@ -28,6 +28,8 @@
    #:list-append #:list-take #:list-reverse))
 (in-package :pfds.shcl.io/list)
 
+;; See "Purely Functional Data Structures" by Chris Okasaki
+
 (define-interface list
   (defgeneric with-head (item list))
   (defgeneric head (list))

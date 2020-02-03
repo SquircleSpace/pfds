@@ -37,6 +37,8 @@
    #:make-batched-deque*))
 (in-package :pfds.shcl.io/batched-deque)
 
+;; See "Purely Functional Data Structures" by Chris Okasaki
+
 (define-immutable-structure (batched-deque (:constructor %make-batched-deque))
   (front-stack nil :type list)
   (front-count 0 :type (integer 0))

@@ -39,6 +39,8 @@
    #:make-unbalanced-map*))
 (in-package :pfds.shcl.io/unbalanced-tree)
 
+;; See "Purely Functional Data Structures" by Chris Okasaki
+
 (define-tree %unbalanced-set-tree (:map-p nil))
 
 (define-immutable-structure (unbalanced-set (:constructor %make-unbalanced-set))

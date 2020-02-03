@@ -45,6 +45,10 @@
    #:make-red-black-map))
 (in-package :pfds.shcl.io/red-black-tree)
 
+;; See "Purely Functional Data Structures" by Chris Okasaki, and
+;; Stefan Kahrs' red black tree untyped haskell implementation at
+;; https://www.cs.kent.ac.uk/people/staff/smk/redblack/Untyped.hs
+
 (deftype color ()
   '(member :red :black))
 
