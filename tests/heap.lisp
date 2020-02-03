@@ -20,6 +20,7 @@
   (:import-from :pfds.shcl.io/leftist-heap #:make-leftist-heap*)
   (:import-from :pfds.shcl.io/binomial-heap #:make-binomial-heap*)
   (:import-from :pfds.shcl.io/splay-tree #:make-splay-heap*)
+  (:import-from :pfds.shcl.io/pairing-heap #:make-pairing-heap*)
   (:import-from :prove #:is #:subtest #:ok)
   (:export #:run-tests))
 (in-package :pfds.shcl.io/tests/heap)
@@ -41,11 +42,15 @@
 (defun splay-heap-constructor (&optional items)
   (make-splay-heap* 'compare :items items))
 
-(defvar *constructors*
+(defun pairing-heap-constructor (&optional items)
+  (make-pairing-heap* 'compare :items items))
+
+(defparameter *constructors*
   '(weight-biased-leftist-heap-constructor
     height-biased-leftist-heap-constructor
     binomial-heap-constructor
-    splay-heap-constructor))
+    splay-heap-constructor
+    pairing-heap-constructor))
 
 (defun heap-sort (heap expected)
   (let (sorted)

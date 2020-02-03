@@ -93,6 +93,18 @@ so if you only need a queue then you should consider using
 Note: this heap *is* purely functional, but the asymptotic bounds
 given above assume the heap is not used persistently.
 
+#### `PAIRING-HEAP`
+
+- `MAKE-PAIRING-HEAP`: `O(n)`
+- `HEAP-TOP`: `O(1)`
+- `WITH-MEMBER`: `O(1)`
+- `WITHOUT-HEAP-TOP`: `O(log(n))`
+- `MERGE-HEAPS`: `O(1)`
+- `IS-EMPTY`: `O(1)`
+
+Note: this heap *is* purely functional, but the asymptotic bounds
+given above assume the heap is not used persistently.
+
 ## Design decisions
 
 ### Dependencies
