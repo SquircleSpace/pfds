@@ -12,7 +12,7 @@
 ;; See the License for the specific language governing permissions and
 ;; limitations under the License.
 
-(defpackage :pfds.shcl.io/leftist-heap
+(defpackage :pfds.shcl.io/implementation/leftist-heap
   (:use :common-lisp)
   (:import-from :pfds.shcl.io/interface/common
    #:to-list #:print-graphviz #:next-graphviz-id)
@@ -35,7 +35,7 @@
    #:leftist-heap
    #:height-biased-leftist-heap
    #:weight-biased-leftist-heap))
-(in-package :pfds.shcl.io/leftist-heap)
+(in-package :pfds.shcl.io/implementation/leftist-heap)
 
 ;; See "Purely Functional Data Structures" by Chris Okasaki
 

@@ -12,7 +12,7 @@
 ;; See the License for the specific language governing permissions and
 ;; limitations under the License.
 
-(defpackage :pfds.shcl.io/pairing-heap
+(defpackage :pfds.shcl.io/implementation/pairing-heap
   (:use :common-lisp)
   (:import-from :pfds.shcl.io/interface/common
    #:to-list #:print-graphviz #:next-graphviz-id)
@@ -37,7 +37,7 @@
    #:make-pairing-heap*
    #:pairing-heap-p
    #:pairing-heap-comparator))
-(in-package :pfds.shcl.io/pairing-heap)
+(in-package :pfds.shcl.io/implementation/pairing-heap)
 
 (define-adt p-heap
     ()

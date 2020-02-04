@@ -12,7 +12,7 @@
 ;; See the License for the specific language governing permissions and
 ;; limitations under the License.
 
-(defpackage :pfds.shcl.io/unbalanced-tree
+(defpackage :pfds.shcl.io/implementation/unbalanced-tree
   (:use :common-lisp)
   (:import-from :pfds.shcl.io/interface/common
    #:to-list #:is-empty #:empty)
@@ -37,7 +37,7 @@
    #:make-unbalanced-set*
    #:make-unbalanced-map
    #:make-unbalanced-map*))
-(in-package :pfds.shcl.io/unbalanced-tree)
+(in-package :pfds.shcl.io/implementation/unbalanced-tree)
 
 ;; See "Purely Functional Data Structures" by Chris Okasaki
 

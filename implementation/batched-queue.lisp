@@ -12,7 +12,7 @@
 ;; See the License for the specific language governing permissions and
 ;; limitations under the License.
 
-(defpackage :pfds.shcl.io/batched-queue
+(defpackage :pfds.shcl.io/implementation/batched-queue
   (:use :common-lisp)
   (:import-from :pfds.shcl.io/interface/common
    #:define-immutable-structure #:to-list #:check-invariants)
@@ -28,7 +28,7 @@
    #:empty
    #:make-batched-queue
    #:make-batched-queue*))
-(in-package :pfds.shcl.io/batched-queue)
+(in-package :pfds.shcl.io/implementation/batched-queue)
 
 ;; See "Purely Functional Data Structures" by Chris Okasaki
 

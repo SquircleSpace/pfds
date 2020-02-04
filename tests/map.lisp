@@ -24,9 +24,9 @@
    #:is-empty #:empty #:lookup-entry #:with-entry #:without-entry)
   (:import-from :pfds.shcl.io/interface/set
    #:with-member #:without-member #:is-member)
-  (:import-from :pfds.shcl.io/red-black-tree
+  (:import-from :pfds.shcl.io/implementation/red-black-tree
    #:make-red-black-map*)
-  (:import-from :pfds.shcl.io/unbalanced-tree
+  (:import-from :pfds.shcl.io/implementation/unbalanced-tree
    #:make-unbalanced-map*)
   (:import-from :pfds.shcl.io/tests/set #:test-set)
   (:import-from :prove #:is #:subtest #:ok #:pass #:fail)

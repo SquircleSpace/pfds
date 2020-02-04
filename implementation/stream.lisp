@@ -12,7 +12,7 @@
 ;; See the License for the specific language governing permissions and
 ;; limitations under the License.
 
-(defpackage :pfds.shcl.io/stream
+(defpackage :pfds.shcl.io/implementation/stream
   (:use :common-lisp)
   (:import-from :pfds.shcl.io/lazy #:force #:lazy)
   (:import-from :pfds.shcl.io/interface/list
@@ -31,7 +31,7 @@
    #:is-empty
    #:empty
    #:stream-append))
-(in-package :pfds.shcl.io/stream)
+(in-package :pfds.shcl.io/implementation/stream)
 
 ;; See "Purely Functional Data Structures" by Chris Okasaki
 

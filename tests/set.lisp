@@ -22,9 +22,9 @@
    #:compare #:compare-objects)
   (:import-from :pfds.shcl.io/interface/set
    #:is-empty #:empty #:is-member #:with-member #:without-member)
-  (:import-from :pfds.shcl.io/red-black-tree
+  (:import-from :pfds.shcl.io/implementation/red-black-tree
    #:make-red-black-set* #:red-black-set)
-  (:import-from :pfds.shcl.io/unbalanced-tree #:make-unbalanced-set*)
+  (:import-from :pfds.shcl.io/implementation/unbalanced-tree #:make-unbalanced-set*)
   (:import-from :prove #:is #:subtest #:ok #:pass #:fail)
   (:export #:run-tests #:test-set))
 (in-package :pfds.shcl.io/tests/set)

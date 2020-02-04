@@ -12,7 +12,7 @@
 ;; See the License for the specific language governing permissions and
 ;; limitations under the License.
 
-(defpackage :pfds.shcl.io/red-black-tree
+(defpackage :pfds.shcl.io/implementation/red-black-tree
   (:use :common-lisp)
   (:import-from :pfds.shcl.io/interface/common
    #:to-list #:is-empty #:empty #:check-invariants
@@ -43,7 +43,7 @@
    #:red-black-map
    #:make-red-black-map*
    #:make-red-black-map))
-(in-package :pfds.shcl.io/red-black-tree)
+(in-package :pfds.shcl.io/implementation/red-black-tree)
 
 ;; See "Purely Functional Data Structures" by Chris Okasaki, and
 ;; Stefan Kahrs' red black tree untyped haskell implementation at

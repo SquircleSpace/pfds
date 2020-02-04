@@ -12,7 +12,7 @@
 ;; See the License for the specific language governing permissions and
 ;; limitations under the License.
 
-(defpackage :pfds.shcl.io/binomial-heap
+(defpackage :pfds.shcl.io/implementation/binomial-heap
   (:use :common-lisp)
   (:import-from :pfds.shcl.io/interface/common
    #:to-list #:print-graphviz #:next-graphviz-id)
@@ -36,7 +36,7 @@
    #:binomial-heap-p
    #:binomial-heap-comparator
    #:binomial-heap-size))
-(in-package :pfds.shcl.io/binomial-heap)
+(in-package :pfds.shcl.io/implementation/binomial-heap)
 
 ;; See "Purely Functional Data Structures" by Chris Okasaki
 

@@ -12,7 +12,7 @@
 ;; See the License for the specific language governing permissions and
 ;; limitations under the License.
 
-(defpackage :pfds.shcl.io/splay-tree
+(defpackage :pfds.shcl.io/implementation/splay-tree
   (:use :common-lisp)
   (:import-from :pfds.shcl.io/interface/common
    #:to-list #:check-invariants #:print-graphviz)
@@ -69,7 +69,7 @@
    #:with-member
    #:is-empty
    #:empty))
-(in-package :pfds.shcl.io/splay-tree)
+(in-package :pfds.shcl.io/implementation/splay-tree)
 
 ;; See "Purely Functional Data Structures" by Chris Okasaki, and
 ;; https://en.wikipedia.org/wiki/Splay_tree

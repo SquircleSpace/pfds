@@ -12,7 +12,7 @@
 ;; See the License for the specific language governing permissions and
 ;; limitations under the License.
 
-(defpackage :pfds.shcl.io/batched-deque
+(defpackage :pfds.shcl.io/implementation/batched-deque
   (:use :common-lisp)
   (:import-from :pfds.shcl.io/interface/common
    #:to-list #:check-invariants)
@@ -35,7 +35,7 @@
    #:empty
    #:make-batched-deque
    #:make-batched-deque*))
-(in-package :pfds.shcl.io/batched-deque)
+(in-package :pfds.shcl.io/implementation/batched-deque)
 
 ;; See "Purely Functional Data Structures" by Chris Okasaki
 
