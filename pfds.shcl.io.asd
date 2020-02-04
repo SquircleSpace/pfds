@@ -18,9 +18,11 @@
   :version "0.0.1"
   :author "Ada Avery <2561504+SquircleSpace@users.noreply.github.com>"
   :licence "Apache License, Version 2.0"
-  :depends-on ()
+  :depends-on ("pfds.shcl.io/main")
   :in-order-to ((test-op (test-op "pfds.shcl.io/tests"))))
 
 (defsystem "pfds.shcl.io/tests"
   :depends-on ("pfds.shcl.io/tests/main")
   :perform (test-op (o c) (symbol-call '#:pfds.shcl.io/tests/main '#:run-tests)))
+
+(register-system-packages "pfds.shcl.io/main" '(:pfds.shcl.io))
