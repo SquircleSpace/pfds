@@ -15,9 +15,7 @@
 (defpackage :pfds.shcl.io/interface/heap
   (:use :common-lisp)
   (:import-from :pfds.shcl.io/interface/common
-   #:is-empty #:empty #:with-member)
-  (:import-from :pfds.shcl.io/utility
-   #:define-interface)
+   #:is-empty #:empty #:with-member #:define-interface)
   (:export
    #:merge-heaps
    #:heap-top

@@ -15,9 +15,7 @@
 (defpackage :pfds.shcl.io/interface/list
   (:use :common-lisp)
   (:import-from :pfds.shcl.io/interface/common
-   #:is-empty #:empty)
-  (:import-from :pfds.shcl.io/utility
-   #:define-interface)
+   #:is-empty #:empty #:define-interface)
   (:export
    #:with-head #:head #:tail #:is-empty #:empty))
 (in-package :pfds.shcl.io/interface/list)

@@ -20,7 +20,8 @@
    #:check-invariants
    #:graphviz
    #:print-graphviz
-   #:next-graphviz-id))
+   #:next-graphviz-id
+   #:define-interface))
 (in-package :pfds.shcl.io/interface/common)
 
 (defgeneric to-list (object))
@@ -47,3 +48,16 @@
     (print-graphviz object stream id-vendor)
     (format stream "}~%"))
   (values))
+
+(defmacro define-interface (name &body functions)
+  `(progn
+     ,@(loop
+         :for thing :in functions
+         :collect
+         (etypecase thing
+           (symbol `',thing)
+           (cons
+            (if (eq (car thing) 'defgeneric)
+                thing
+                (error "Invalid interface")))))
+     ',name))

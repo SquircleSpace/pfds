@@ -14,7 +14,7 @@
 
 (defpackage :pfds.shcl.io/interface/deque
   (:use :common-lisp)
-  (:import-from :pfds.shcl.io/utility
+  (:import-from :pfds.shcl.io/interface/common
    #:define-interface)
   (:import-from :pfds.shcl.io/interface/queue
    #:with-last
