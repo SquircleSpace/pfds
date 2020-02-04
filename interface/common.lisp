@@ -12,7 +12,7 @@
 ;; See the License for the specific language governing permissions and
 ;; limitations under the License.
 
-(defpackage :pfds.shcl.io/common
+(defpackage :pfds.shcl.io/interface/common
   (:use :common-lisp)
   (:export
    #:is-empty #:empty #:with-member
@@ -21,7 +21,7 @@
    #:graphviz
    #:print-graphviz
    #:next-graphviz-id))
-(in-package :pfds.shcl.io/common)
+(in-package :pfds.shcl.io/interface/common)
 
 (defgeneric to-list (object))
 

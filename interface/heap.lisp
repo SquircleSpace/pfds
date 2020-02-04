@@ -12,23 +12,25 @@
 ;; See the License for the specific language governing permissions and
 ;; limitations under the License.
 
-(defpackage :pfds.shcl.io/set
+(defpackage :pfds.shcl.io/interface/heap
   (:use :common-lisp)
-  (:import-from :pfds.shcl.io/common
+  (:import-from :pfds.shcl.io/interface/common
    #:is-empty #:empty #:with-member)
   (:import-from :pfds.shcl.io/utility
    #:define-interface)
   (:export
+   #:merge-heaps
+   #:heap-top
+   #:without-heap-top
    #:with-member
-   #:without-member
-   #:is-member
    #:is-empty
    #:empty))
-(in-package :pfds.shcl.io/set)
+(in-package :pfds.shcl.io/interface/heap)
 
-(define-interface set
-  is-empty
-  empty
+(define-interface heap
+  (defgeneric merge-heaps (first second))
+  (defgeneric heap-top (heap))
+  (defgeneric without-heap-top (heap))
   with-member
-  (defgeneric without-member (container item))
-  (defgeneric is-member (container item)))
+  is-empty
+  empty)

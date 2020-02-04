@@ -12,23 +12,23 @@
 ;; See the License for the specific language governing permissions and
 ;; limitations under the License.
 
-(defpackage :pfds.shcl.io/map
+(defpackage :pfds.shcl.io/interface/set
   (:use :common-lisp)
-  (:import-from :pfds.shcl.io/common
-   #:is-empty #:empty)
+  (:import-from :pfds.shcl.io/interface/common
+   #:is-empty #:empty #:with-member)
   (:import-from :pfds.shcl.io/utility
    #:define-interface)
   (:export
+   #:with-member
+   #:without-member
+   #:is-member
    #:is-empty
-   #:empty
-   #:with-entry
-   #:without-entry
-   #:lookup-entry))
-(in-package :pfds.shcl.io/map)
+   #:empty))
+(in-package :pfds.shcl.io/interface/set)
 
-(define-interface map
+(define-interface set
   is-empty
   empty
-  (defgeneric with-entry (container key value))
-  (defgeneric without-entry (container key))
-  (defgeneric lookup-entry (container key)))
+  with-member
+  (defgeneric without-member (container item))
+  (defgeneric is-member (container item)))

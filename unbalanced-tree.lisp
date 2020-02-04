@@ -14,13 +14,13 @@
 
 (defpackage :pfds.shcl.io/unbalanced-tree
   (:use :common-lisp)
-  (:import-from :pfds.shcl.io/common
+  (:import-from :pfds.shcl.io/interface/common
    #:to-list #:is-empty #:empty)
   (:import-from :pfds.shcl.io/immutable-structure
    #:define-immutable-structure)
-  (:import-from :pfds.shcl.io/set
+  (:import-from :pfds.shcl.io/interface/set
    #:with-member #:without-member #:is-member)
-  (:import-from :pfds.shcl.io/map
+  (:import-from :pfds.shcl.io/interface/map
    #:with-entry #:without-entry #:lookup-entry)
   (:import-from :pfds.shcl.io/tree
    #:define-tree)

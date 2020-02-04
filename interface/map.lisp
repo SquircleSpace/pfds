@@ -12,28 +12,23 @@
 ;; See the License for the specific language governing permissions and
 ;; limitations under the License.
 
-(defpackage :pfds.shcl.io/queue
+(defpackage :pfds.shcl.io/interface/map
   (:use :common-lisp)
-  (:import-from :pfds.shcl.io/common
+  (:import-from :pfds.shcl.io/interface/common
    #:is-empty #:empty)
   (:import-from :pfds.shcl.io/utility
    #:define-interface)
   (:export
-   #:with-last
-   #:without-first
-   #:peek-first
    #:is-empty
-   #:empty))
-(in-package :pfds.shcl.io/queue)
+   #:empty
+   #:with-entry
+   #:without-entry
+   #:lookup-entry))
+(in-package :pfds.shcl.io/interface/map)
 
-(define-interface queue
+(define-interface map
   is-empty
   empty
-  (defgeneric with-last (queue item))
-  (defgeneric without-first (queue))
-  (defgeneric peek-first (queue)))
-
-(defmethod peek-first (queue)
-  (multiple-value-bind (new-queue value valid-p) (without-first queue)
-    (declare (ignore new-queue))
-    (values value valid-p)))
+  (defgeneric with-entry (container key value))
+  (defgeneric without-entry (container key))
+  (defgeneric lookup-entry (container key)))

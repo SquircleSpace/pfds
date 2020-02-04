@@ -12,11 +12,11 @@
 ;; See the License for the specific language governing permissions and
 ;; limitations under the License.
 
-(defpackage :pfds.shcl.io/deque
+(defpackage :pfds.shcl.io/interface/deque
   (:use :common-lisp)
   (:import-from :pfds.shcl.io/utility
    #:define-interface)
-  (:import-from :pfds.shcl.io/queue
+  (:import-from :pfds.shcl.io/interface/queue
    #:with-last
    #:without-first
    #:peek-first
@@ -31,7 +31,7 @@
    #:peek-last
    #:is-empty
    #:empty))
-(in-package :pfds.shcl.io/deque)
+(in-package :pfds.shcl.io/interface/deque)
 
 (define-interface deque
   is-empty

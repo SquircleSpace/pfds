@@ -14,11 +14,11 @@
 
 (defpackage :pfds.shcl.io/batched-queue
   (:use :common-lisp)
-  (:import-from :pfds.shcl.io/common
+  (:import-from :pfds.shcl.io/interface/common
    #:define-immutable-structure #:to-list #:check-invariants)
   (:import-from :pfds.shcl.io/utility
    #:cassert)
-  (:import-from :pfds.shcl.io/queue
+  (:import-from :pfds.shcl.io/interface/queue
    #:with-last #:without-first #:peek-first #:is-empty #:empty)
   (:export
    #:with-last

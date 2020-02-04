@@ -14,11 +14,11 @@
 
 (defpackage :pfds.shcl.io/batched-deque
   (:use :common-lisp)
-  (:import-from :pfds.shcl.io/common
+  (:import-from :pfds.shcl.io/interface/common
    #:to-list #:check-invariants)
   (:import-from :pfds.shcl.io/immutable-structure
    #:define-immutable-structure)
-  (:import-from :pfds.shcl.io/deque
+  (:import-from :pfds.shcl.io/interface/deque
    #:with-last #:without-first #:peek-first #:is-empty #:empty
    #:with-first #:without-last #:peek-last)
   (:import-from :pfds.shcl.io/impure-list-builder

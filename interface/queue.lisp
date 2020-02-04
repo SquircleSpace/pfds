@@ -12,25 +12,28 @@
 ;; See the License for the specific language governing permissions and
 ;; limitations under the License.
 
-(defpackage :pfds.shcl.io/heap
+(defpackage :pfds.shcl.io/interface/queue
   (:use :common-lisp)
-  (:import-from :pfds.shcl.io/common
-   #:is-empty #:empty #:with-member)
+  (:import-from :pfds.shcl.io/interface/common
+   #:is-empty #:empty)
   (:import-from :pfds.shcl.io/utility
    #:define-interface)
   (:export
-   #:merge-heaps
-   #:heap-top
-   #:without-heap-top
-   #:with-member
+   #:with-last
+   #:without-first
+   #:peek-first
    #:is-empty
    #:empty))
-(in-package :pfds.shcl.io/heap)
+(in-package :pfds.shcl.io/interface/queue)
 
-(define-interface heap
-  (defgeneric merge-heaps (first second))
-  (defgeneric heap-top (heap))
-  (defgeneric without-heap-top (heap))
-  with-member
+(define-interface queue
   is-empty
-  empty)
+  empty
+  (defgeneric with-last (queue item))
+  (defgeneric without-first (queue))
+  (defgeneric peek-first (queue)))
+
+(defmethod peek-first (queue)
+  (multiple-value-bind (new-queue value valid-p) (without-first queue)
+    (declare (ignore new-queue))
+    (values value valid-p)))

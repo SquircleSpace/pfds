@@ -14,13 +14,13 @@
 
 (defpackage :pfds.shcl.io/tests/set
   (:use :common-lisp)
-  (:import-from :pfds.shcl.io/common
+  (:import-from :pfds.shcl.io/interface/common
    #:to-list #:check-invariants)
   (:import-from :pfds.shcl.io/immutable-structure
    #:define-immutable-structure)
   (:import-from :pfds.shcl.io/compare
    #:compare #:compare-objects)
-  (:import-from :pfds.shcl.io/set
+  (:import-from :pfds.shcl.io/interface/set
    #:is-empty #:empty #:is-member #:with-member #:without-member)
   (:import-from :pfds.shcl.io/red-black-tree
    #:make-red-black-set* #:red-black-set)

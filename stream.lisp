@@ -17,7 +17,7 @@
   (:import-from :pfds.shcl.io/lazy #:force #:lazy)
   (:import-from :pfds.shcl.io/list
    #:with-head #:head #:tail #:is-empty #:empty)
-  (:import-from :pfds.shcl.io/common
+  (:import-from :pfds.shcl.io/interface/common
    #:to-list)
   (:import-from :pfds.shcl.io/immutable-structure
    #:define-adt)

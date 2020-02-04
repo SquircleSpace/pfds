@@ -14,11 +14,11 @@
 
 (defpackage :pfds.shcl.io/leftist-heap
   (:use :common-lisp)
-  (:import-from :pfds.shcl.io/common
+  (:import-from :pfds.shcl.io/interface/common
    #:to-list #:print-graphviz #:next-graphviz-id)
   (:import-from :pfds.shcl.io/immutable-structure
    #:define-adt)
-  (:import-from :pfds.shcl.io/heap
+  (:import-from :pfds.shcl.io/interface/heap
    #:merge-heaps #:heap-top #:without-heap-top #:with-member #:is-empty #:empty)
   (:import-from :pfds.shcl.io/impure-queue
    #:make-impure-queue #:enqueue #:dequeue #:impure-queue-count)

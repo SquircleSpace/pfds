@@ -14,7 +14,7 @@
 
 (defpackage :pfds.shcl.io/tree
   (:use :common-lisp)
-  (:import-from :pfds.shcl.io/common
+  (:import-from :pfds.shcl.io/interface/common
    #:to-list #:print-graphviz #:next-graphviz-id)
   (:import-from :pfds.shcl.io/impure-list-builder
    #:make-impure-list-builder #:impure-list-builder-add

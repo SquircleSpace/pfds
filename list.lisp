@@ -14,7 +14,7 @@
 
 (defpackage :pfds.shcl.io/list
   (:use :common-lisp)
-  (:import-from :pfds.shcl.io/common
+  (:import-from :pfds.shcl.io/interface/common
    #:is-empty #:empty #:to-list)
   (:import-from :pfds.shcl.io/utility
    #:define-interface)

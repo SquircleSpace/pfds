@@ -14,7 +14,7 @@
 
 (defpackage :pfds.shcl.io/splay-tree
   (:use :common-lisp)
-  (:import-from :pfds.shcl.io/common
+  (:import-from :pfds.shcl.io/interface/common
    #:to-list #:check-invariants #:print-graphviz)
   (:import-from :pfds.shcl.io/impure-list-builder
    #:make-impure-list-builder #:impure-list-builder-add
@@ -29,7 +29,7 @@
    #:define-struct)
   (:import-from :pfds.shcl.io/immutable-structure
    #:define-immutable-structure)
-  (:import-from :pfds.shcl.io/heap
+  (:import-from :pfds.shcl.io/interface/heap
    #:merge-heaps #:heap-top #:without-heap-top
    #:with-member #:is-empty #:empty)
   (:export

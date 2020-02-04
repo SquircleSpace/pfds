@@ -14,7 +14,7 @@
 
 (defpackage :pfds.shcl.io/impure-queue
   (:use :common-lisp)
-  (:import-from :pfds.shcl.io/common #:is-empty #:empty)
+  (:import-from :pfds.shcl.io/interface/common #:is-empty #:empty)
   (:export #:make-impure-queue #:enqueue #:dequeue #:impure-queue-count))
 (in-package :pfds.shcl.io/impure-queue)
 

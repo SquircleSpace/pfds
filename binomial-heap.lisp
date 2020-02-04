@@ -14,14 +14,14 @@
 
 (defpackage :pfds.shcl.io/binomial-heap
   (:use :common-lisp)
-  (:import-from :pfds.shcl.io/common
+  (:import-from :pfds.shcl.io/interface/common
    #:to-list #:print-graphviz #:next-graphviz-id)
   (:import-from :pfds.shcl.io/impure-list-builder
    #:make-impure-list-builder #:impure-list-builder-add
    #:impure-list-builder-extract)
   (:import-from :pfds.shcl.io/immutable-structure
    #:define-adt #:define-immutable-structure)
-  (:import-from :pfds.shcl.io/heap
+  (:import-from :pfds.shcl.io/interface/heap
    #:merge-heaps #:heap-top #:without-heap-top #:with-member #:is-empty #:empty)
   (:export
    #:merge-heaps

@@ -14,15 +14,15 @@
 
 (defpackage :pfds.shcl.io/tests/map
   (:use :common-lisp)
-  (:import-from :pfds.shcl.io/common
+  (:import-from :pfds.shcl.io/interface/common
    #:to-list #:check-invariants)
   (:import-from :pfds.shcl.io/immutable-structure
    #:define-immutable-structure)
   (:import-from :pfds.shcl.io/compare
    #:compare #:compare-objects)
-  (:import-from :pfds.shcl.io/map
+  (:import-from :pfds.shcl.io/interface/map
    #:is-empty #:empty #:lookup-entry #:with-entry #:without-entry)
-  (:import-from :pfds.shcl.io/set
+  (:import-from :pfds.shcl.io/interface/set
    #:with-member #:without-member #:is-member)
   (:import-from :pfds.shcl.io/red-black-tree
    #:make-red-black-map*)
