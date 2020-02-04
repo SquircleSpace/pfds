@@ -15,13 +15,13 @@
 (defpackage :pfds.shcl.io/list
   (:use :common-lisp)
   (:import-from :pfds.shcl.io/interface/common
-   #:is-empty #:empty #:to-list)
-  (:import-from :pfds.shcl.io/utility
-   #:define-interface)
+   #:to-list)
   (:import-from :pfds.shcl.io/immutable-structure
    #:define-adt)
   (:import-from :pfds.shcl.io/compare
    #:compare #:compare* #:compare-objects)
+  (:import-from :pfds.shcl.io/interface/list
+   #:with-head #:head #:tail #:is-empty #:empty)
   (:export
    #:with-head #:head #:tail #:is-empty #:empty #:empty-pure-list
    #:empty-list #:update #:pure-list #:pure-list* #:pure-list-cons
@@ -29,13 +29,6 @@
 (in-package :pfds.shcl.io/list)
 
 ;; See "Purely Functional Data Structures" by Chris Okasaki
-
-(define-interface list
-  (defgeneric with-head (item list))
-  (defgeneric head (list))
-  (defgeneric tail (list))
-  is-empty
-  empty)
 
 (defun list-append (left-list right-list)
   (if (is-empty left-list)

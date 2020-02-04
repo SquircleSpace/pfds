@@ -15,7 +15,7 @@
 (defpackage :pfds.shcl.io/stream
   (:use :common-lisp)
   (:import-from :pfds.shcl.io/lazy #:force #:lazy)
-  (:import-from :pfds.shcl.io/list
+  (:import-from :pfds.shcl.io/interface/list
    #:with-head #:head #:tail #:is-empty #:empty)
   (:import-from :pfds.shcl.io/interface/common
    #:to-list)
