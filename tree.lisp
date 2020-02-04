@@ -98,6 +98,8 @@
          (key (gensym "KEY"))
          (value (gensym "VALUE"))
          (value-list (when map-p `(,value)))
+         (emplace-p (when map-p (gensym "EMPLACE-P")))
+         (emplace-p-list (when emplace-p `(,emplace-p)))
          (min (gensym "MIN"))
          (without-min (gensym "WITHOUT-MIN"))
          (body (gensym "BODY"))
@@ -245,7 +247,7 @@
             (apply #',copy-n-type ,tree ,values))))
 
        ,@(when define-insert-p
-           `((defun ,insert (,comparator ,tree ,key ,@value-list)
+           `((defun ,insert (,comparator ,tree ,key ,@value-list ,@(when map-p `(&optional ,emplace-p)))
                (etypecase ,tree
                  (,nil-type
                   (values (,make-1-type :key ,key ,@(when map-p `(:value ,value)))
@@ -253,19 +255,29 @@
                  ((or ,node-1-type ,node-n-type)
                   (ecase (funcall ,comparator ,key (,representative-key ,tree))
                     (:less
-                     (multiple-value-bind (,result ,balance-needed-p) (,insert ,comparator (,node-left ,tree) ,key ,@value-list)
+                     (multiple-value-bind (,result ,balance-needed-p) (,insert ,comparator (,node-left ,tree) ,key ,@value-list ,@emplace-p-list)
                        (if ,balance-needed-p
                            (values (,insert-left-balancer ,tree :left ,result) t)
                            (values (,node-copy ,tree :left ,result) nil))))
                     (:greater
-                     (multiple-value-bind (,result ,balance-needed-p) (,insert ,comparator (,node-right ,tree) ,key ,@value-list)
+                     (multiple-value-bind (,result ,balance-needed-p) (,insert ,comparator (,node-right ,tree) ,key ,@value-list ,@emplace-p-list)
                        (if ,balance-needed-p
                            (values (,insert-right-balancer ,tree :right ,result) t)
                            (values (,node-copy ,tree :right ,result) nil))))
                     (:equal
-                     (values (,with-equal ,comparator ,tree ,key ,@value-list) nil))
+                     ,(if map-p
+                          `(if ,emplace-p
+                               (values ,tree nil)
+                               (values (,with-equal ,comparator ,tree ,key ,value) nil))
+                          `(values (,with-equal ,comparator ,tree ,key) nil)))
                     (:unequal
-                     (values (,with-unequal ,comparator ,tree ,key ,@value-list) nil))))))))
+                     ,(if map-p
+                          `(if (and ,emplace-p
+                                    (typep ,tree ',node-n-type)
+                                    (nth-value 1 (list-map-lookup ,comparator (,n-type-values ,tree) ,key)))
+                               (values ,tree nil)
+                               (values (,with-unequal ,comparator ,tree ,key ,value) nil))
+                          `(values (,with-unequal ,comparator ,tree ,key) nil)))))))))
 
        ,@(when (and define-insert-p define-maker-p)
            (if map-p
@@ -274,9 +286,9 @@
                      (loop :while ,plist
                            :for ,key = (pop ,plist)
                            :for ,value = (if ,plist (pop ,plist) (error "Odd number of items in plist"))
-                           :do (setf ,tree (,insert ,comparator ,tree ,key ,value)))
+                           :do (setf ,tree (,insert ,comparator ,tree ,key ,value t)))
                      (dolist (,value ,alist)
-                       (setf ,tree (,insert ,comparator ,tree (car ,value) (cdr ,value))))
+                       (setf ,tree (,insert ,comparator ,tree (car ,value) (cdr ,value) t)))
                      ,tree)))
                `((defun ,maker (,comparator &key ,items)
                    (let ((,tree (,nil-type)))

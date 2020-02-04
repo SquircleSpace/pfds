@@ -326,8 +326,8 @@
 
 (define-balancers rb-map)
 
-(defun rb-map-insert-from-root (comparator tree key value)
-  (copy-rb-map-node (rb-map-insert comparator tree key value) :color :black))
+(defun rb-map-insert-from-root (comparator tree key value emplace-p)
+  (copy-rb-map-node (rb-map-insert comparator tree key value emplace-p) :color :black))
 
 (defun rb-map-remove-from-root (comparator tree key)
   (let ((tree (rb-map-remove comparator tree key)))
@@ -340,9 +340,9 @@
     (loop :while plist
           :for key = (pop plist)
           :for value = (if plist (pop plist) (error "Odd number of items in plist"))
-          :do (setf tree (rb-map-insert-from-root comparator tree key value)))
+          :do (setf tree (rb-map-insert-from-root comparator tree key value t)))
     (dolist (pair alist)
-      (setf tree (rb-map-insert-from-root comparator tree (car pair) (cdr pair))))
+      (setf tree (rb-map-insert-from-root comparator tree (car pair) (cdr pair) t)))
     tree))
 
 (defgeneric node-color (tree))
@@ -488,7 +488,8 @@
                    (red-black-map-comparator map)
                    (red-black-map-tree map)
                    key
-                   value)))
+                   value
+                   nil)))
     (if (eq new-tree (red-black-map-tree map))
         map
         (%make-red-black-map

@@ -84,13 +84,27 @@
     (let ((alist (mapcar (lambda (i) (cons i nil)) items)))
       (wrap (funcall map-constructor :alist alist)))))
 
-(defun test-map (constructor)
-  (subtest "set-like behavior"
-    (test-set (wrapped-set-constructor constructor))))
+(defun test-maker-key-shadowing (maker)
+  (let ((map (funcall maker 'compare
+                      :alist '((1 . 2) (3 . 4) (1 . 5))
+                      :plist '(6 7 8 9 6 10))))
+    (is (lookup-entry map 1)
+        2
+        "First alist entry is respected")
+    (is (lookup-entry map 6)
+        7
+        "First plist entry is respected")))
 
 (defun constructor (maker)
   (lambda (&key alist plist)
     (funcall maker 'compare :alist alist :plist plist)))
+
+(defun test-map (maker)
+  (let ((constructor (constructor maker)))
+    (subtest "set-like behavior"
+      (test-set (wrapped-set-constructor constructor)))
+    (subtest "shadowing of keys during making"
+      (test-maker-key-shadowing maker))))
 
 (defparameter *makers*
   '(make-red-black-map*
@@ -99,4 +113,4 @@
 (defun run-tests (&optional (makers *makers*))
   (dolist (maker makers)
     (subtest (symbol-name maker)
-      (test-map (constructor maker)))))
+      (test-map maker))))

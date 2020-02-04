@@ -101,6 +101,7 @@
          (node-copy (or copier (intern-conc *package* "COPY-" base-name "-NODE")))
          (value (when map-p (gensym "VALUE")))
          (value-list (when map-p (list value)))
+         (emplace-p (when map-p (gensym "EMPLACE")))
          (insert (intern-conc *package* base-name "-INSERT"))
          (remove (intern-conc *package* base-name "-REMOVE"))
          (lookup (intern-conc *package* base-name "-LOOKUP"))
@@ -307,24 +308,34 @@
                      (values (,node-copy center :left small :right big) comparison))
                    (setf tree (,node-copy center :left small :right big)))))))
 
-       (defun ,insert (comparator tree key ,@value-list)
-         (multiple-value-bind (splayed comparison) (,splay comparator tree key)
-           (when (or (eq :equal comparison)
-                     (eq :unequal comparison))
-             (return-from ,insert
-               (,with-key comparator tree comparison key ,@value-list)))
+       (defun ,insert (comparator tree key ,@value-list ,@(when map-p `(&optional ,emplace-p)))
+         (when (,nil-p tree)
+           (return-from ,insert
+             (,make-node-1 :key key ,@(when value `(:value ,value)))))
 
-           (cond
-             ((,nil-p splayed)
-              (,make-node-1 :key key ,@(when value `(:value ,value))))
-             ((eq comparison :less)
+         (multiple-value-bind (splayed comparison) (,splay comparator tree key)
+           (ecase comparison
+             (:less
               (,make-node-1 :key key ,@(when value `(:value ,value))
                             :left (,node-copy splayed :right (,nil-type))
                             :right (,right splayed)))
-             ((eq comparison :greater)
+             (:greater
               (,make-node-1 :key key ,@(when value `(:value ,value))
                             :left (,left splayed)
-                            :right (,node-copy splayed :left (,nil-type)))))))
+                            :right (,node-copy splayed :left (,nil-type))))
+             ,@(if map-p
+                   `((:equal
+                      (if ,emplace-p
+                          splayed
+                          (,with-key comparator splayed comparison key ,value)))
+                     (:unequal
+                      (if (and ,emplace-p
+                               (typep splayed ',node-n-type)
+                               (nth-value 1 (list-map-lookup comparator (,node-n-values splayed) key)))
+                          splayed
+                          (,with-key comparator splayed comparison key ,value))))
+                   `(((:equal :unequal)
+                      (,with-key comparator splayed comparison key ,@value-list)))))))
 
        (defun ,join (left right)
          (cond
@@ -440,7 +451,12 @@
 
 (defun impure-splay-map-insert (splay-map key value)
   (setf (impure-splay-map-tree splay-map)
-        (sp-map-insert (impure-splay-map-comparator splay-map) (impure-splay-map-tree splay-map) key value))
+        (sp-map-insert (impure-splay-map-comparator splay-map) (impure-splay-map-tree splay-map) key value nil))
+  (values))
+
+(defun impure-splay-map-emplace (splay-map key value)
+  (setf (impure-splay-map-tree splay-map)
+        (sp-map-insert (impure-splay-map-comparator splay-map) (impure-splay-map-tree splay-map) key value t))
   (values))
 
 (defun impure-splay-map-remove (splay-map key)
@@ -461,12 +477,12 @@
 
 (defun make-impure-splay-map* (comparator &key alist plist)
   (let ((map (%make-impure-splay-map :comparator comparator)))
-    (dolist (pair alist)
-      (impure-splay-map-insert map (car pair) (cdr pair)))
     (loop :while plist
           :for key = (pop plist)
           :for value = (if plist (pop plist) (error "Odd number of items in plist"))
-          :do (impure-splay-map-insert map key value))
+          :do (impure-splay-map-emplace map key value))
+    (dolist (pair alist)
+      (impure-splay-map-emplace map (car pair) (cdr pair)))
     map))
 
 (defun make-impure-splay-map (comparator &rest plist)
