@@ -14,7 +14,7 @@
 
 (defpackage :pfds.shcl.io/tests/compare
   (:use :common-lisp)
-  (:import-from :pfds.shcl.io/compare
+  (:import-from :pfds.shcl.io/utility/compare
    #:compare #:compare-objects #:compare-objects-using-slots
    #:compare*)
   (:import-from :prove #:is #:subtest #:ok)
@@ -34,7 +34,7 @@
 (register-constructor 'symbol 'symbol-constructor)
 
 (defun package-constructor ()
-  (list (find-package :pfds.shcl.io/compare)
+  (list (find-package :pfds.shcl.io/utility/compare)
         (find-package :pfds.shcl.io/tests/compare)))
 
 (register-constructor 'package 'package-constructor)

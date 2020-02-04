@@ -16,9 +16,9 @@
   (:use :common-lisp)
   (:import-from :pfds.shcl.io/interface/common
    #:to-list)
-  (:import-from :pfds.shcl.io/immutable-structure
+  (:import-from :pfds.shcl.io/utility/immutable-structure
    #:define-adt)
-  (:import-from :pfds.shcl.io/compare
+  (:import-from :pfds.shcl.io/utility/compare
    #:compare #:compare* #:compare-objects)
   (:import-from :pfds.shcl.io/interface/list
    #:with-head #:head #:tail #:is-empty #:empty)

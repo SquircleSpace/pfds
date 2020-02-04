@@ -12,9 +12,9 @@
 ;; See the License for the specific language governing permissions and
 ;; limitations under the License.
 
-(defpackage :pfds.shcl.io/list-utility
+(defpackage :pfds.shcl.io/utility/list
   (:use :common-lisp)
-  (:import-from :pfds.shcl.io/impure-list-builder
+  (:import-from :pfds.shcl.io/utility/impure-list-builder
    #:make-impure-list-builder #:impure-list-builder-add #:impure-list-builder-extract)
   (:export
    #:list-map-with
@@ -25,7 +25,7 @@
    #:list-set-without
    #:list-set-is-member
    #:list-set))
-(in-package :pfds.shcl.io/list-utility)
+(in-package :pfds.shcl.io/utility/list)
 
 (defun list-remove-index (list index)
   (let ((builder (make-impure-list-builder)))

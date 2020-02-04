@@ -12,24 +12,24 @@
 ;; See the License for the specific language governing permissions and
 ;; limitations under the License.
 
-(defpackage :pfds.shcl.io/tree
+(defpackage :pfds.shcl.io/utility/tree
   (:use :common-lisp)
   (:import-from :pfds.shcl.io/interface/common
    #:to-list #:print-graphviz #:next-graphviz-id)
-  (:import-from :pfds.shcl.io/impure-list-builder
+  (:import-from :pfds.shcl.io/utility/impure-list-builder
    #:make-impure-list-builder #:impure-list-builder-add
    #:impure-list-builder-extract)
-  (:import-from :pfds.shcl.io/immutable-structure
+  (:import-from :pfds.shcl.io/utility/immutable-structure
    #:define-adt #:structure-convert #:define-immutable-structure)
-  (:import-from :pfds.shcl.io/utility
+  (:import-from :pfds.shcl.io/utility/misc
    #:intern-conc #:cassert)
-  (:import-from :pfds.shcl.io/list-utility
+  (:import-from :pfds.shcl.io/utility/list
    #:list-set-with #:list-set-without #:list-set #:list-set-is-member
    #:list-map-with #:list-map-without #:list-map #:list-map-lookup)
   (:export
    #:define-tree #:print-tree-node-properties
    #:nil-tree-p #:node-left #:node-right #:node-values))
-(in-package :pfds.shcl.io/tree)
+(in-package :pfds.shcl.io/utility/tree)
 
 (defgeneric print-tree-node-properties (object stream))
 

@@ -136,8 +136,8 @@ an ordering between things that are mutually `=`, such as `1`, `1.0`,
 aren't necessarily meaningful, but they do have useful properties for
 specific use cases.  If you want to have a meaningful ordering, you
 can simply define your own comparator function.  The
-`PFDS.SHCL.IO/COMPARE` package exports comparators for many common
-types to help facilitate writing your own comparator.
+`PFDS.SHCL.IO/UTILITY/COMPARE` package exports comparators for many
+common types to help facilitate writing your own comparator.
 
 Note that `COMPARE` assumes that instances of types provided by Common
 Lisp are immutable.  You mustn't mutate objects in ways that change

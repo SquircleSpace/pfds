@@ -12,11 +12,11 @@
 ;; See the License for the specific language governing permissions and
 ;; limitations under the License.
 
-(defpackage :pfds.shcl.io/lazy
+(defpackage :pfds.shcl.io/utility/lazy
   (:use :common-lisp)
   (:import-from :bordeaux-threads #:make-lock #:with-lock-held)
   (:export #:lazy #:force))
-(in-package :pfds.shcl.io/lazy)
+(in-package :pfds.shcl.io/utility/lazy)
 
 (defmacro lazy (&body body)
   (let ((lock (gensym "LOCK"))

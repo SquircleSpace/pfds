@@ -16,18 +16,18 @@
   (:use :common-lisp)
   (:import-from :pfds.shcl.io/interface/common
    #:to-list #:check-invariants #:print-graphviz)
-  (:import-from :pfds.shcl.io/impure-list-builder
+  (:import-from :pfds.shcl.io/utility/impure-list-builder
    #:make-impure-list-builder #:impure-list-builder-add
    #:impure-list-builder-extract)
-  (:import-from :pfds.shcl.io/tree
+  (:import-from :pfds.shcl.io/utility/tree
    #:define-tree)
-  (:import-from :pfds.shcl.io/utility
+  (:import-from :pfds.shcl.io/utility/misc
    #:intern-conc #:cassert)
-  (:import-from :pfds.shcl.io/list-utility
+  (:import-from :pfds.shcl.io/utility/list
    #:list-set-is-member #:list-map-lookup)
-  (:import-from :pfds.shcl.io/structure-mop
+  (:import-from :pfds.shcl.io/utility/structure-mop
    #:define-struct)
-  (:import-from :pfds.shcl.io/immutable-structure
+  (:import-from :pfds.shcl.io/utility/immutable-structure
    #:define-immutable-structure)
   (:import-from :pfds.shcl.io/interface/heap
    #:merge-heaps #:heap-top #:without-heap-top

@@ -16,11 +16,11 @@
   (:use :common-lisp)
   (:import-from :pfds.shcl.io/interface/common
    #:to-list #:print-graphviz #:next-graphviz-id)
-  (:import-from :pfds.shcl.io/immutable-structure
+  (:import-from :pfds.shcl.io/utility/immutable-structure
    #:define-adt)
   (:import-from :pfds.shcl.io/interface/heap
    #:merge-heaps #:heap-top #:without-heap-top #:with-member #:is-empty #:empty)
-  (:import-from :pfds.shcl.io/impure-queue
+  (:import-from :pfds.shcl.io/utility/impure-queue
    #:make-impure-queue #:enqueue #:dequeue #:impure-queue-count)
   (:export
    #:merge-heaps

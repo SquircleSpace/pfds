@@ -16,7 +16,7 @@
   (:use :common-lisp)
   (:import-from :pfds.shcl.io/interface/common
    #:define-immutable-structure #:to-list #:check-invariants)
-  (:import-from :pfds.shcl.io/utility
+  (:import-from :pfds.shcl.io/utility/misc
    #:cassert)
   (:import-from :pfds.shcl.io/interface/queue
    #:with-last #:without-first #:peek-first #:is-empty #:empty)

@@ -12,14 +12,14 @@
 ;; See the License for the specific language governing permissions and
 ;; limitations under the License.
 
-(defpackage :pfds.shcl.io/impure-list-builder
+(defpackage :pfds.shcl.io/utility/impure-list-builder
   (:use :common-lisp)
   (:export
    #:make-impure-list-builder
    #:impure-list-builder
    #:impure-list-builder-add
    #:impure-list-builder-extract))
-(in-package :pfds.shcl.io/impure-list-builder)
+(in-package :pfds.shcl.io/utility/impure-list-builder)
 
 (defstruct (impure-list-builder (:constructor %make-impure-list-builder))
   head

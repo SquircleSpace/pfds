@@ -12,7 +12,7 @@
 ;; See the License for the specific language governing permissions and
 ;; limitations under the License.
 
-(defpackage :pfds.shcl.io/compare
+(defpackage :pfds.shcl.io/utility/compare
   (:use :common-lisp)
   (:export
    #:comparison
@@ -35,7 +35,7 @@
    #:compare-other-objects
    #:compare*
    #:unequalify))
-(in-package :pfds.shcl.io/compare)
+(in-package :pfds.shcl.io/utility/compare)
 
 (deftype comparison ()
   '(member :greater :less :equal :unequal))

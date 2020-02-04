@@ -17,15 +17,15 @@
   (:import-from :pfds.shcl.io/interface/common
    #:to-list #:is-empty #:empty #:check-invariants
    #:print-graphviz)
-  (:import-from :pfds.shcl.io/immutable-structure
+  (:import-from :pfds.shcl.io/utility/immutable-structure
    #:define-immutable-structure)
-  (:import-from :pfds.shcl.io/utility
+  (:import-from :pfds.shcl.io/utility/misc
    #:intern-conc #:cassert)
   (:import-from :pfds.shcl.io/interface/set
    #:with-member #:without-member #:is-member)
   (:import-from :pfds.shcl.io/interface/map
    #:with-entry #:without-entry #:lookup-entry)
-  (:import-from :pfds.shcl.io/tree
+  (:import-from :pfds.shcl.io/utility/tree
    #:define-tree #:print-tree-node-properties
    #:node-left #:node-right #:nil-tree-p)
   (:export

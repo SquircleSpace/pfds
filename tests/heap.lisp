@@ -14,7 +14,7 @@
 
 (defpackage :pfds.shcl.io/tests/heap
   (:use :common-lisp)
-  (:import-from :pfds.shcl.io/compare #:compare)
+  (:import-from :pfds.shcl.io/utility/compare #:compare)
   (:import-from :pfds.shcl.io/interface/heap
    #:merge-heaps #:heap-top #:without-heap-top #:with-member #:is-empty #:empty)
   (:import-from :pfds.shcl.io/implementation/leftist-heap #:make-leftist-heap*)

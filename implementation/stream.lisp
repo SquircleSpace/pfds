@@ -14,12 +14,12 @@
 
 (defpackage :pfds.shcl.io/implementation/stream
   (:use :common-lisp)
-  (:import-from :pfds.shcl.io/lazy #:force #:lazy)
+  (:import-from :pfds.shcl.io/utility/lazy #:force #:lazy)
   (:import-from :pfds.shcl.io/interface/list
    #:with-head #:head #:tail #:is-empty #:empty)
   (:import-from :pfds.shcl.io/interface/common
    #:to-list)
-  (:import-from :pfds.shcl.io/immutable-structure
+  (:import-from :pfds.shcl.io/utility/immutable-structure
    #:define-adt)
   (:export
    #:lazy-cons

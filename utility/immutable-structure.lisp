@@ -12,9 +12,9 @@
 ;; See the License for the specific language governing permissions and
 ;; limitations under the License.
 
-(defpackage :pfds.shcl.io/immutable-structure
+(defpackage :pfds.shcl.io/utility/immutable-structure
   (:use :common-lisp)
-  (:import-from :pfds.shcl.io/structure-mop
+  (:import-from :pfds.shcl.io/utility/structure-mop
    #:find-struct-class
    #:struct-class
    #:struct-class-copier
@@ -34,7 +34,7 @@
    #:define-immutable-structure
    #:define-adt
    #:structure-convert))
-(in-package :pfds.shcl.io/immutable-structure)
+(in-package :pfds.shcl.io/utility/immutable-structure)
 
 (defclass immutable-structure (struct-class)
   ())

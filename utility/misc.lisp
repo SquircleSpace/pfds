@@ -12,11 +12,11 @@
 ;; See the License for the specific language governing permissions and
 ;; limitations under the License.
 
-(defpackage :pfds.shcl.io/utility
+(defpackage :pfds.shcl.io/utility/misc
   (:use :common-lisp)
   (:export
    #:intern-conc #:cassert))
-(in-package :pfds.shcl.io/utility)
+(in-package :pfds.shcl.io/utility/misc)
 
 (defun intern-conc (package &rest things)
   (let ((name (with-output-to-string (stream)

@@ -16,12 +16,12 @@
   (:use :common-lisp)
   (:import-from :pfds.shcl.io/interface/common
    #:to-list #:check-invariants)
-  (:import-from :pfds.shcl.io/immutable-structure
+  (:import-from :pfds.shcl.io/utility/immutable-structure
    #:define-immutable-structure)
   (:import-from :pfds.shcl.io/interface/deque
    #:with-last #:without-first #:peek-first #:is-empty #:empty
    #:with-first #:without-last #:peek-last)
-  (:import-from :pfds.shcl.io/impure-list-builder
+  (:import-from :pfds.shcl.io/utility/impure-list-builder
    #:make-impure-list-builder #:impure-list-builder-add
    #:impure-list-builder-extract)
   (:export

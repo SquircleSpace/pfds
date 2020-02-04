@@ -16,9 +16,9 @@
   (:use :common-lisp)
   (:import-from :pfds.shcl.io/interface/common
    #:to-list #:check-invariants)
-  (:import-from :pfds.shcl.io/immutable-structure
+  (:import-from :pfds.shcl.io/utility/immutable-structure
    #:define-immutable-structure)
-  (:import-from :pfds.shcl.io/compare
+  (:import-from :pfds.shcl.io/utility/compare
    #:compare #:compare-objects)
   (:import-from :pfds.shcl.io/interface/map
    #:is-empty #:empty #:lookup-entry #:with-entry #:without-entry)

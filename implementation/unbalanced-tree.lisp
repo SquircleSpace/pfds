@@ -16,13 +16,13 @@
   (:use :common-lisp)
   (:import-from :pfds.shcl.io/interface/common
    #:to-list #:is-empty #:empty)
-  (:import-from :pfds.shcl.io/immutable-structure
+  (:import-from :pfds.shcl.io/utility/immutable-structure
    #:define-immutable-structure)
   (:import-from :pfds.shcl.io/interface/set
    #:with-member #:without-member #:is-member)
   (:import-from :pfds.shcl.io/interface/map
    #:with-entry #:without-entry #:lookup-entry)
-  (:import-from :pfds.shcl.io/tree
+  (:import-from :pfds.shcl.io/utility/tree
    #:define-tree)
   (:export
    #:is-empty

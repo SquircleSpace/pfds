@@ -12,9 +12,9 @@
 ;; See the License for the specific language governing permissions and
 ;; limitations under the License.
 
-(defpackage :pfds.shcl.io/structure-mop
+(defpackage :pfds.shcl.io/utility/structure-mop
   (:use :common-lisp)
-  (:import-from :pfds.shcl.io/utility #:intern-conc)
+  (:import-from :pfds.shcl.io/utility/misc #:intern-conc)
   (:export
    #:find-struct-class
    #:struct-class
@@ -51,7 +51,7 @@
    #:struct-definition-form
    #:struct-definition-options
    #:define-struct))
-(in-package :pfds.shcl.io/structure-mop)
+(in-package :pfds.shcl.io/utility/structure-mop)
 
 (defclass struct-class ()
   ((name

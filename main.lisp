@@ -24,7 +24,7 @@
    #:make-red-black-set*)
   (:import-from :pfds.shcl.io/implementation/leftist-heap
    #:make-leftist-heap*)
-  (:import-from :pfds.shcl.io/compare
+  (:import-from :pfds.shcl.io/utility/compare
    #:compare)
   (:export
    #:make-map #:make-map*

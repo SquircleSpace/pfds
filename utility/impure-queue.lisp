@@ -12,11 +12,11 @@
 ;; See the License for the specific language governing permissions and
 ;; limitations under the License.
 
-(defpackage :pfds.shcl.io/impure-queue
+(defpackage :pfds.shcl.io/utility/impure-queue
   (:use :common-lisp)
   (:import-from :pfds.shcl.io/interface/common #:is-empty #:empty)
   (:export #:make-impure-queue #:enqueue #:dequeue #:impure-queue-count))
-(in-package :pfds.shcl.io/impure-queue)
+(in-package :pfds.shcl.io/utility/impure-queue)
 
 (defconstant +default-queue-size+ 32)
 (defconstant +default-growth-factor+ 2)
