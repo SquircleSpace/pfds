@@ -25,6 +25,8 @@
   (:import-from :pfds.shcl.io/implementation/red-black-tree
    #:make-red-black-set* #:red-black-set)
   (:import-from :pfds.shcl.io/implementation/unbalanced-tree #:make-unbalanced-set*)
+  (:import-from :pfds.shcl.io/implementation/weight-balanced-tree
+   #:make-weight-balanced-set*)
   (:import-from :prove #:is #:subtest #:ok #:pass #:fail)
   (:export #:run-tests #:test-set))
 (in-package :pfds.shcl.io/tests/set)
@@ -68,6 +70,7 @@
 
 (defparameter *makers*
   '(make-red-black-set*
+    make-weight-balanced-set*
     make-unbalanced-set*))
 
 (defun compare-< (left right)

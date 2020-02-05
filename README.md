@@ -3,13 +3,8 @@
 This repository contains a variety of purely functional data
 structures.
 
-For now, it only contains data structures described in the book
-"Purely Functional Data Structures" by Chris Okasaki.  The
-implementations have been modified to feel more natural in Common
-Lisp.  Many data structures from the book are not yet implemented.
-
-In the future, this library may contain other data purely functional
-structures as well.
+Mostly, the data structures come from "Purely Functional Data
+Structures" by Chris Okasaki.
 
 ## Data Structures
 
@@ -23,11 +18,27 @@ structures as well.
 - `LOOKUP-ENTRY`: `O(log(n))`
 - `IS-EMPTY`: `O(1)`
 
+#### `WEIGHT-BALANCED-MAP`
+
+- `MAKE-WEIGHT-BALANCED-MAP`: `O(n log(n))`
+- `WITH-ENTRY`: `O(log(n))`
+- `WITHOUT-ENTRY`: `O(log(n))`
+- `LOOKUP-ENTRY`: `O(log(n))`
+- `IS-EMPTY`: `O(1)`
+
 ### Sets
 
 #### `RED-BLACK-SET`
 
 - `MAKE-RED-BLACK-SET`: `O(n log(n))`
+- `WITH-MEMBER`: `O(log(n))`
+- `WITHOUT-MEMBER`: `O(log(n))`
+- `IS-MEMBER`: `O(log(n))`
+- `IS-EMPTY`: `O(1)`
+
+#### `WEIGHT-BALANCED-SET`
+
+- `MAKE-WEIGHT-BALANCED-SET`: `O(n log(n))`
 - `WITH-MEMBER`: `O(log(n))`
 - `WITHOUT-MEMBER`: `O(log(n))`
 - `IS-MEMBER`: `O(log(n))`
