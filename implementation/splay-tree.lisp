@@ -605,7 +605,7 @@
   (sp-heap-nil-p (splay-heap-tree heap)))
 
 (defmethod empty ((heap splay-heap))
-  (%make-splay-heap :comparator (splay-heap-comparator heap)))
+  (copy-splay-heap heap :tree (sp-heap-nil)))
 
 (defmethod to-list ((heap splay-heap))
   (let ((builder (make-impure-list-builder)))

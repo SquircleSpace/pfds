@@ -264,10 +264,10 @@
   (without-heap-top-common heap '%make-weight-biased-leftist-heap))
 
 (defmethod empty ((heap height-biased-leftist-heap))
-  (%make-height-biased-leftist-heap :comparator (leftist-heap-comparator heap)))
+  (copy-height-biased-leftist-heap heap :guts (guts-nil)))
 
 (defmethod empty ((heap weight-biased-leftist-heap))
-  (%make-weight-biased-leftist-heap :comparator (leftist-heap-comparator heap)))
+  (copy-weight-biased-leftist-heap heap :guts (guts-nil)))
 
 (defun is-empty-common (heap)
   (guts-nil-p (leftist-heap-guts heap)))

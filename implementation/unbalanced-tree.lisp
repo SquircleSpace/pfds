@@ -62,7 +62,7 @@
   (%unbalanced-set-tree-nil-p (unbalanced-set-tree set)))
 
 (defmethod empty ((set unbalanced-set))
-  (make-unbalanced-set (unbalanced-set-comparator set)))
+  (copy-unbalanced-set set :tree (%unbalanced-set-tree-nil)))
 
 (defmethod with-member ((set unbalanced-set) item)
   (copy-unbalanced-set set :tree (%unbalanced-set-tree-insert (unbalanced-set-comparator set)
@@ -103,7 +103,7 @@
   (%unbalanced-map-tree-nil-p (unbalanced-map-tree map)))
 
 (defmethod empty ((map unbalanced-map))
-  (make-unbalanced-map (unbalanced-map-comparator map)))
+  (copy-unbalanced-map map :tree (%unbalanced-map-tree-nil)))
 
 (defmethod with-entry ((map unbalanced-map) key value)
   (copy-unbalanced-map map :tree (%unbalanced-map-tree-insert (unbalanced-map-comparator map)

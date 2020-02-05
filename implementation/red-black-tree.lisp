@@ -419,7 +419,7 @@
   (rb-set-nil-p (red-black-set-tree set)))
 
 (defmethod empty ((set red-black-set))
-  (%make-red-black-set :comparator (red-black-set-comparator set)))
+  (copy-red-black-set set :tree (rb-set-nil)))
 
 (defmethod with-member ((set red-black-set) item)
   (let ((new-tree (rb-set-insert-from-root
@@ -481,7 +481,7 @@
   (rb-map-nil-p (red-black-map-tree map)))
 
 (defmethod empty ((map red-black-map))
-  (%make-red-black-map :comparator (red-black-map-comparator map)))
+  (copy-red-black-map map :tree (rb-map-nil)))
 
 (defmethod with-entry ((map red-black-map) key value)
   (let ((new-tree (rb-map-insert-from-root
