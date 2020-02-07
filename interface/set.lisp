@@ -27,6 +27,13 @@
 (define-interface set
   is-empty
   empty
+
   with-member
-  (defgeneric without-member (container item))
-  (defgeneric is-member (container item)))
+
+  (defgeneric without-member (set object)
+    (:documentation
+     "Return a new set where the given object has been removed."))
+
+  (defgeneric is-member (set object)
+    (:documentation
+     "Returns non-nil if the given object is a member of the set.")))

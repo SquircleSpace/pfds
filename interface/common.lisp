@@ -24,15 +24,25 @@
    #:define-interface))
 (in-package :pfds.shcl.io/interface/common)
 
-(defgeneric to-list (object))
+(defgeneric to-list (collection)
+  (:documentation
+   "Convert the given collection into a list."))
 
-(defgeneric is-empty (container))
-(defgeneric empty (container))
-(defgeneric with-member (container item))
+(defgeneric is-empty (collection)
+  (:documentation
+   "Returns non-nil if the given collection has no elements."))
+(defgeneric empty (collection)
+  (:documentation
+   "Return an empty collection of the same type as the given one."))
+(defgeneric with-member (collection item)
+  (:documentation
+   "Add an object to the given collection."))
 
-(defgeneric check-invariants (object))
+(defgeneric check-invariants (collection)
+  (:documentation
+   "Ensure that the given collection is internally self-consistent."))
 
-(defmethod check-invariants (object)
+(defmethod check-invariants (collection)
   ;; looks fine to me!
   )
 

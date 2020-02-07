@@ -27,6 +27,19 @@
 (define-interface map
   is-empty
   empty
-  (defgeneric with-entry (container key value))
-  (defgeneric without-entry (container key))
-  (defgeneric lookup-entry (container key)))
+
+  (defgeneric with-entry (map key value)
+    (:documentation
+     "Return a map where the given key/value pair has been added."))
+
+  (defgeneric without-entry (map key)
+    (:documentation
+     "Return a map where the entry for the given key has been removed."))
+
+  (defgeneric lookup-entry (map key)
+    (:documentation
+     "Return the value associated with the given key in the map.
+
+If the value doesn't exist in the map, this returns two nil values.
+If the value does exist, it returns the stored value and a non-nil
+value.")))

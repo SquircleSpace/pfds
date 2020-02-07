@@ -21,8 +21,24 @@
 (in-package :pfds.shcl.io/interface/list)
 
 (define-interface list
-  (defgeneric with-head (list object))
-  (defgeneric head (list))
-  (defgeneric tail (list))
+  (defgeneric with-head (list object)
+    (:documentation
+     "Return a list with the given object at the head of the list."))
+
+  (defgeneric head (list)
+    (:documentation
+     "Return the object at the head of the list.
+
+If the list is empty, this returns two nil values.  If the list is
+non-empty, it returns the head element and a non-nil value."))
+
+  (defgeneric tail (list)
+    (:documentation
+     "Return a list where the head element has been removed.
+
+If the list is empty, this returns an empty list and two nil values.
+If the list is non-empty, it returns the new list, the element
+removed, and a non-nil value."))
+
   is-empty
   empty)

@@ -26,9 +26,26 @@
 (in-package :pfds.shcl.io/interface/heap)
 
 (define-interface heap
-  (defgeneric merge-heaps (first second))
-  (defgeneric heap-top (heap))
-  (defgeneric without-heap-top (heap))
+  (defgeneric merge-heaps (first second)
+    (:documentation
+     "Return a new heap that contains all the elements in the given heaps."))
+
+  (defgeneric heap-top (heap)
+    (:documentation
+     "Return the element at the top of the heap.
+
+If the heap is empty, this returns two nil values.  If the heap is
+non-empty, it returns the smallest element and a non-nil value."))
+
+  (defgeneric without-heap-top (heap)
+    (:documentation
+     "Return a heap where the top element has been removed.
+
+If the heap is empty, this returns an empty heap and two nil values.
+If the heap is non-empty, it returns the updated heap, the element
+removed, and a non-nil value."))
+
   with-member
+
   is-empty
   empty)

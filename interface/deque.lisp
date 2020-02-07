@@ -36,12 +36,31 @@
 (define-interface deque
   is-empty
   empty
+
   with-last
-  (defgeneric with-first (queue item))
+
+  (defgeneric with-first (deque object)
+    (:documentation
+     "Return a new deque with `OBJECT' at the front."))
+
   without-first
-  (defgeneric without-last (queue))
+
+  (defgeneric without-last (deque)
+    (:documentation
+     "Return a new deque with the object at the end removed.
+
+If the deque is empty, this returns an empty deque and two nil values.
+If the deque is non-empty, this returns the new deque, the object
+removed from the deque, and nil."))
+
   peek-first
-  (defgeneric peek-last (queue)))
+
+  (defgeneric peek-last (deque)
+    (:documentation
+     "Return the object at the end of the deque.
+
+If the deque is empty, this returns two nil values.  If the deque is
+non-empty, it returns the final element and a non-nil value.")))
 
 (defmethod peek-last (queue)
   (multiple-value-bind (new-queue value valid-p) (without-last queue)
