@@ -21,7 +21,7 @@
 (in-package :pfds.shcl.io/interface/list)
 
 (define-interface list
-  (defgeneric with-head (item list))
+  (defgeneric with-head (list object))
   (defgeneric head (list))
   (defgeneric tail (list))
   is-empty

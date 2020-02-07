@@ -33,7 +33,7 @@
 (defun list-append (left-list right-list)
   (if (is-empty left-list)
       right-list
-      (with-head (head left-list) (list-append (tail left-list) right-list))))
+      (with-head (list-append (tail left-list) right-list) (head left-list))))
 
 (defun list-take (list count)
   (check-type count (integer 0))
@@ -43,7 +43,7 @@
     ((zerop count)
      (empty list))
     (t
-     (with-head (head list) (list-take (tail list) (1- count))))))
+     (with-head (list-take (tail list) (1- count)) (head list)))))
 
 (defun list-drop (list count)
   (check-type count (integer 0))
@@ -58,7 +58,7 @@
   (let ((result (empty list)))
     (loop :while (not (is-empty list)) :do
           (let ((head (head list)))
-            (setf result (with-head head result))
+            (setf result (with-head result head))
             (setf list (tail list))))
     result))
 
@@ -67,9 +67,9 @@
     ((is-empty list)
      (error "Invalid subscript"))
     ((zerop index)
-     (with-head value (tail list)))
+     (with-head (tail list) value))
     ((plusp index)
-     (with-head (head list) (update (tail list) (1- index) value)))
+     (with-head (update (tail list) (1- index) value) (head list)))
     (t
      (error "Invalid subscript"))))
 
@@ -90,7 +90,7 @@
   (labels
       ((visit (objects)
          (if (cdr objects)
-             (with-head (car objects) (visit (cdr objects)))
+             (with-head (visit (cdr objects)) (car objects))
              (if (car objects)
                  (visit (car objects))
                  (empty-pure-list)))))
@@ -111,7 +111,7 @@
 (defmethod to-list ((list pure-list-cons))
   (cons (pure-list-cons-head list) (to-list (pure-list-cons-tail list))))
 
-(defmethod with-head (item (list pure-list))
+(defmethod with-head ((list pure-list) item)
   (pure-list-cons list item))
 
 (defmethod head ((list pure-list-cons))
@@ -168,7 +168,7 @@
 (defmethod compare-objects ((left pure-list-cons) (right pure-list-nil))
   :greater)
 
-(defmethod with-head (item (list list))
+(defmethod with-head ((list list) item)
   (cons item list))
 
 (defmethod head ((list list))
