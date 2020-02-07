@@ -72,10 +72,10 @@
   (values nil nil))
 
 (defmethod tail ((lazy-cons lazy-cons))
-  (values (force (lazy-cons-tail lazy-cons)) t))
+  (values (force (lazy-cons-tail lazy-cons)) (lazy-cons-head lazy-cons) t))
 
 (defmethod tail ((lazy-nil lazy-nil))
-  (values lazy-nil nil))
+  (values lazy-nil nil nil))
 
 (defmethod with-head ((lazy-nil lazy-nil) item)
   (lazy-cons item lazy-nil))

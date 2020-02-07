@@ -121,10 +121,10 @@
   (values nil nil))
 
 (defmethod tail ((list pure-list-cons))
-  (values (pure-list-cons-tail list) t))
+  (values (pure-list-cons-tail list) (pure-list-cons-head list) t))
 
 (defmethod tail ((list pure-list-nil))
-  (values list nil))
+  (values list nil nil))
 
 (defmethod is-empty ((list pure-list-cons))
   nil)
@@ -178,8 +178,8 @@
 
 (defmethod tail ((list list))
   (if list
-      (values (cdr list) t)
-      (values nil nil)))
+      (values (cdr list) (car list) t)
+      (values nil nil nil)))
 
 (defmethod is-empty ((list list))
   (null list))
