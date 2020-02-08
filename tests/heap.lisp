@@ -30,27 +30,18 @@
 (defvar *random-numbers* (list* 666 666 (loop :for i :below 100000 :collect (random 100000))))
 (defvar *random-numbers-sorted* (sort (copy-list *random-numbers*) '<))
 
-(defun weight-biased-leftist-heap-constructor (&optional items)
-  (make-leftist-heap* 'compare :bias :weight :items items))
+(defun make-weight-biased-leftist-heap* (comparator &key items)
+  (make-leftist-heap* comparator :bias :weight :items items))
 
-(defun height-biased-leftist-heap-constructor (&optional items)
-  (make-leftist-heap* 'compare :bias :height :items items))
+(defun make-height-biased-leftist-heap* (comparator &key items)
+  (make-leftist-heap* comparator :bias :height :items items))
 
-(defun binomial-heap-constructor (&optional items)
-  (make-binomial-heap* 'compare :items items))
-
-(defun splay-heap-constructor (&optional items)
-  (make-splay-heap* 'compare :items items))
-
-(defun pairing-heap-constructor (&optional items)
-  (make-pairing-heap* 'compare :items items))
-
-(defparameter *constructors*
-  '(weight-biased-leftist-heap-constructor
-    height-biased-leftist-heap-constructor
-    binomial-heap-constructor
-    splay-heap-constructor
-    pairing-heap-constructor))
+(defparameter *makers*
+  '(make-weight-biased-leftist-heap*
+    make-height-biased-leftist-heap*
+    make-binomial-heap*
+    make-splay-heap*
+    make-pairing-heap*))
 
 (defun heap-sort (heap expected)
   (let (sorted)
@@ -93,9 +84,17 @@
        (is truly-removed-p nil
            "Removal from an empty heap returns a nil third value")))))
 
+(defun constructor (maker)
+  (lambda (&optional items)
+    (funcall maker 'compare :items items)))
+
+(defun test-heap (maker)
+  (subtest (symbol-name maker)
+
+    (let ((constructor (constructor maker)))
+      (test-construction constructor)
+      (test-removal-from-empty constructor))))
+
 (defun run-tests ()
-  (dolist (constructor *constructors*)
-    (subtest
-     (symbol-name constructor)
-     (test-construction constructor)
-     (test-removal-from-empty constructor))))
+  (dolist (maker *makers*)
+    (test-heap maker)))
