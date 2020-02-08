@@ -183,7 +183,7 @@
     (let (inner-ranked-tree-list)
       ;; We need to reverse the tree's children and turn them into
       ;; ranked trees
-      (loop :for rank :from (ranked-tree-rank minimum-tree) :downto 0
+      (loop :for rank :from (1- (ranked-tree-rank minimum-tree)) :downto 0
             :for tree :in (tree-node-children (ranked-tree-tree minimum-tree)) :do
               (push (make-ranked-tree :rank rank :tree tree) inner-ranked-tree-list))
       (values
