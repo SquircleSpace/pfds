@@ -54,7 +54,20 @@ Structures" by Chris Okasaki.
 - `IS-EMPTY`: `O(1)`
 
 Note: this queue *is* purely functional, but the asymptotic bounds
-given above assume the queue is not used persistently.
+given above assume the queue is not used persistently.  If you require
+persistence, consider using `BANKERS-QUEUE`.
+
+#### `BANKERS-QUEUE`
+
+- `MAKE-BANKERS-QUEUE`: `O(n)`
+- `WITH-LAST`, `WITHOUT-FIRST`: `O(1)` amortized
+- `PEEK-FIRST`: `O(1)`
+- `IS-EMPTY`: `O(1)`
+
+Unlike `BATCHED-QUEUE`, the bounds given above remain true even if the
+queue is used persistently.  However, the constant factors `WITH-LAST`
+and `WITHOUT-FIRST` are much higher.  If you don't need persistence,
+consider using `BATCHED-QUEUE`.
 
 ### Deques
 

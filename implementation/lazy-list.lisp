@@ -30,7 +30,8 @@
    #:is-empty
    #:empty
    #:lazy-list-append
-   #:lazy-list-reverse))
+   #:lazy-list-reverse
+   #:lazy-list-length))
 (in-package :pfds.shcl.io/implementation/lazy-list)
 
 ;; See "Purely Functional Data Structures" by Chris Okasaki.
@@ -108,15 +109,30 @@
             (tail (make-lazy-value :suspension (lazy (lazy-list-append left-tail right)))))
        (lazy-cons (head left) tail)))))
 
+(defmacro do-lazy-list ((value lazy-list &optional result) &body body)
+  (let ((tip (gensym "TIP"))
+        (new-tip (gensym "NEW-TIP"))
+        (valid-p (gensym "VALID-P"))
+        (head (gensym "HEAD")))
+    `(loop :with ,tip = ,lazy-list :do
+      (multiple-value-bind (,new-tip ,head ,valid-p) (tail ,tip)
+        (unless ,valid-p
+          (return ,result))
+        (let ((,value ,head))
+          ,@body)
+        (setf ,tip ,new-tip)))))
+
 (defun lazy-list-reverse (lazy-list)
   (make-lazy-value
    :suspension (lazy
-                 (let ((result (empty-lazy-list))
-                       (remaining lazy-list))
-                   (loop
-                     (multiple-value-bind (tail head valid-p) (tail remaining)
-                       (unless valid-p
-                         (return))
-                       (setf result (lazy-cons head result))
-                       (setf remaining tail)))
+                 (let ((result (empty-lazy-list)))
+                   (do-lazy-list (value lazy-list)
+                     (setf result (lazy-cons value result)))
                    result))))
+
+(defun lazy-list-length (lazy-list)
+  (let ((count 0))
+    (do-lazy-list (value lazy-list)
+      (declare (ignore value))
+      (incf count))
+    count))
