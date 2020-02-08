@@ -15,12 +15,15 @@
 (defpackage :pfds.shcl.io/implementation/binomial-heap
   (:use :common-lisp)
   (:import-from :pfds.shcl.io/interface/common
-   #:to-list #:print-graphviz #:next-graphviz-id)
+   #:to-list #:print-graphviz #:next-graphviz-id
+   #:check-invariants)
   (:import-from :pfds.shcl.io/utility/impure-list-builder
    #:make-impure-list-builder #:impure-list-builder-add
    #:impure-list-builder-extract)
   (:import-from :pfds.shcl.io/utility/immutable-structure
    #:define-adt #:define-immutable-structure)
+  (:import-from :pfds.shcl.io/utility/misc
+   #:cassert)
   (:import-from :pfds.shcl.io/interface/heap
    #:merge-heaps #:heap-top #:without-heap-top #:with-member #:is-empty #:empty)
   (:export
@@ -319,3 +322,28 @@
   (if (zerop (binomial-heap-size heap))
       heap
       (empty-binomial-heap (binomial-heap-comparator heap))))
+
+(defun check-rank (tree rank)
+  (cassert (equal rank (length (tree-node-children tree)))
+           nil "A rank n tree should have n children")
+  (loop :for child-rank :from (1- rank) :downto 0
+        :for child :in (tree-node-children tree) :do
+        (check-rank child child-rank)))
+
+(defun check-order (tree comparator)
+  (dolist (child (tree-node-children tree))
+    (cassert (not (eq :greater (funcall comparator (tree-node-value tree) (tree-node-value child))))
+             nil "Child trees must not be greater than parent trees")))
+
+(defmethod check-invariants ((heap binomial-heap))
+  (let ((count 0))
+    (dolist (ranked-tree (binomial-heap-ranked-trees heap))
+      (do-tree (object (ranked-tree-tree ranked-tree))
+        (declare (ignore object))
+        (incf count)))
+    (cassert (equal count (binomial-heap-size heap))
+             nil "The binomial heap's size should be correct"))
+
+  (dolist (ranked-tree (binomial-heap-ranked-trees heap))
+    (check-rank (ranked-tree-tree ranked-tree) (ranked-tree-rank ranked-tree))
+    (check-order (ranked-tree-tree ranked-tree) (binomial-heap-comparator heap))))
