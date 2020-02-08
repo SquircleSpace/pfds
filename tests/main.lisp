@@ -18,6 +18,7 @@
   (:import-from :pfds.shcl.io/tests/set)
   (:import-from :pfds.shcl.io/tests/map)
   (:import-from :pfds.shcl.io/tests/compare)
+  (:import-from :pfds.shcl.io/tests/queue)
   (:import-from :prove #:subtest #:*suite* #:suite #:finalize)
   (:export #:run-tests #:main))
 (in-package :pfds.shcl.io/tests/main)
@@ -30,6 +31,8 @@
       (pfds.shcl.io/tests/set:run-tests))
     (subtest "Maps"
       (pfds.shcl.io/tests/map:run-tests))
+    (subtest "Queues"
+      (pfds.shcl.io/tests/queue:run-tests))
     (subtest "Compare"
       (pfds.shcl.io/tests/compare:run-tests))
     (finalize)))

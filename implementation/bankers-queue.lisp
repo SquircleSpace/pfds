@@ -34,6 +34,8 @@
    #:peek-first
    #:is-empty
    #:empty
+   #:bankers-queue
+   #:bankers-queue-p
    #:make-bankers-queue
    #:make-bankers-queue*))
 (in-package :pfds.shcl.io/implementation/bankers-queue)
