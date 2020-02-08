@@ -143,9 +143,10 @@
     (return-from find-minimum (values nil nil)))
 
   (let ((min (tree-node-value (ranked-tree-tree (car ranked-tree-list)))))
-    (dolist (item (cdr ranked-tree-list))
-      (when (eq :less (funcall comparator item min))
-        (setf min item)))
+    (dolist (ranked-tree (cdr ranked-tree-list))
+      (let ((item (tree-node-value (ranked-tree-tree ranked-tree))))
+        (when (eq :less (funcall comparator item min))
+          (setf min item))))
     (values min t)))
 
 (defun remove-minimum-tree (ranked-tree-list comparator)
