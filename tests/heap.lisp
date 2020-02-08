@@ -15,6 +15,9 @@
 (defpackage :pfds.shcl.io/tests/heap
   (:use :common-lisp)
   (:import-from :pfds.shcl.io/utility/compare #:compare)
+  (:import-from :pfds.shcl.io/utility/misc #:cassert)
+  (:import-from :pfds.shcl.io/interface/common
+   #:check-invariants)
   (:import-from :pfds.shcl.io/interface/heap
    #:merge-heaps #:heap-top #:without-heap-top #:with-member #:is-empty #:empty)
   (:import-from :pfds.shcl.io/implementation/leftist-heap #:make-leftist-heap*)
@@ -25,10 +28,34 @@
   (:export #:run-tests))
 (in-package :pfds.shcl.io/tests/heap)
 
+(defvar *check-invariants* nil)
+
+(defun without (heap)
+  (multiple-value-bind (new-heap removed-value success-p) (without-heap-top heap)
+    (when *check-invariants*
+      (check-invariants new-heap))
+    (if (is-empty heap)
+        (cassert (not success-p))
+        (cassert success-p))
+    (multiple-value-bind (peek-top peek-success-p) (heap-top heap)
+      (cassert (eq peek-top removed-value))
+      (cassert (or (and success-p peek-success-p)
+                   (and (not success-p) (not peek-success-p)))))
+
+    (values new-heap removed-value success-p)))
+
+(defun with (heap object)
+  (let ((result (with-member heap object)))
+    (when *check-invariants*
+      (check-invariants result))
+    result))
+
 (defvar *sorted-numbers* (loop :for i :below 100000 :collect i))
 (defvar *reverse-sorted-numbers* (reverse *sorted-numbers*))
 (defvar *random-numbers* (list* 666 666 (loop :for i :below 100000 :collect (random 100000))))
 (defvar *random-numbers-sorted* (sort (copy-list *random-numbers*) '<))
+(defvar *short-random* (loop :for i :below 1000 :collect (random 1000)))
+(defvar *short-random-sorted* (sort (copy-list *short-random*) '<))
 
 (defun make-weight-biased-leftist-heap* (comparator &key items)
   (make-leftist-heap* comparator :bias :weight :items items))
@@ -46,7 +73,7 @@
 (defun heap-sort (heap expected)
   (let (sorted)
     (loop
-      (multiple-value-bind (new-heap removed-value success-p) (without-heap-top heap)
+      (multiple-value-bind (new-heap removed-value success-p) (without heap)
         (unless success-p
           (return))
         (setf heap new-heap)
@@ -72,7 +99,7 @@
   (subtest
    "Removal of heap-top on empty heap"
    (let* ((empty-heap (funcall constructor))
-          (result-values (multiple-value-list (without-heap-top empty-heap))))
+          (result-values (multiple-value-list (without empty-heap))))
      (is (length result-values) 3
          "without-heap-top returns 3 values")
      (destructuring-bind (new-heap removed-value truly-removed-p) result-values
@@ -84,16 +111,34 @@
        (is truly-removed-p nil
            "Removal from an empty heap returns a nil third value")))))
 
+(defun test-with-invariants (constructor)
+  (subtest
+      "With invariant checking enabled..."
+    (let ((*check-invariants* t))
+      (subtest
+          "Build-up and tear-down of a heap"
+        (let ((heap (funcall constructor)))
+          (dolist (number *short-random*)
+            (setf heap (with heap number)))
+          (heap-sort heap *short-random-sorted*)))
+      (subtest
+          "Constructing a heap"
+        (let ((heap (funcall constructor *short-random*)))
+          (heap-sort heap *short-random-sorted*))))))
+
 (defun constructor (maker)
   (lambda (&optional items)
-    (funcall maker 'compare :items items)))
+    (let ((result (funcall maker 'compare :items items)))
+      (when *check-invariants*
+        (check-invariants result))
+      result)))
 
 (defun test-heap (maker)
   (subtest (symbol-name maker)
-
     (let ((constructor (constructor maker)))
       (test-construction constructor)
-      (test-removal-from-empty constructor))))
+      (test-removal-from-empty constructor)
+      (test-with-invariants constructor))))
 
 (defun run-tests ()
   (dolist (maker *makers*)
