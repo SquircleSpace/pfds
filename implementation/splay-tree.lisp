@@ -617,18 +617,13 @@
   (etypecase sp-heap
     (sp-heap-nil)
     (sp-heap-node-1
-     (let (min-compared-p)
-       (do-sp-heap (key (sp-heap-node-left sp-heap))
-         (cassert (not (eq :greater (funcall comparator key (sp-heap-node-1-key sp-heap)))))
-         (unless min-compared-p
-           (cassert (eq key (sp-heap-node-min sp-heap)))
-           (setf min-compared-p t)))
-       (unless min-compared-p
-         (cassert (eq (sp-heap-node-1-key sp-heap) (sp-heap-node-min sp-heap)))))
-     (do-sp-heap (key (sp-heap-node-right sp-heap))
-       (cassert (not (eq :less (funcall comparator key (sp-heap-node-1-key sp-heap))))))
-     (check-sp-heap (sp-heap-node-left sp-heap) comparator)
-     (check-sp-heap (sp-heap-node-right sp-heap) comparator))))
+     (labels ((key (heap) (sp-heap-node-1-key heap)))
+       (unless (sp-heap-nil-p (sp-heap-node-1-left sp-heap))
+         (cassert (not (eq :less (funcall comparator (key sp-heap) (key (sp-heap-node-1-left sp-heap))))))
+         (check-sp-heap (sp-heap-node-left sp-heap) comparator))
+       (unless (sp-heap-nil-p (sp-heap-node-1-right sp-heap))
+         (cassert (not (eq :greater (funcall comparator (key sp-heap) (key (sp-heap-node-1-right sp-heap))))))
+         (check-sp-heap (sp-heap-node-right sp-heap) comparator))))))
 
 (defmethod check-invariants ((heap splay-heap))
   (check-sp-heap (splay-heap-tree heap) (splay-heap-comparator heap)))
