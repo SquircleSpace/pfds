@@ -232,7 +232,8 @@
   (let ((items (binomial-heap-to-list heap)))
     (write
      `(make-binomial-heap* (quote ,(binomial-heap-comparator heap))
-                           :items (quote ,items)))))
+                           :items (quote ,items))
+     :stream stream)))
 
 (defun make-binomial-heap* (comparator &key items)
   (let (ranked-tree-list
