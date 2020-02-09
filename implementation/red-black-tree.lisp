@@ -38,10 +38,12 @@
    #:without-entry
    #:lookup-entry
    #:red-black-set
-   #:make-red-black-set*
+   #:red-black-set-p
+   #:red-black-set-comparator
    #:make-red-black-set
    #:red-black-map
-   #:make-red-black-map*
+   #:red-black-map-p
+   #:red-black-map-comparator
    #:make-red-black-map))
 (in-package :pfds.shcl.io/implementation/red-black-tree)
 
@@ -408,8 +410,8 @@
 
 (defmethod print-object ((set red-black-set) stream)
   (write
-   `(make-red-black-set* (quote ,(red-black-set-comparator set))
-                         :items (quote ,(rb-set-to-list (red-black-set-tree set))))
+   `(make-red-black-set ',(red-black-set-comparator set)
+                        :items ',(rb-set-to-list (red-black-set-tree set)))
    :stream stream))
 
 (defmethod print-graphviz ((tree red-black-set) stream id-vendor)
@@ -448,14 +450,14 @@
                               (red-black-set-tree set)
                               item)))
 
-(defun make-red-black-set* (comparator &key items)
+(defun make-red-black-set (comparator &key items)
   (let ((tree (make-rb-set comparator :items items)))
     (%make-red-black-set
      :tree tree
      :comparator comparator)))
 
-(defun make-red-black-set (comparator &rest items)
-  (make-red-black-set* comparator :items items))
+(defun red-black-set (comparator &rest items)
+  (make-red-black-set comparator :items items))
 
 (define-immutable-structure (red-black-map (:constructor %make-red-black-map))
   (tree (rb-map-nil) :type rb-map)
@@ -470,8 +472,8 @@
 
 (defmethod print-object ((map red-black-map) stream)
   (write
-   `(make-red-black-map* (quote ,(red-black-map-comparator map))
-                         :alist (quote ,(rb-map-to-list (red-black-map-tree map))))
+   `(make-red-black-map ',(red-black-map-comparator map)
+                        :alist ',(rb-map-to-list (red-black-map-tree map)))
    :stream stream))
 
 (defmethod print-graphviz ((tree red-black-map) stream id-vendor)
@@ -512,11 +514,11 @@
                  (red-black-map-tree tree)
                  key))
 
-(defun make-red-black-map* (comparator &key alist plist)
+(defun make-red-black-map (comparator &key alist plist)
   (let ((tree (make-rb-map comparator :alist alist :plist plist)))
     (%make-red-black-map
      :tree tree
      :comparator comparator)))
 
-(defun make-red-black-map (comparator &rest plist)
-  (make-red-black-map* comparator :plist plist))
+(defun red-black-map (comparator &rest plist)
+  (make-red-black-map comparator :plist plist))

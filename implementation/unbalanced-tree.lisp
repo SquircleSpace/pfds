@@ -33,10 +33,14 @@
    #:with-entry
    #:without-entry
    #:lookup-entry
+   #:unbalanced-set
+   #:unbalanced-set-p
+   #:unbalanced-comparator
    #:make-unbalanced-set
-   #:make-unbalanced-set*
-   #:make-unbalanced-map
-   #:make-unbalanced-map*))
+   #:unbalanced-map
+   #:unbalanced-map-p
+   #:unbalanced-map-comparator
+   #:make-unbalanced-map))
 (in-package :pfds.shcl.io/implementation/unbalanced-tree)
 
 ;; See "Purely Functional Data Structures" by Chris Okasaki
@@ -47,16 +51,16 @@
   (tree (%unbalanced-set-tree-nil) :type %unbalanced-set-tree)
   (comparator (error "comparator is required")))
 
-(defun make-unbalanced-set* (comparator &key items)
+(defun make-unbalanced-set (comparator &key items)
   (let ((tree (make-%unbalanced-set-tree comparator :items items)))
     (%make-unbalanced-set :tree tree :comparator comparator)))
 
-(defun make-unbalanced-set (comparator &rest items)
-  (make-unbalanced-set* comparator :items items))
+(defun unbalanced-set (comparator &rest items)
+  (make-unbalanced-set comparator :items items))
 
 (defmethod print-object ((set unbalanced-set) stream)
-  (write `(make-unbalanced-set* ',(unbalanced-set-comparator set)
-                                :items ',(%unbalanced-set-tree-to-list (unbalanced-set-tree set)))))
+  (write `(make-unbalanced-set ',(unbalanced-set-comparator set)
+                               :items ',(%unbalanced-set-tree-to-list (unbalanced-set-tree set)))))
 
 (defmethod is-empty ((set unbalanced-set))
   (%unbalanced-set-tree-nil-p (unbalanced-set-tree set)))
@@ -88,16 +92,16 @@
   (tree (%unbalanced-map-tree-nil) :type %unbalanced-map-tree)
   (comparator (error "comparator is required")))
 
-(defun make-unbalanced-map* (comparator &key alist plist)
+(defun make-unbalanced-map (comparator &key alist plist)
   (let ((tree (make-%unbalanced-map-tree comparator :alist alist :plist plist)))
     (%make-unbalanced-map :tree tree :comparator comparator)))
 
-(defun make-unbalanced-map (comparator &rest plist)
-  (make-unbalanced-map* comparator :plist plist))
+(defun unbalanced-map (comparator &rest plist)
+  (make-unbalanced-map comparator :plist plist))
 
 (defmethod print-object ((map unbalanced-map) stream)
-  (write `(make-unbalanced-map* ',(unbalanced-map-comparator map)
-                                :alist ',(%unbalanced-map-tree-to-list (unbalanced-map-tree map)))))
+  (write `(make-unbalanced-map ',(unbalanced-map-comparator map)
+                               :alist ',(%unbalanced-map-tree-to-list (unbalanced-map-tree map)))))
 
 (defmethod is-empty ((map unbalanced-map))
   (%unbalanced-map-tree-nil-p (unbalanced-map-tree map)))

@@ -35,7 +35,6 @@
    #:without-member
    #:is-member
    #:make-weight-balanced-set
-   #:make-weight-balanced-set*
    #:weight-balanced-set-comparator
    #:weight-balanced-set-p
    #:weight-balanced-set
@@ -44,7 +43,6 @@
    #:without-entry
    #:lookup-entry
    #:make-weight-balanced-map
-   #:make-weight-balanced-map*
    #:weight-balanced-map-comparator
    #:weight-balanced-map-p
    #:weight-balanced-map))
@@ -159,11 +157,11 @@
   (tree (wb-set-nil) :type wb-set)
   (comparator (error "comparator is required")))
 
-(defun make-weight-balanced-set* (comparator &key items)
+(defun make-weight-balanced-set (comparator &key items)
   (%make-weight-balanced-set :comparator comparator :tree (make-wb-set comparator :items items)))
 
-(defun make-weight-balanced-set (comparator &rest items)
-  (make-weight-balanced-set* comparator :items items))
+(defun weight-balanced-set (comparator &rest items)
+  (make-weight-balanced-set comparator :items items))
 
 (defmethod to-list ((set weight-balanced-set))
   (to-list (weight-balanced-set-tree set)))
@@ -185,7 +183,7 @@
   (check-wb-invariants (weight-balanced-set-tree set)))
 
 (defmethod print-object ((set weight-balanced-set) stream)
-  (write `(make-weight-balanced-set* ',(weight-balanced-set-comparator set) :items ',(to-list set))
+  (write `(make-weight-balanced-set ',(weight-balanced-set-comparator set) :items ',(to-list set))
          :stream stream))
 
 (defmethod with-member ((set weight-balanced-set) item)
@@ -213,11 +211,11 @@
   (tree (wb-map-nil) :type wb-map)
   (comparator (error "comparator is required")))
 
-(defun make-weight-balanced-map* (comparator &key alist plist)
+(defun make-weight-balanced-map (comparator &key alist plist)
   (%make-weight-balanced-map :comparator comparator :tree (make-wb-map comparator :alist alist :plist plist)))
 
-(defun make-weight-balanced-map (comparator &rest plist)
-  (make-weight-balanced-map* comparator :plist plist))
+(defun weight-balanced-map (comparator &rest plist)
+  (make-weight-balanced-map comparator :plist plist))
 
 (defmethod to-list ((map weight-balanced-map))
   (to-list (weight-balanced-map-tree map)))
@@ -239,7 +237,7 @@
   (check-wb-invariants (weight-balanced-map-tree map)))
 
 (defmethod print-object ((map weight-balanced-map) stream)
-  (write `(make-weight-balanced-map* ',(weight-balanced-map-comparator map) :items ',(to-list map))
+  (write `(make-weight-balanced-map ',(weight-balanced-map-comparator map) :items ',(to-list map))
          :stream stream))
 
 (defmethod with-entry ((map weight-balanced-map) key value)

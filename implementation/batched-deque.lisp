@@ -33,8 +33,9 @@
    #:peek-last
    #:is-empty
    #:empty
-   #:make-batched-deque
-   #:make-batched-deque*))
+   #:batched-deque
+   #:batched-deque-p
+   #:make-batched-deque))
 (in-package :pfds.shcl.io/implementation/batched-deque)
 
 ;; See "Purely Functional Data Structures" by Chris Okasaki
@@ -64,7 +65,7 @@
 
 (defmethod print-object ((deque batched-deque) stream)
   (write
-   `(make-batched-deque* :items (quote ,(to-list deque)))
+   `(make-batched-deque :items (quote ,(to-list deque)))
    :stream stream))
 
 (defvar *empty-batched-deque* (%make-batched-deque))
@@ -103,9 +104,9 @@
      new-back
      new-back-count)))
 
-(defun make-batched-deque* (&key items)
+(defun make-batched-deque (&key items)
   (unless items
-    (return-from make-batched-deque*
+    (return-from make-batched-deque
       *empty-batched-deque*))
 
   (multiple-value-bind
@@ -117,8 +118,8 @@
      :back-stack back-stack
      :back-count back-count)))
 
-(defun make-batched-deque (&rest items)
-  (make-batched-deque* :items items))
+(defun batched-deque (&rest items)
+  (make-batched-deque :items items))
 
 (defun add-last (deque item)
   (copy-batched-deque

@@ -23,8 +23,8 @@
   (:import-from :pfds.shcl.io/interface/list
    #:with-head #:head #:tail #:is-empty #:empty)
   (:export
-   #:with-head #:head #:tail #:is-empty #:empty #:empty-pure-list
-   #:pure-list #:pure-list* #:pure-list-cons))
+   #:with-head #:head #:tail #:is-empty #:empty
+   #:pure-list #:make-pure-list #:pure-list-p))
 (in-package :pfds.shcl.io/implementation/pure-list)
 
 ;; See "Purely Functional Data Structures" by Chris Okasaki
@@ -32,7 +32,7 @@
 (define-adt pure-list
     ()
   (pure-list-nil)
-  ((pure-list-cons (:constructor %make-pure-list-cons))
+  (pure-list-cons
    head
    (tail (empty-pure-list) :type pure-list)))
 
@@ -42,24 +42,16 @@
 (defun empty-pure-list ()
   *empty-pure-list*)
 
-(defun pure-list* (&rest objects)
+(defun make-pure-list (&key items)
   (labels
       ((visit (objects)
-         (if (cdr objects)
-             (with-head (visit (cdr objects)) (car objects))
-             (if (car objects)
-                 (visit (car objects))
-                 (empty-pure-list)))))
-    (if (null objects)
-        (empty-pure-list)
-        (visit objects))))
+         (if objects
+             (make-pure-list-cons :head (car objects) :tail (visit (cdr objects)))
+             (empty-pure-list))))
+    (visit objects)))
 
-(defun pure-list (&rest objects)
-  (pure-list* objects nil))
-
-(defun pure-list-cons (head tail)
-  (check-type tail pure-list)
-  (%make-pure-list-cons :head head :tail tail))
+(defun pure-list (&rest items)
+  (make-pure-list :items objects))
 
 (defmethod to-list ((list pure-list-nil))
   nil)
@@ -68,7 +60,7 @@
   (cons (pure-list-cons-head list) (to-list (pure-list-cons-tail list))))
 
 (defmethod with-head ((list pure-list) item)
-  (pure-list-cons list item))
+  (make-pure-list-cons :head item :tail list))
 
 (defmethod head ((list pure-list-cons))
   (values (pure-list-cons-head list) t))

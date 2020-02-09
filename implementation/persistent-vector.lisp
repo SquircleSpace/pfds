@@ -35,8 +35,8 @@
    #:is-empty
    #:empty
    #:make-persistent-vector
-   #:make-persistent-vector*
-   #:persistent-vector))
+   #:persistent-vector
+   #:persistent-vector-p))
 (in-package :pfds.shcl.io/implementation/persistent-vector)
 
 ;; See Clojure's PersistentVector
@@ -262,14 +262,14 @@
     (impure-list-builder-extract builder)))
 
 (defmethod print-object ((p-vec persistent-vector) stream)
-  (write `(make-persistent-vector* :items ',(to-list p-vec))
+  (write `(make-persistent-vector :items ',(to-list p-vec))
          :stream stream))
 
-(defun make-persistent-vector* (&key items)
+(defun make-persistent-vector (&key items)
   (let ((result *empty-persistent-vector*))
     (dolist (item items)
       (setf result (persistent-vector-push result item)))
     result))
 
-(defun make-persistent-vector (&rest items)
-  (make-persistent-vector* :items items))
+(defun persistent-vector (&rest items)
+  (make-persistent-vector :items items))

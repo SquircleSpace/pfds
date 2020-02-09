@@ -22,8 +22,9 @@
   (:import-from :pfds.shcl.io/utility/immutable-structure
    #:define-adt)
   (:export
-   #:empty-lazy-list
+   #:make-lazy-list
    #:lazy-list
+   #:lazy-list-p
    #:with-head
    #:head
    #:tail
@@ -136,3 +137,14 @@
       (declare (ignore value))
       (incf count))
     count))
+
+(defun make-lazy-list (&key items)
+  (labels
+      ((visit (tail)
+         (if tail
+             (make-lazy-cons (car tail) (visit (cdr tail)))
+             *empty-lazy-list*)))
+    (visit items)))
+
+(defun lazy-list (&rest items)
+  (make-lazy-list :items items))

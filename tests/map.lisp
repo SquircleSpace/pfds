@@ -25,11 +25,11 @@
   (:import-from :pfds.shcl.io/interface/set
    #:with-member #:without-member #:is-member)
   (:import-from :pfds.shcl.io/implementation/red-black-tree
-   #:make-red-black-map*)
+   #:make-red-black-map)
   (:import-from :pfds.shcl.io/implementation/unbalanced-tree
-   #:make-unbalanced-map*)
+   #:make-unbalanced-map)
   (:import-from :pfds.shcl.io/implementation/weight-balanced-tree
-   #:make-weight-balanced-map*)
+   #:make-weight-balanced-map)
   (:import-from :pfds.shcl.io/tests/set #:test-set)
   (:import-from :prove #:is #:subtest #:ok #:pass #:fail)
   (:export #:run-tests))
@@ -109,9 +109,9 @@
       (test-maker-key-shadowing maker))))
 
 (defparameter *makers*
-  '(make-red-black-map*
-    make-weight-balanced-map*
-    make-unbalanced-map*))
+  '(make-red-black-map
+    make-weight-balanced-map
+    make-unbalanced-map))
 
 (defun run-tests (&optional (makers *makers*))
   (dolist (maker makers)

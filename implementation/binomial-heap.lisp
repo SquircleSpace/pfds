@@ -33,9 +33,8 @@
    #:with-member
    #:is-empty
    #:empty
-   #:empty-binomial-heap
    #:make-binomial-heap
-   #:make-binomial-heap*
+   #:binomial-heap
    #:binomial-heap-p
    #:binomial-heap-comparator
    #:binomial-heap-size))
@@ -234,11 +233,10 @@
 (defmethod print-object ((heap binomial-heap) stream)
   (let ((items (binomial-heap-to-list heap)))
     (write
-     `(make-binomial-heap* (quote ,(binomial-heap-comparator heap))
-                           :items (quote ,items))
+     `(make-binomial-heap ',(binomial-heap-comparator heap) :items ',items)
      :stream stream)))
 
-(defun make-binomial-heap* (comparator &key items)
+(defun make-binomial-heap (comparator &key items)
   (let (ranked-tree-list
         (count 0))
 
@@ -255,11 +253,8 @@
      :size count
      :ranked-trees ranked-tree-list)))
 
-(defun make-binomial-heap (comparator &rest items)
-  (make-binomial-heap* comparator :items items))
-
-(defun empty-binomial-heap (comparator)
-  (%make-binomial-heap :comparator comparator))
+(defun binomial-heap (comparator &rest items)
+  (make-binomial-heap comparator :items items))
 
 (defun comparator-min (comparator first second)
   (ecase (funcall comparator first second)
@@ -321,7 +316,7 @@
 (defmethod empty ((heap binomial-heap))
   (if (zerop (binomial-heap-size heap))
       heap
-      (empty-binomial-heap (binomial-heap-comparator heap))))
+      (make-binomial-heap (binomial-heap-comparator heap))))
 
 (defun check-rank (tree rank)
   (cassert (equal rank (length (tree-node-children tree)))

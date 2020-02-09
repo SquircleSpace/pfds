@@ -28,8 +28,9 @@
    #:peek-first
    #:is-empty
    #:empty
-   #:make-batched-queue
-   #:make-batched-queue*))
+   #:batched-queue
+   #:batched-queue-p
+   #:make-batched-queue))
 (in-package :pfds.shcl.io/implementation/batched-queue)
 
 ;; See "Purely Functional Data Structures" by Chris Okasaki
@@ -51,19 +52,19 @@
 
 (defmethod print-object ((queue batched-queue) stream)
   (write
-   `(make-batched-queue* :items (quote ,(to-list queue)))
+   `(make-batched-queue :items (quote ,(to-list queue)))
    :stream stream))
 
 (defvar *empty-batched-queue* (%make-batched-queue))
 
-(defun make-batched-queue* (&key items)
+(defun make-batched-queue (&key items)
   (if items
       (%make-batched-queue
        :front-stack (copy-list items))
       *empty-batched-queue*))
 
-(defun make-batched-queue (&rest items)
-  (make-batched-queue* :items items))
+(defun batched-queue (&rest items)
+  (make-batched-queue :items items))
 
 (defmethod with-last ((queue batched-queue) item)
   (if (batched-queue-front-stack queue)

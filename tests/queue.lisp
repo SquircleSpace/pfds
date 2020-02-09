@@ -21,9 +21,9 @@
   (:import-from :pfds.shcl.io/utility/misc
    #:cassert)
   (:import-from :pfds.shcl.io/implementation/batched-queue
-   #:make-batched-queue*)
+   #:make-batched-queue)
   (:import-from :pfds.shcl.io/implementation/bankers-queue
-   #:make-bankers-queue*)
+   #:make-bankers-queue)
   (:import-from :prove #:is #:subtest #:ok #:pass)
   (:export #:run-tests))
 (in-package :pfds.shcl.io/tests/queue)
@@ -154,8 +154,8 @@
     (test-purity constructor)))
 
 (defparameter *makers*
-  '(make-batched-queue*
-    make-bankers-queue*))
+  '(make-batched-queue
+    make-bankers-queue))
 
 (defun run-tests (&optional (makers *makers*))
   (dolist (maker makers)

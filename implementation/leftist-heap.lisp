@@ -30,11 +30,9 @@
    #:is-empty
    #:empty
    #:make-leftist-heap
-   #:make-leftist-heap*
-   #:empty-leftist-heap
    #:leftist-heap
-   #:height-biased-leftist-heap
-   #:weight-biased-leftist-heap))
+   #:leftist-heap-p
+   #:leftist-heap-comparator))
 (in-package :pfds.shcl.io/implementation/leftist-heap)
 
 ;; See "Purely Functional Data Structures" by Chris Okasaki
@@ -112,7 +110,7 @@
 (defun print-leftist-heap (heap stream)
   (let ((items (leftist-heap-to-list heap)))
     (write
-     `(make-leftist-heap* (quote ,(leftist-heap-comparator heap))
+     `(make-leftist-heap (quote ,(leftist-heap-comparator heap))
                           :bias (quote ,(leftist-heap-bias heap))
                           :items (quote ,items))
      :stream stream)))
@@ -175,7 +173,7 @@
 
     (nth-value 0 (dequeue queue))))
 
-(defun make-leftist-heap* (comparator &key (bias :height) items)
+(defun make-leftist-heap (comparator &key (bias :height) items)
   (check-type bias (member :height :weight))
   (let ((guts (make-guts comparator bias items)))
     (ecase bias
@@ -184,11 +182,8 @@
       (:weight
        (%make-weight-biased-leftist-heap :comparator comparator :guts guts)))))
 
-(defun make-leftist-heap (comparator &rest items)
-  (make-leftist-heap* comparator :items items))
-
-(defun empty-leftist-heap (comparator)
-  (make-leftist-heap* comparator))
+(defun leftist-heap (comparator &rest items)
+  (make-leftist-heap comparator :items items))
 
 (defun merge-heaps-common (first second constructor)
   (let ((comparator (leftist-heap-comparator first))

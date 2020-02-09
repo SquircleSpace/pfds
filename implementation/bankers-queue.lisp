@@ -21,9 +21,9 @@
   (:import-from :pfds.shcl.io/utility/misc
    #:cassert)
   (:import-from :pfds.shcl.io/implementation/lazy-list
-   #:empty-lazy-list #:lazy-list-append
+   #:lazy-list-append
    #:lazy-list-reverse #:head #:tail #:lazy-cons
-   #:lazy-list-length)
+   #:lazy-list-length #:lazy-list)
   (:import-from :pfds.shcl.io/utility/immutable-structure
    #:define-immutable-structure)
   (:import-from :pfds.shcl.io/interface/queue
@@ -36,16 +36,15 @@
    #:empty
    #:bankers-queue
    #:bankers-queue-p
-   #:make-bankers-queue
-   #:make-bankers-queue*))
+   #:make-bankers-queue))
 (in-package :pfds.shcl.io/implementation/bankers-queue)
 
 ;; See "Purely Functional Data Structures" by Chris Okasaki
 
 (define-immutable-structure (bankers-queue (:constructor %make-bankers-queue))
-  (front-stack (empty-lazy-list))
+  (front-stack (lazy-list))
   (front-stack-size 0 :type (integer 0))
-  (back-stack (empty-lazy-list))
+  (back-stack (lazy-list))
   (back-stack-size 0 :type (integer 0)))
 
 (defvar *empty-bankers-queue*
@@ -61,7 +60,7 @@
     ;; ready to go
     (head front-stack)
     (setf front-stack-size (+ front-stack-size back-stack-size))
-    (setf back-stack (empty-lazy-list))
+    (setf back-stack (lazy-list))
     (setf back-stack-size 0))
 
   (when (zerop front-stack-size)
@@ -108,28 +107,28 @@
   *empty-bankers-queue*)
 
 (defun reverse-and-lazy (list)
-  (let ((result (empty-lazy-list))
+  (let ((result (lazy-list))
         (count 0))
     (dolist (value list)
       (setf result (lazy-cons value result))
       (incf count))
     (values result count)))
 
-(defun make-bankers-queue* (&key items)
+(defun make-bankers-queue (&key items)
   (if items
       (multiple-value-bind (back-stack back-stack-size) (reverse-and-lazy items)
-        (balance-bankers-queue (empty-lazy-list) 0 back-stack back-stack-size))
+        (balance-bankers-queue (lazy-list) 0 back-stack back-stack-size))
       *empty-bankers-queue*))
 
-(defun make-bankers-queue (&rest items)
-  (make-bankers-queue* :items items))
+(defun bankers-queue (&rest items)
+  (make-bankers-queue :items items))
 
 (defmethod to-list ((queue bankers-queue))
   (to-list (lazy-list-append (bankers-queue-front-stack queue)
                              (lazy-list-reverse (bankers-queue-back-stack queue)))))
 
 (defmethod print-object ((queue bankers-queue) stream)
-  (write `(make-bankers-queue* :items ',(to-list queue))
+  (write `(make-bankers-queue :items ',(to-list queue))
          :stream stream))
 
 (defmethod check-invariants ((queue bankers-queue))

@@ -35,7 +35,6 @@
   (:export
    #:impure-splay-set
    #:make-impure-splay-set
-   #:make-impure-splay-set*
    #:copy-impure-splay-set
    #:impure-splay-set-p
    #:impure-splay-set-comparator
@@ -48,7 +47,6 @@
 
    #:impure-splay-map
    #:make-impure-splay-map
-   #:make-impure-splay-map*
    #:copy-impure-splay-map
    #:impure-splay-map-p
    #:impure-splay-map-comparator
@@ -61,8 +59,8 @@
 
    #:splay-heap
    #:splay-heap-p
+   #:splay-heap-comparator
    #:make-splay-heap
-   #:make-splay-heap*
    #:merge-heaps
    #:heap-top
    #:without-heap-top
@@ -419,21 +417,18 @@
     (setf (impure-splay-set-tree splay-set) new-tree)
     member-p))
 
-(defun make-impure-splay-set* (comparator &key items)
+(defun make-impure-splay-set (comparator &key items)
   (let ((set (%make-impure-splay-set :comparator comparator)))
     (dolist (item items)
       (impure-splay-set-insert set item))
     set))
 
-(defun make-impure-splay-set (comparator &rest items)
-  (make-impure-splay-set* comparator :items items))
-
 (defun impure-splay-set-to-list (splay-set)
   (sp-set-to-list (impure-splay-set-tree splay-set)))
 
 (defmethod print-object ((splay-set impure-splay-set) stream)
-  (write `(make-impure-splay-set* ',(impure-splay-set-comparator splay-set)
-                                   :items ',(impure-splay-set-to-list splay-set))
+  (write `(make-impure-splay-set ',(impure-splay-set-comparator splay-set)
+                                 :items ',(impure-splay-set-to-list splay-set))
          :stream stream))
 
 (defmethod print-graphviz ((map impure-splay-set) stream id-vendor)
@@ -475,7 +470,7 @@
     (setf (impure-splay-map-tree splay-map) new-tree)
     (values value found-p)))
 
-(defun make-impure-splay-map* (comparator &key alist plist)
+(defun make-impure-splay-map (comparator &key alist plist)
   (let ((map (%make-impure-splay-map :comparator comparator)))
     (loop :while plist
           :for key = (pop plist)
@@ -485,15 +480,12 @@
       (impure-splay-map-emplace map (car pair) (cdr pair)))
     map))
 
-(defun make-impure-splay-map (comparator &rest plist)
-  (make-impure-splay-map* comparator :plist plist))
-
 (defun impure-splay-map-to-list (splay-map)
   (sp-map-to-list (impure-splay-map-tree splay-map)))
 
 (defmethod print-object ((splay-map impure-splay-map) stream)
-  (write `(make-impure-splay-map* ',(impure-splay-map-comparator splay-map)
-                                   :alist ',(impure-splay-map-to-list splay-map))
+  (write `(make-impure-splay-map ',(impure-splay-map-comparator splay-map)
+                                 :alist ',(impure-splay-map-to-list splay-map))
          :stream stream))
 
 (defmethod print-graphviz ((map impure-splay-map) stream id-vendor)
@@ -628,17 +620,17 @@
 (defmethod check-invariants ((heap splay-heap))
   (check-sp-heap (splay-heap-tree heap) (splay-heap-comparator heap)))
 
-(defun make-splay-heap* (comparator &key items)
+(defun make-splay-heap (comparator &key items)
   (let ((set (sp-heap-nil)))
     (dolist (key items)
       (setf set (sp-heap-with-member comparator set key)))
     (%make-splay-heap :tree set :comparator comparator)))
 
-(defun make-splay-heap (comparator &rest items)
-  (make-splay-heap* comparator :items items))
+(defun splay-heap (comparator &rest items)
+  (make-splay-heap comparator :items items))
 
 (defmethod print-object ((heap splay-heap) stream)
-  (write `(make-splay-heap* ',(splay-heap-comparator heap) :items ',(to-list heap))
+  (write `(make-splay-heap ',(splay-heap-comparator heap) :items ',(to-list heap))
          :stream stream))
 
 (defmethod print-graphviz ((heap splay-heap) stream id-vendor)

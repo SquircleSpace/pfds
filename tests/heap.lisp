@@ -20,10 +20,10 @@
    #:check-invariants)
   (:import-from :pfds.shcl.io/interface/heap
    #:merge-heaps #:heap-top #:without-heap-top #:with-member #:is-empty #:empty)
-  (:import-from :pfds.shcl.io/implementation/leftist-heap #:make-leftist-heap*)
-  (:import-from :pfds.shcl.io/implementation/binomial-heap #:make-binomial-heap*)
-  (:import-from :pfds.shcl.io/implementation/splay-tree #:make-splay-heap*)
-  (:import-from :pfds.shcl.io/implementation/pairing-heap #:make-pairing-heap*)
+  (:import-from :pfds.shcl.io/implementation/leftist-heap #:make-leftist-heap)
+  (:import-from :pfds.shcl.io/implementation/binomial-heap #:make-binomial-heap)
+  (:import-from :pfds.shcl.io/implementation/splay-tree #:make-splay-heap)
+  (:import-from :pfds.shcl.io/implementation/pairing-heap #:make-pairing-heap)
   (:import-from :prove #:is #:subtest #:ok)
   (:export #:run-tests))
 (in-package :pfds.shcl.io/tests/heap)
@@ -57,18 +57,18 @@
 (defvar *short-random* (loop :for i :below 1000 :collect (random 1000)))
 (defvar *short-random-sorted* (sort (copy-list *short-random*) '<))
 
-(defun make-weight-biased-leftist-heap* (comparator &key items)
-  (make-leftist-heap* comparator :bias :weight :items items))
+(defun make-weight-biased-leftist-heap (comparator &key items)
+  (make-leftist-heap comparator :bias :weight :items items))
 
-(defun make-height-biased-leftist-heap* (comparator &key items)
-  (make-leftist-heap* comparator :bias :height :items items))
+(defun make-height-biased-leftist-heap (comparator &key items)
+  (make-leftist-heap comparator :bias :height :items items))
 
 (defparameter *makers*
-  '(make-weight-biased-leftist-heap*
-    make-height-biased-leftist-heap*
-    make-binomial-heap*
-    make-splay-heap*
-    make-pairing-heap*))
+  '(make-weight-biased-leftist-heap
+    make-height-biased-leftist-heap
+    make-binomial-heap
+    make-splay-heap
+    make-pairing-heap))
 
 (defun heap-sort (heap expected)
   (let (sorted)

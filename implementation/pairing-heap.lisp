@@ -34,7 +34,6 @@
    #:empty
    #:pairing-heap
    #:make-pairing-heap
-   #:make-pairing-heap*
    #:pairing-heap-p
    #:pairing-heap-comparator))
 (in-package :pfds.shcl.io/implementation/pairing-heap)
@@ -140,12 +139,12 @@
   (tree (p-heap-nil) :type p-heap)
   (comparator (error "comparator is required")))
 
-(defun make-pairing-heap* (comparator &key items)
+(defun make-pairing-heap (comparator &key items)
   (%make-pairing-heap :comparator comparator
                       :tree (make-p-heap comparator items)))
 
-(defun make-pairing-heap (comparator &rest items)
-  (make-pairing-heap* comparator :items items))
+(defun pairing-heap (comparator &rest items)
+  (make-pairing-heap comparator :items items))
 
 (defmethod merge-heaps ((first pairing-heap) (second pairing-heap))
   (unless (eq (pairing-heap-comparator first)
@@ -182,7 +181,7 @@
   (p-heap-to-list (pairing-heap-tree heap)))
 
 (defmethod print-object ((heap pairing-heap) stream)
-  (write `(make-pairing-heap* ',(pairing-heap-comparator heap) :items ',(to-list heap))))
+  (write `(make-pairing-heap ',(pairing-heap-comparator heap) :items ',(to-list heap))))
 
 (defmethod print-graphviz ((heap pairing-heap) stream id-vendor)
   (print-graphviz (pairing-heap-tree heap) stream id-vendor))

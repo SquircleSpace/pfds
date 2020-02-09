@@ -20,68 +20,53 @@
    :pfds.shcl.io/interface/map
    :pfds.shcl.io/interface/set)
   (:import-from :pfds.shcl.io/implementation/red-black-tree
-   #:make-red-black-map*
-   #:make-red-black-set*)
+   #:make-red-black-map
+   #:make-red-black-set)
   (:import-from :pfds.shcl.io/implementation/leftist-heap
-   #:make-leftist-heap*)
+   #:make-leftist-heap)
   (:import-from :pfds.shcl.io/implementation/persistent-vector
-   #:make-persistent-vector*)
+   #:make-persistent-vector)
   (:import-from :pfds.shcl.io/utility/compare
    #:compare)
   (:export
-   #:make-map #:make-map*
-   #:make-set #:make-set*
-   #:make-min-heap #:make-min-heap* #:make-heap
+   #:make-map
+   #:make-set
+   #:make-min-heap #:make-max-heap #:make-heap
    #:compare))
 (in-package :pfds.shcl.io)
 
 (declaim (inline make-map))
-(defun make-map (&rest plist)
-  "Make an ordered map.
-
-The map will contain the associations described by the given plist."
-  (make-red-black-map* #'compare :plist plist))
-
-(declaim (inline make-map*))
-(defun make-map* (&key plist alist (comparator #'compare))
+(defun make-map (&key plist alist (comparator #'compare))
   "Make an ordered map.
 
 The map will contain the associations described by the given alist and
 plist.  If both the alist and the plist contain a key, then it is
 unspecified which value will be contained in the map."
-  (make-red-black-map* comparator :plist plist :alist alist))
+  (make-red-black-map comparator :plist plist :alist alist))
 
 (declaim (inline make-set))
-(defun make-set (&rest items)
+(defun make-set (&key items (comparator #'compare))
   "Make an ordered set."
-  (make-red-black-set* #'compare :items items))
-
-(declaim (inline make-set*))
-(defun make-set* (&key items (comparator #'compare))
-  "Make an ordered set."
-  (make-red-black-set* comparator :items items))
+  (make-red-black-set comparator :items items))
 
 (declaim (inline make-min-heap))
-(defun make-min-heap (&rest items)
+(defun make-min-heap (&key items (comparator #'compare))
   "Make a min heap."
-  (make-leftist-heap* #'compare :items items))
+  (make-leftist-heap comparator :items items))
 
 (declaim (inline make-max-heap))
-(defun make-max-heap (&rest items)
+(defun make-max-heap (&key items (comparator #'compare))
   "Make a max heap."
-  (make-leftist-heap* (lambda (l r) (compare r l)) :items items))
+  (make-leftist-heap (lambda (l r) (funcall comparator r l)) :items items))
 
-(declaim (inline make-heap*))
-(defun make-heap* (&key (priority :min) items (comparator #'compare))
+(declaim (inline make-heap))
+(defun make-heap (&key (priority :min) items (comparator #'compare))
   "Make a heap."
   (check-type priority (member :min :max))
-  (make-leftist-heap* (if (eq priority :max)
-                          (lambda (l r) (funcall comparator r l))
-                          comparator)
-                      :items items))
+  (make-leftist-heap (if (eq priority :max)
+                         (lambda (l r) (funcall comparator r l))
+                         comparator)
+                     :items items))
 
-(defun make-vector (&rest items)
-  (make-persistent-vector* :items items))
-
-(defun make-vector* (&key items)
-  (make-persistent-vector* :items items))
+(defun make-vector (&key items)
+  (make-persistent-vector :items items))
