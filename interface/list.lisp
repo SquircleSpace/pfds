@@ -42,3 +42,25 @@ removed, and a non-nil value."))
 
   is-empty
   empty)
+
+(defmethod with-head ((list list) item)
+  (cons item list))
+
+(defmethod head ((list list))
+  (if list
+      (values (car list) t)
+      (values nil nil)))
+
+(defmethod tail ((list list))
+  (if list
+      (values (cdr list) (car list) t)
+      (values nil nil nil)))
+
+(defmethod is-empty ((list list))
+  (null list))
+
+(defmethod empty ((list list))
+  nil)
+
+(defmethod to-list ((list list))
+  list)

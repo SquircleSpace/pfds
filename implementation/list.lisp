@@ -24,54 +24,10 @@
    #:with-head #:head #:tail #:is-empty #:empty)
   (:export
    #:with-head #:head #:tail #:is-empty #:empty #:empty-pure-list
-   #:empty-list #:update #:pure-list #:pure-list* #:pure-list-cons
-   #:list-append #:list-take #:list-reverse))
+   #:pure-list #:pure-list* #:pure-list-cons))
 (in-package :pfds.shcl.io/implementation/list)
 
 ;; See "Purely Functional Data Structures" by Chris Okasaki
-
-(defun list-append (left-list right-list)
-  (if (is-empty left-list)
-      right-list
-      (with-head (list-append (tail left-list) right-list) (head left-list))))
-
-(defun list-take (list count)
-  (check-type count (integer 0))
-  (cond
-    ((is-empty list)
-     list)
-    ((zerop count)
-     (empty list))
-    (t
-     (with-head (list-take (tail list) (1- count)) (head list)))))
-
-(defun list-drop (list count)
-  (check-type count (integer 0))
-  (cond
-    ((or (is-empty list)
-         (zerop count))
-     list)
-    (t
-     (list-drop (tail list) (1- count)))))
-
-(defun list-reverse (list)
-  (let ((result (empty list)))
-    (loop :while (not (is-empty list)) :do
-          (let ((head (head list)))
-            (setf result (with-head result head))
-            (setf list (tail list))))
-    result))
-
-(defun update (list index value)
-  (cond
-    ((is-empty list)
-     (error "Invalid subscript"))
-    ((zerop index)
-     (with-head (tail list) value))
-    ((plusp index)
-     (with-head (update (tail list) (1- index) value) (head list)))
-    (t
-     (error "Invalid subscript"))))
 
 (define-adt pure-list
     ()
@@ -167,28 +123,3 @@
 
 (defmethod compare-objects ((left pure-list-cons) (right pure-list-nil))
   :greater)
-
-(defmethod with-head ((list list) item)
-  (cons item list))
-
-(defmethod head ((list list))
-  (if list
-      (values (car list) t)
-      (values nil nil)))
-
-(defmethod tail ((list list))
-  (if list
-      (values (cdr list) (car list) t)
-      (values nil nil nil)))
-
-(defmethod is-empty ((list list))
-  (null list))
-
-(defmethod empty ((list list))
-  nil)
-
-(defun empty-list ()
-  nil)
-
-(defmethod to-list ((list list))
-  list)
