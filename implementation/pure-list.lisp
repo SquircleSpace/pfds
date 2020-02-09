@@ -29,25 +29,24 @@
 
 ;; See "Purely Functional Data Structures" by Chris Okasaki
 
+(defvar *empty-pure-list*)
+
 (define-adt pure-list
     ()
   (pure-list-nil)
   (pure-list-cons
    head
-   (tail (empty-pure-list) :type pure-list)))
+   (tail *empty-pure-list* :type pure-list)))
 
 (defvar *empty-pure-list*
   (make-pure-list-nil))
-
-(defun empty-pure-list ()
-  *empty-pure-list*)
 
 (defun make-pure-list (&key items)
   (labels
       ((visit (objects)
          (if objects
              (make-pure-list-cons :head (car objects) :tail (visit (cdr objects)))
-             (empty-pure-list))))
+             *empty-pure-list*)))
     (visit objects)))
 
 (defun pure-list (&rest items)
@@ -81,7 +80,7 @@
   t)
 
 (defmethod empty ((list pure-list-cons))
-  (empty-pure-list))
+  *empty-pure-list*)
 
 (defmethod empty ((list pure-list-nil))
   list)
