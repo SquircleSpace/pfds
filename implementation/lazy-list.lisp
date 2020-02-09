@@ -39,13 +39,10 @@
 
 (defvar *empty-lazy-list*)
 
-(defun empty-lazy-list ()
-  *empty-lazy-list*)
-
 (define-adt lazy-list
     ()
   (lazy-nil)
-  ((lazy-cons (:constructor %make-lazy-cons))
+  (lazy-cons
    head
    (tail *empty-lazy-list*))
   (lazy-value
@@ -54,8 +51,8 @@
 (defvar *empty-lazy-list*
   (make-lazy-nil))
 
-(defmacro lazy-cons (head tail)
-  `(%make-lazy-cons :head ,head :tail ,tail))
+(defun lazy-cons (head tail)
+  (make-lazy-cons :head head :tail tail))
 
 (defmethod is-empty ((lazy-cons lazy-cons))
   nil)
@@ -67,7 +64,7 @@
   (is-empty (force (lazy-value-suspension lazy-value))))
 
 (defmethod empty ((lazy-list lazy-list))
-  (empty-lazy-list))
+  *empty-lazy-list*)
 
 (defmethod head ((lazy-cons lazy-cons))
   (values (lazy-cons-head lazy-cons) t))
@@ -88,7 +85,7 @@
   (tail (force (lazy-value-suspension lazy-value))))
 
 (defmethod with-head ((lazy-list lazy-list) item)
-  (%make-lazy-cons :head item :tail lazy-list))
+  (lazy-cons item lazy-list))
 
 (defmethod to-list ((lazy-cons lazy-cons))
   (cons (lazy-cons-head lazy-cons) (to-list (lazy-cons-tail lazy-cons))))
@@ -126,7 +123,7 @@
 (defun lazy-list-reverse (lazy-list)
   (make-lazy-value
    :suspension (lazy
-                 (let ((result (empty-lazy-list)))
+                 (let ((result *empty-lazy-list*))
                    (do-lazy-list (value lazy-list)
                      (setf result (lazy-cons value result)))
                    result))))
@@ -142,7 +139,7 @@
   (labels
       ((visit (tail)
          (if tail
-             (make-lazy-cons (car tail) (visit (cdr tail)))
+             (lazy-cons (car tail) (visit (cdr tail)))
              *empty-lazy-list*)))
     (visit items)))
 
