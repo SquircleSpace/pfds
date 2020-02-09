@@ -129,6 +129,29 @@ given above assume the heap is not used persistently.
 Note: this heap *is* purely functional, but the asymptotic bounds
 given above assume the heap is not used persistently.
 
+### Stacks
+
+#### `PERSISTENT-VECTOR`
+
+- `HEAD`: `O(log(n))`
+- `WITH-HEAD`: `O(log(n))`
+- `TAIL`: `O(log(n))`
+- `LOOKUP-ENTRY`: `O(log(n))`
+- `WITH-ENTRY`: `O(log(n))`
+- `IS-EMPTY`: `O(1)`
+
+Note: the logarithmic base for the bounds given above is very large.
+
+#### `PURE-LIST`
+
+- `HEAD`: `O(1)`
+- `WITH-HEAD`: `O(1)`
+- `TAIL`: `O(1)`
+- `IS-EMPTY`: `O(1)`
+
+This is just like a Common Lisp list, except you can sleep soundly
+knowing that it is fully immutable.
+
 ## Design decisions
 
 ### Dependencies

@@ -24,6 +24,8 @@
    #:make-red-black-set*)
   (:import-from :pfds.shcl.io/implementation/leftist-heap
    #:make-leftist-heap*)
+  (:import-from :pfds.shcl.io/implementation/persistent-vector
+   #:make-persistent-vector*)
   (:import-from :pfds.shcl.io/utility/compare
    #:compare)
   (:export
@@ -77,3 +79,9 @@ unspecified which value will be contained in the map."
                           (lambda (l r) (funcall comparator r l))
                           comparator)
                       :items items))
+
+(defun make-vector (&rest items)
+  (make-persistent-vector* :items items))
+
+(defun make-vector* (&key items)
+  (make-persistent-vector* :items items))

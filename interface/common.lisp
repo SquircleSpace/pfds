@@ -16,6 +16,7 @@
   (:use :common-lisp)
   (:export
    #:is-empty #:empty #:with-member
+   #:with-entry #:lookup-entry
    #:to-list
    #:check-invariants
    #:graphviz
@@ -31,12 +32,26 @@
 (defgeneric is-empty (collection)
   (:documentation
    "Returns non-nil if the given collection has no elements."))
+
 (defgeneric empty (collection)
   (:documentation
    "Return an empty collection of the same type as the given one."))
+
 (defgeneric with-member (collection item)
   (:documentation
    "Add an object to the given collection."))
+
+(defgeneric with-entry (collection key value)
+  (:documentation
+   "Return a collection where the given key/value pair has been added."))
+
+(defgeneric lookup-entry (collection key)
+  (:documentation
+   "Return the value associated with the given key in the collection.
+
+If the value doesn't exist in the collection, this returns two nil values.
+If the value does exist, it returns the stored value and a non-nil
+value."))
 
 (defgeneric check-invariants (collection)
   (:documentation
