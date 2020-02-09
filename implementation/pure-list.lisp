@@ -12,7 +12,7 @@
 ;; See the License for the specific language governing permissions and
 ;; limitations under the License.
 
-(defpackage :pfds.shcl.io/implementation/list
+(defpackage :pfds.shcl.io/implementation/pure-list
   (:use :common-lisp)
   (:import-from :pfds.shcl.io/interface/common
    #:to-list)
@@ -25,7 +25,7 @@
   (:export
    #:with-head #:head #:tail #:is-empty #:empty #:empty-pure-list
    #:pure-list #:pure-list* #:pure-list-cons))
-(in-package :pfds.shcl.io/implementation/list)
+(in-package :pfds.shcl.io/implementation/pure-list)
 
 ;; See "Purely Functional Data Structures" by Chris Okasaki
 
