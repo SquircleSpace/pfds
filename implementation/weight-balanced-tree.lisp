@@ -15,7 +15,7 @@
 (defpackage :pfds.shcl.io/implementation/weight-balanced-tree
   (:use :common-lisp)
   (:import-from :pfds.shcl.io/interface/common
-   #:to-list #:is-empty #:empty #:check-invariants)
+   #:to-list #:is-empty #:empty #:check-invariants #:for-each)
   (:import-from :pfds.shcl.io/utility/immutable-structure
    #:define-immutable-structure)
   (:import-from :pfds.shcl.io/utility/misc
@@ -164,7 +164,11 @@
   (make-weight-balanced-set comparator :items items))
 
 (defmethod to-list ((set weight-balanced-set))
-  (to-list (weight-balanced-set-tree set)))
+  (wb-set-to-list (weight-balanced-set-tree set)))
+
+(defmethod for-each ((set weight-balanced-set) function)
+  (do-wb-set (key (weight-balanced-set-tree set))
+    (funcall function key)))
 
 (defmethod is-empty ((set weight-balanced-set))
   (wb-set-nil-p (weight-balanced-set-tree set)))
@@ -221,7 +225,11 @@
   (make-weight-balanced-map comparator :plist plist))
 
 (defmethod to-list ((map weight-balanced-map))
-  (to-list (weight-balanced-map-tree map)))
+  (wb-map-to-list (weight-balanced-map-tree map)))
+
+(defmethod for-each ((map weight-balanced-map) function)
+  (do-wb-map (key value (weight-balanced-map-tree map))
+    (funcall function key value)))
 
 (defmethod is-empty ((map weight-balanced-map))
   (wb-map-nil-p (weight-balanced-map-tree map)))

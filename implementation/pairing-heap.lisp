@@ -15,7 +15,7 @@
 (defpackage :pfds.shcl.io/implementation/pairing-heap
   (:use :common-lisp)
   (:import-from :pfds.shcl.io/interface/common
-   #:to-list #:print-graphviz #:next-graphviz-id)
+   #:to-list #:print-graphviz #:next-graphviz-id #:for-each)
   (:import-from :pfds.shcl.io/utility/immutable-structure
    #:define-adt #:define-immutable-structure)
   (:import-from :pfds.shcl.io/interface/heap
@@ -123,17 +123,14 @@
             (enqueue queue (p-heap-merge comparator first second))))
     (dequeue queue)))
 
-(defun p-heap-node-to-list (heap builder)
-  (impure-list-builder-add builder (p-heap-node-value heap))
+(defun p-heap-node-for-each (heap function)
+  (funcall function (p-heap-node-value heap))
   (dolist (child (p-heap-node-children heap))
-    (p-heap-node-to-list child builder)))
+    (p-heap-node-for-each child function)))
 
-(defun p-heap-to-list (heap)
-  (if (p-heap-nil-p heap)
-      nil
-      (let ((builder (make-impure-list-builder)))
-        (p-heap-node-to-list heap builder)
-        (impure-list-builder-extract builder))))
+(defun p-heap-for-each (heap function)
+  (unless (p-heap-nil-p heap)
+    (p-heap-node-for-each heap function)))
 
 (define-immutable-structure (pairing-heap (:constructor %make-pairing-heap))
   (tree (p-heap-nil) :type p-heap)
@@ -177,8 +174,8 @@
 (defmethod empty ((heap pairing-heap))
   (copy-pairing-heap heap :tree (p-heap-nil)))
 
-(defmethod to-list ((heap pairing-heap))
-  (p-heap-to-list (pairing-heap-tree heap)))
+(defmethod for-each ((heap pairing-heap) function)
+  (p-heap-for-each (pairing-heap-tree heap) function))
 
 (defmethod print-object ((heap pairing-heap) stream)
   (write

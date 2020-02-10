@@ -16,7 +16,7 @@
   (:use :common-lisp)
   (:import-from :pfds.shcl.io/interface/common
    #:to-list #:is-empty #:empty #:check-invariants
-   #:print-graphviz)
+   #:print-graphviz #:for-each)
   (:import-from :pfds.shcl.io/utility/immutable-structure
    #:define-immutable-structure)
   (:import-from :pfds.shcl.io/utility/misc
@@ -408,6 +408,10 @@
 (defmethod to-list ((set red-black-set))
   (rb-set-to-list (red-black-set-tree set)))
 
+(defmethod for-each ((set red-black-set) function)
+  (do-rb-set (key (red-black-set-tree set))
+    (funcall function key)))
+
 (defmethod print-object ((set red-black-set) stream)
   (write
    (if *print-readably*
@@ -467,6 +471,10 @@
 (defmethod check-invariants ((map red-black-map))
   (check-rb-map (red-black-map-tree map) (red-black-map-comparator map))
   (check-balance (red-black-map-tree map)))
+
+(defmethod for-each ((map red-black-map) function)
+  (do-rb-map (key value (red-black-map-tree map))
+    (funcall function key value)))
 
 (defmethod to-list ((map red-black-map))
   (rb-map-to-list (red-black-map-tree map)))

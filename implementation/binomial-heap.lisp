@@ -16,7 +16,7 @@
   (:use :common-lisp)
   (:import-from :pfds.shcl.io/interface/common
    #:to-list #:print-graphviz #:next-graphviz-id
-   #:check-invariants)
+   #:check-invariants #:for-each)
   (:import-from :pfds.shcl.io/utility/impure-list-builder
    #:make-impure-list-builder #:impure-list-builder-add
    #:impure-list-builder-extract)
@@ -220,15 +220,10 @@
         (format stream "ID~A -> ID~A~%" id child-id)))
     id))
 
-(defun binomial-heap-to-list (heap)
-  (let (items)
-    (dolist (ranked-tree (binomial-heap-ranked-trees heap))
-      (do-tree (item (ranked-tree-tree ranked-tree))
-        (push item items)))
-    items))
-
-(defmethod to-list ((heap binomial-heap))
-  (binomial-heap-to-list heap))
+(defmethod for-each ((heap binomial-heap) function)
+  (dolist (ranked-tree (binomial-heap-ranked-trees heap))
+    (do-tree (item (ranked-tree-tree ranked-tree))
+      (funcall function item))))
 
 (defmethod print-object ((heap binomial-heap) stream)
   (write

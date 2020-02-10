@@ -15,7 +15,7 @@
 (defpackage :pfds.shcl.io/implementation/batched-deque
   (:use :common-lisp)
   (:import-from :pfds.shcl.io/interface/common
-   #:to-list #:check-invariants)
+   #:to-list #:check-invariants #:for-each)
   (:import-from :pfds.shcl.io/utility/immutable-structure
    #:define-immutable-structure)
   (:import-from :pfds.shcl.io/interface/deque
@@ -61,7 +61,12 @@
              nil "back count has the correct value")))
 
 (defmethod to-list ((deque batched-deque))
-  (append (batched-deque-front-stack deque) (reverse (batched-deque-back-stack deque))))
+  (append (batched-deque-front-stack deque)
+          (reverse (batched-deque-back-stack deque))))
+
+(defmethod for-each ((deque batched-deque) function)
+  (for-each (batched-deque-front-stack deque) function)
+  (for-each (reverse (batched-deque-back-stack deque)) function))
 
 (defmethod print-object ((deque batched-deque) stream)
   (write

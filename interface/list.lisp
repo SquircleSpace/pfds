@@ -64,3 +64,8 @@ removed, and a non-nil value."))
 
 (defmethod to-list ((list list))
   list)
+
+(defmethod for-each ((list list) function)
+  (when list
+    (funcall function (car list))
+    (for-each (cdr list) function)))

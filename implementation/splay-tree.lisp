@@ -15,7 +15,7 @@
 (defpackage :pfds.shcl.io/implementation/splay-tree
   (:use :common-lisp)
   (:import-from :pfds.shcl.io/interface/common
-   #:to-list #:check-invariants #:print-graphviz)
+   #:to-list #:check-invariants #:print-graphviz #:for-each)
   (:import-from :pfds.shcl.io/utility/impure-list-builder
    #:make-impure-list-builder #:impure-list-builder-add
    #:impure-list-builder-extract)
@@ -602,10 +602,11 @@
   (copy-splay-heap heap :tree (sp-heap-nil)))
 
 (defmethod to-list ((heap splay-heap))
-  (let ((builder (make-impure-list-builder)))
-    (do-sp-heap (key (splay-heap-tree heap))
-      (impure-list-builder-add builder key))
-    (impure-list-builder-extract builder)))
+  (sp-heap-to-list (splay-heap-tree heap)))
+
+(defmethod for-each ((heap splay-heap) function)
+  (do-sp-heap (key (splay-heap-tree heap))
+    (funcall function key)))
 
 (defun check-sp-heap (sp-heap comparator)
   (etypecase sp-heap

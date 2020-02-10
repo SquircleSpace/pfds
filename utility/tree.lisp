@@ -15,7 +15,7 @@
 (defpackage :pfds.shcl.io/utility/tree
   (:use :common-lisp)
   (:import-from :pfds.shcl.io/interface/common
-   #:to-list #:print-graphviz #:next-graphviz-id)
+   #:to-list #:print-graphviz #:next-graphviz-id #:for-each)
   (:import-from :pfds.shcl.io/utility/impure-list-builder
    #:make-impure-list-builder #:impure-list-builder-add
    #:impure-list-builder-extract)
@@ -102,6 +102,7 @@
          (emplace-p-list (when emplace-p `(,emplace-p)))
          (min (gensym "MIN"))
          (without-min (gensym "WITHOUT-MIN"))
+         (function (gensym "FUNCTION"))
          (body (gensym "BODY"))
          (fn (gensym "FN"))
          (builder (gensym "BUILDER"))
@@ -417,6 +418,10 @@
 
        (defmethod to-list ((,tree ,base-name))
          (,to-list ,tree))
+
+       (defmethod for-each ((,tree ,base-name) ,function)
+         (,do-tree (,key ,@value-list ,tree)
+           (funcall ,function ,key ,@value-list)))
 
        (defmethod print-tree-node-properties ((,tree ,base-name) ,stream)
          (format ,stream "label=\"~A\" shape=box"

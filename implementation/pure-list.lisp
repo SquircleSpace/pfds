@@ -15,7 +15,7 @@
 (defpackage :pfds.shcl.io/implementation/pure-list
   (:use :common-lisp)
   (:import-from :pfds.shcl.io/interface/common
-   #:to-list)
+   #:to-list #:for-each)
   (:import-from :pfds.shcl.io/utility/immutable-structure
    #:define-adt)
   (:import-from :pfds.shcl.io/utility/compare
@@ -52,11 +52,12 @@
 (defun pure-list (&rest items)
   (make-pure-list :items objects))
 
-(defmethod to-list ((list pure-list-nil))
+(defmethod for-each ((list pure-list-nil) function)
   nil)
 
-(defmethod to-list ((list pure-list-cons))
-  (cons (pure-list-cons-head list) (to-list (pure-list-cons-tail list))))
+(defmethod for-each ((list pure-list-cons) function)
+  (funcall function (pure-list-cons-head list))
+  (for-each (pure-list-cons-tail list) function))
 
 (defmethod with-head ((list pure-list) item)
   (make-pure-list-cons :head item :tail list))

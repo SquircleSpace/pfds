@@ -15,7 +15,7 @@
 (defpackage :pfds.shcl.io/implementation/leftist-heap
   (:use :common-lisp)
   (:import-from :pfds.shcl.io/interface/common
-   #:to-list #:print-graphviz #:next-graphviz-id)
+   #:to-list #:print-graphviz #:next-graphviz-id #:for-each)
   (:import-from :pfds.shcl.io/utility/immutable-structure
    #:define-adt)
   (:import-from :pfds.shcl.io/interface/heap
@@ -97,20 +97,12 @@
      (do-guts-f ,guts (lambda (,item) ,@body))
      ,result))
 
-(defun leftist-heap-to-list (heap)
-  (let (items)
-    (do-guts (item (leftist-heap-guts heap))
-      (push item items))
-    items))
-
-(defmethod to-list ((heap height-biased-leftist-heap))
-  (leftist-heap-to-list heap))
-
-(defmethod to-list ((heap weight-biased-leftist-heap))
-  (leftist-heap-to-list heap))
+(defmethod for-each ((heap leftist-heap) function)
+  (do-guts (item (leftist-heap-guts heap))
+    (funcall function item)))
 
 (defun print-leftist-heap (heap stream)
-  (let ((items (leftist-heap-to-list heap))
+  (let ((items (to-list heap))
         (comparator (leftist-heap-comparator heap))
         (bias (leftist-heap-bias heap)))
     (write

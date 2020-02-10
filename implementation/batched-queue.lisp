@@ -15,7 +15,7 @@
 (defpackage :pfds.shcl.io/implementation/batched-queue
   (:use :common-lisp)
   (:import-from :pfds.shcl.io/interface/common
-   #:to-list #:check-invariants)
+   #:to-list #:check-invariants #:for-each)
   (:import-from :pfds.shcl.io/utility/misc
    #:cassert)
   (:import-from :pfds.shcl.io/utility/immutable-structure
@@ -48,7 +48,12 @@
              nil "back stack cannot be non-nil unless front is non-nil")))
 
 (defmethod to-list ((queue batched-queue))
-  (append (batched-queue-front-stack queue) (reverse (batched-queue-back-stack queue))))
+  (append (batched-queue-front-stack queue)
+          (reverse (batched-queue-back-stack queue))))
+
+(defmethod for-each ((queue batched-queue) function)
+  (for-each (batched-queue-front-stack queue) function)
+  (for-each (reverse (batched-queue-back-stack queue)) function))
 
 (defmethod print-object ((queue batched-queue) stream)
   (write

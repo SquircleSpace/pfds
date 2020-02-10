@@ -15,7 +15,7 @@
 (defpackage :pfds.shcl.io/implementation/persistent-vector
   (:use :common-lisp)
   (:import-from :pfds.shcl.io/interface/common
-   #:to-list #:check-invariants
+   #:to-list #:check-invariants #:for-each
    #:with-entry #:lookup-entry)
   (:import-from :pfds.shcl.io/utility/immutable-structure
    #:define-immutable-structure)
@@ -250,16 +250,13 @@
      (loop :for object :across vec :do
        (do-vector-tree-f object (1- height) fn)))))
 
-(defmethod to-list ((p-vec persistent-vector))
+(defmethod for-each ((p-vec persistent-vector) function)
   (when (zerop (persistent-vector-count p-vec))
-    (return-from to-list nil))
+    (return-from for-each))
 
-  (let* ((builder (make-impure-list-builder))
-         (tree (persistent-vector-tree p-vec))
-         (height (persistent-vector-height p-vec))
-         (fn (lambda (obj) (impure-list-builder-add builder obj))))
-    (do-vector-tree-f tree height fn)
-    (impure-list-builder-extract builder)))
+  (let ((tree (persistent-vector-tree p-vec))
+        (height (persistent-vector-height p-vec)))
+    (do-vector-tree-f tree height function)))
 
 (defmethod print-object ((p-vec persistent-vector) stream)
   (write

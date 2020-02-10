@@ -18,7 +18,7 @@
   (:import-from :pfds.shcl.io/interface/list
    #:with-head #:head #:tail #:is-empty #:empty)
   (:import-from :pfds.shcl.io/interface/common
-   #:to-list)
+   #:to-list #:for-each)
   (:import-from :pfds.shcl.io/utility/immutable-structure
    #:define-adt)
   (:export
@@ -87,14 +87,15 @@
 (defmethod with-head ((lazy-list lazy-list) item)
   (lazy-cons item lazy-list))
 
-(defmethod to-list ((lazy-cons lazy-cons))
-  (cons (lazy-cons-head lazy-cons) (to-list (lazy-cons-tail lazy-cons))))
+(defmethod for-each ((lazy-cons lazy-cons) function)
+  (funcall function (lazy-cons-head lazy-cons))
+  (for-each (lazy-cons-tail lazy-cons) function))
 
-(defmethod to-list ((lazy-nil lazy-nil))
+(defmethod for-each ((lazy-nil lazy-nil) function)
   nil)
 
-(defmethod to-list ((lazy-value lazy-value))
-  (to-list (force (lazy-value-suspension lazy-value))))
+(defmethod for-each ((lazy-value lazy-value) function)
+  (for-each (force (lazy-value-suspension lazy-value)) function))
 
 (defun lazy-list-append (left right)
   (cond

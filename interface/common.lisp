@@ -14,10 +14,14 @@
 
 (defpackage :pfds.shcl.io/interface/common
   (:use :common-lisp)
+  (:import-from :pfds.shcl.io/utility/impure-list-builder
+   #:make-impure-list-builder #:impure-list-builder-add
+   #:impure-list-builder-extract)
   (:export
    #:is-empty #:empty #:with-member
    #:with-entry #:lookup-entry
    #:to-list
+   #:for-each
    #:check-invariants
    #:graphviz
    #:print-graphviz
@@ -36,6 +40,18 @@
 (defgeneric empty (collection)
   (:documentation
    "Return an empty collection of the same type as the given one."))
+
+(defgeneric for-each (collection function)
+  (:documentation
+   "Call the given function on each object in the collection."))
+
+(defmethod to-list (collection)
+  (let ((builder (make-impure-list-builder)))
+    (labels
+        ((visit (value)
+           (impure-list-builder-add builder value)))
+      (for-each collection #'visit))
+    (impure-list-builder-extract builder)))
 
 (defgeneric with-member (collection item)
   (:documentation
