@@ -28,10 +28,13 @@
    #:make-persistent-vector)
   (:import-from :pfds.shcl.io/utility/compare
    #:compare)
+  (:import-from :named-readtables
+   #:defreadtable)
   (:export
    #:make-map
    #:make-set
    #:make-min-heap #:make-max-heap #:make-heap
+   #:syntax
    #:compare))
 (in-package :pfds.shcl.io)
 
@@ -70,3 +73,40 @@ unspecified which value will be contained in the map."
 
 (defun make-vector (&key items)
   (make-persistent-vector :items items))
+
+(defun read-vector (stream char)
+  (declare (ignore char))
+  (let ((forms (read-delimited-list #\] stream t)))
+    `(make-vector :items (list ,@forms))))
+
+(defun read-map (stream char)
+  (declare (ignore char))
+  (let ((pairs (read-delimited-list #\} stream t)))
+    (labels
+        ((clean (pair)
+           (when (or (not (consp pair))
+                     (null (cdr pair))
+                     (cdr (cdr pair)))
+             (error "Expected key/value pair, got ~A" pair))
+           (destructuring-bind (key value) pair
+             `(cons ,key ,value))))
+      `(make-map :alist (list ,@(mapcar #'clean pairs))))))
+
+(defun read-set (stream char arg)
+  (declare (ignore char))
+  (when arg
+    (error "Unexpected argument for set literal: ~A" arg))
+  (let ((forms (read-delimited-list #\} stream t)))
+    `(make-set :items (list ,@forms))))
+
+(defun syntax-error (stream char)
+  (declare (ignore stream))
+  (error "Unmatched ~A" char))
+
+(defreadtable syntax
+  (:merge :standard)
+  (:macro-char #\[ #'read-vector nil)
+  (:macro-char #\{ #'read-map nil)
+  (:dispatch-macro-char #\# #\{ #'read-set)
+  (:macro-char #\] #'syntax-error nil)
+  (:macro-char #\} #'syntax-error nil))
