@@ -65,7 +65,9 @@
 
 (defmethod print-object ((deque batched-deque) stream)
   (write
-   `(make-batched-deque :items (quote ,(to-list deque)))
+   (if *print-readably*
+       `(make-batched-deque :items ',(to-list deque))
+       `(batched-deque ,@(to-list deque)))
    :stream stream))
 
 (defvar *empty-batched-deque* (%make-batched-deque))

@@ -427,9 +427,10 @@
   (sp-set-to-list (impure-splay-set-tree splay-set)))
 
 (defmethod print-object ((splay-set impure-splay-set) stream)
-  (write `(make-impure-splay-set ',(impure-splay-set-comparator splay-set)
-                                 :items ',(impure-splay-set-to-list splay-set))
-         :stream stream))
+  (write
+   `(make-impure-splay-set ',(impure-splay-set-comparator splay-set)
+                           :items ',(to-list splay-set))
+   :stream stream))
 
 (defmethod print-graphviz ((map impure-splay-set) stream id-vendor)
   (print-graphviz (impure-splay-set-tree map) stream id-vendor))
@@ -484,9 +485,10 @@
   (sp-map-to-list (impure-splay-map-tree splay-map)))
 
 (defmethod print-object ((splay-map impure-splay-map) stream)
-  (write `(make-impure-splay-map ',(impure-splay-map-comparator splay-map)
-                                 :alist ',(impure-splay-map-to-list splay-map))
-         :stream stream))
+  (write
+   `(make-impure-splay-map ',(impure-splay-map-comparator splay-map)
+                           :alist ',(to-list splay-map))
+   :stream stream))
 
 (defmethod print-graphviz ((map impure-splay-map) stream id-vendor)
   (print-graphviz (impure-splay-map-tree map) stream id-vendor))
@@ -630,8 +632,11 @@
   (make-splay-heap comparator :items items))
 
 (defmethod print-object ((heap splay-heap) stream)
-  (write `(make-splay-heap ',(splay-heap-comparator heap) :items ',(to-list heap))
-         :stream stream))
+  (write
+   (if *print-readably*
+       `(make-splay-heap ',(splay-heap-comparator heap) :items ',(to-list heap))
+       `(splay-heap ,(splay-heap-comparator heap) ,@(to-list heap)))
+   :stream stream))
 
 (defmethod print-graphviz ((heap splay-heap) stream id-vendor)
   (print-graphviz (splay-heap-tree heap) stream id-vendor))

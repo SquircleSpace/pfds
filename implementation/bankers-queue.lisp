@@ -128,8 +128,11 @@
                              (lazy-list-reverse (bankers-queue-back-stack queue)))))
 
 (defmethod print-object ((queue bankers-queue) stream)
-  (write `(make-bankers-queue :items ',(to-list queue))
-         :stream stream))
+  (write
+   (if *print-readably*
+       `(make-bankers-queue :items ',(to-list queue))
+       `(bankers-queue ,@(to-list queue)))
+   :stream stream))
 
 (defmethod check-invariants ((queue bankers-queue))
   (cassert (>= (bankers-queue-front-stack-size queue)

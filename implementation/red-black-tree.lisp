@@ -410,8 +410,9 @@
 
 (defmethod print-object ((set red-black-set) stream)
   (write
-   `(make-red-black-set ',(red-black-set-comparator set)
-                        :items ',(rb-set-to-list (red-black-set-tree set)))
+   (if *print-readably*
+       `(make-red-black-set ',(red-black-set-comparator set) :items ',(to-list set))
+       `(red-black-set ,(red-black-set-comparator set) ,@(to-list set)))
    :stream stream))
 
 (defmethod print-graphviz ((tree red-black-set) stream id-vendor)
@@ -472,8 +473,11 @@
 
 (defmethod print-object ((map red-black-map) stream)
   (write
-   `(make-red-black-map ',(red-black-map-comparator map)
-                        :alist ',(rb-map-to-list (red-black-map-tree map)))
+   (if *print-readably*
+       `(make-red-black-map ',(red-black-map-comparator map) :alist ',(to-list map))
+       `(red-black-map ,(red-black-map-comparator map)
+                       ,@(loop :for pair :in (to-list map)
+                               :collect (list (car pair) (cdr pair)))))
    :stream stream))
 
 (defmethod print-graphviz ((tree red-black-map) stream id-vendor)

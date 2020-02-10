@@ -59,8 +59,11 @@
   (make-unbalanced-set comparator :items items))
 
 (defmethod print-object ((set unbalanced-set) stream)
-  (write `(make-unbalanced-set ',(unbalanced-set-comparator set)
-                               :items ',(%unbalanced-set-tree-to-list (unbalanced-set-tree set)))))
+  (write
+   (if *print-readably*
+       `(make-unbalanced-set ',(unbalanced-set-comparator set) :items ',(to-list set))
+       `(unbalanced-set ,(unbalanced-set-comparator set) ,@(to-list set)))
+   :stream stream))
 
 (defmethod is-empty ((set unbalanced-set))
   (%unbalanced-set-tree-nil-p (unbalanced-set-tree set)))
@@ -100,8 +103,13 @@
   (make-unbalanced-map comparator :plist plist))
 
 (defmethod print-object ((map unbalanced-map) stream)
-  (write `(make-unbalanced-map ',(unbalanced-map-comparator map)
-                               :alist ',(%unbalanced-map-tree-to-list (unbalanced-map-tree map)))))
+  (write
+   (if *print-readably*
+       `(make-unbalanced-map ',(unbalanced-map-comparator map) :alist ',(to-list map))
+       `(unbalanced-map ,(unbalanced-map-comparator map)
+                        ,@(loop :for pair :in (to-list map)
+                                :collect (list (car pair) (cdr pair)))))
+   :stream stream))
 
 (defmethod is-empty ((map unbalanced-map))
   (%unbalanced-map-tree-nil-p (unbalanced-map-tree map)))

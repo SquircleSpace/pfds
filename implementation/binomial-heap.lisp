@@ -231,10 +231,11 @@
   (binomial-heap-to-list heap))
 
 (defmethod print-object ((heap binomial-heap) stream)
-  (let ((items (binomial-heap-to-list heap)))
-    (write
-     `(make-binomial-heap ',(binomial-heap-comparator heap) :items ',items)
-     :stream stream)))
+  (write
+   (if *print-readably*
+       `(make-binomial-heap ',(binomial-heap-comparator heap) :items ',(to-list heap))
+       `(binomial-heap ,(binomial-heap-comparator heap) ,@(to-list heap)))
+   :stream stream))
 
 (defun make-binomial-heap (comparator &key items)
   (let (ranked-tree-list

@@ -37,6 +37,8 @@
 
 ;; See "Purely Functional Data Structures" by Chris Okasaki
 
+(defconstant +default-bias+ :height)
+
 (define-adt guts
     ()
   ((guts-nil (:constructor %make-guts-nil)))
@@ -108,11 +110,13 @@
   (leftist-heap-to-list heap))
 
 (defun print-leftist-heap (heap stream)
-  (let ((items (leftist-heap-to-list heap)))
+  (let ((items (leftist-heap-to-list heap))
+        (comparator (leftist-heap-comparator heap))
+        (bias (leftist-heap-bias heap)))
     (write
-     `(make-leftist-heap (quote ,(leftist-heap-comparator heap))
-                          :bias (quote ,(leftist-heap-bias heap))
-                          :items (quote ,items))
+     (if (or *print-readably* (not (eq bias +default-bias+)))
+         `(make-leftist-heap ',comparator :bias ',bias :items ',items)
+         `(leftist-heap ,comparator ,@items))
      :stream stream)))
 
 (defmethod print-object ((heap height-biased-leftist-heap) stream)
@@ -173,7 +177,7 @@
 
     (nth-value 0 (dequeue queue))))
 
-(defun make-leftist-heap (comparator &key (bias :height) items)
+(defun make-leftist-heap (comparator &key (bias +default-bias+) items)
   (check-type bias (member :height :weight))
   (let ((guts (make-guts comparator bias items)))
     (ecase bias

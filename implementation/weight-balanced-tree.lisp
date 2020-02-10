@@ -183,8 +183,11 @@
   (check-wb-invariants (weight-balanced-set-tree set)))
 
 (defmethod print-object ((set weight-balanced-set) stream)
-  (write `(make-weight-balanced-set ',(weight-balanced-set-comparator set) :items ',(to-list set))
-         :stream stream))
+  (write
+   (if *print-readably*
+       `(make-weight-balanced-set ',(weight-balanced-set-comparator set) :items ',(to-list set))
+       `(weight-balanced-set ,(weight-balanced-set-comparator set) ,@(to-list set)))
+   :stream stream))
 
 (defmethod with-member ((set weight-balanced-set) item)
   (copy-weight-balanced-set set :tree (wb-set-insert (weight-balanced-set-comparator set) (weight-balanced-set-tree set) item)))
@@ -237,8 +240,13 @@
   (check-wb-invariants (weight-balanced-map-tree map)))
 
 (defmethod print-object ((map weight-balanced-map) stream)
-  (write `(make-weight-balanced-map ',(weight-balanced-map-comparator map) :items ',(to-list map))
-         :stream stream))
+  (write
+   (if *print-readably*
+       `(make-weight-balanced-map ',(weight-balanced-map-comparator map) :items ',(to-list map))
+       `(weight-balanced-map ,(weight-balanced-map-comparator map)
+                             ,@(loop :for pair :in (to-list map)
+                                     :collect (list (car pair) (cdr pair)))))
+   :stream stream))
 
 (defmethod with-entry ((map weight-balanced-map) key value)
   (copy-weight-balanced-map map :tree (wb-map-insert (weight-balanced-map-comparator map) (weight-balanced-map-tree map) key value)))

@@ -262,8 +262,11 @@
     (impure-list-builder-extract builder)))
 
 (defmethod print-object ((p-vec persistent-vector) stream)
-  (write `(make-persistent-vector :items ',(to-list p-vec))
-         :stream stream))
+  (write
+   (if *print-readably*
+       `(make-persistent-vector :items ',(to-list p-vec))
+       `(persistent-vector ,@(to-list p-vec)))
+   :stream stream))
 
 (defun make-persistent-vector (&key items)
   (let ((result *empty-persistent-vector*))

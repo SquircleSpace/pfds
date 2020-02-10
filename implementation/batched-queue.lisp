@@ -52,7 +52,9 @@
 
 (defmethod print-object ((queue batched-queue) stream)
   (write
-   `(make-batched-queue :items (quote ,(to-list queue)))
+   (if *print-readably*
+       `(make-batched-queue :items ',(to-list queue))
+       `(batched-queue ,@(to-list queue)))
    :stream stream))
 
 (defvar *empty-batched-queue* (%make-batched-queue))
