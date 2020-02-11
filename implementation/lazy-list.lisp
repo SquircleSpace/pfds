@@ -88,8 +88,14 @@
   (lazy-cons item lazy-list))
 
 (defmethod for-each ((lazy-cons lazy-cons) function)
-  (funcall function (lazy-cons-head lazy-cons))
-  (for-each (lazy-cons-tail lazy-cons) function))
+  (let ((list lazy-cons))
+    (loop :until (lazy-nil-p list) :do
+      (etypecase list
+        (lazy-cons
+         (funcall function (lazy-cons-head list))
+         (setf list (lazy-cons-tail list)))
+        (lazy-value
+         (setf list (force (lazy-value-suspension list))))))))
 
 (defmethod for-each ((lazy-nil lazy-nil) function)
   nil)

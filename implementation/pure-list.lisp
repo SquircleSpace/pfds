@@ -56,8 +56,10 @@
   nil)
 
 (defmethod for-each ((list pure-list-cons) function)
-  (funcall function (pure-list-cons-head list))
-  (for-each (pure-list-cons-tail list) function))
+  (loop :until (pure-list-nil-p list) :do
+    (progn
+      (funcall function (pure-list-cons-head list))
+      (setf list (pure-list-cons-tail list)))))
 
 (defmethod with-head ((list pure-list) item)
   (make-pure-list-cons :head item :tail list))
