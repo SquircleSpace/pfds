@@ -22,6 +22,7 @@
    #:with-entry #:lookup-entry
    #:to-list
    #:for-each
+   #:do-sequence
    #:check-invariants
    #:graphviz
    #:print-graphviz
@@ -48,6 +49,15 @@
 In the case of maps, the function should accept two arguments: the key
 and the value.  For all other types, it need only accept one
 argument."))
+
+(defmacro do-sequence ((value collection &optional result) &body body)
+  "Iterate over the values contained in the collection."
+  (let ((rest (gensym "REST")))
+    `(block nil
+       (for-each ,collection (lambda (,value &rest ,rest)
+                               (declare (ignore ,rest))
+                               ,@body))
+       ,result)))
 
 (defmethod to-list (collection)
   (let ((builder (make-impure-list-builder)))
