@@ -15,7 +15,7 @@
 (defpackage :pfds.shcl.io/implementation/pure-list
   (:use :common-lisp)
   (:import-from :pfds.shcl.io/interface/common
-   #:to-list #:for-each)
+   #:to-list #:for-each #:size)
   (:import-from :pfds.shcl.io/utility/immutable-structure
    #:define-adt)
   (:import-from :pfds.shcl.io/utility/compare
@@ -117,3 +117,14 @@
 
 (defmethod compare-objects ((left pure-list-cons) (right pure-list-nil))
   :greater)
+
+(defmethod size ((list pure-list-nil))
+  0)
+
+(defmethod size ((list pure-list-cons))
+  (let ((size 0))
+    (loop :until (pure-list-nil-p list) :do
+          (progn
+            (incf size)
+            (setf list (pure-list-cons-tail list))))
+    size))

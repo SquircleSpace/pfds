@@ -15,7 +15,7 @@
 (defpackage :pfds.shcl.io/interface/list
   (:use :common-lisp)
   (:import-from :pfds.shcl.io/interface/common
-   #:is-empty #:empty #:define-interface)
+   #:is-empty #:empty #:define-interface #:size)
   (:export
    #:with-head #:head #:tail #:is-empty #:empty))
 (in-package :pfds.shcl.io/interface/list)
@@ -69,3 +69,6 @@ removed, and a non-nil value."))
   (when list
     (funcall function (car list))
     (for-each (cdr list) function)))
+
+(defmethod size ((list list))
+  (length list))

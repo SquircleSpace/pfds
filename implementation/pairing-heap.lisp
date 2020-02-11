@@ -15,7 +15,8 @@
 (defpackage :pfds.shcl.io/implementation/pairing-heap
   (:use :common-lisp)
   (:import-from :pfds.shcl.io/interface/common
-   #:to-list #:print-graphviz #:next-graphviz-id #:for-each)
+   #:to-list #:print-graphviz #:next-graphviz-id #:for-each
+   #:size)
   (:import-from :pfds.shcl.io/utility/immutable-structure
    #:define-adt #:define-immutable-structure)
   (:import-from :pfds.shcl.io/interface/heap
@@ -98,11 +99,11 @@
 (defun make-p-heap (comparator items)
   (unless items
     (return-from make-p-heap
-      (p-heap-nil)))
+      (values (p-heap-nil) 0)))
 
   (unless (cdr items)
     (return-from make-p-heap
-      (make-p-heap-node :value (car items))))
+      (values (make-p-heap-node :value (car items)) 1)))
 
   ;; We don't *need* to jump through all this rigmarole.  We could
   ;; just find the min, make a list of single-object p-heaps from the
@@ -111,9 +112,10 @@
   ;; create a heap just to find the min once?  If we use the queue
   ;; technique then we end up with a heap that (hopefully!) has more
   ;; depth to it.  Depth is good.  That's how we keep things cheap.
-  (let ((queue (make-impure-queue :initial-size (length items)
-                                  :shrink-factor nil
-                                  :growth-factor nil)))
+  (let* ((size (length items))
+         (queue (make-impure-queue :initial-size size
+                                   :shrink-factor nil
+                                   :growth-factor nil)))
     (dolist (item items)
       (enqueue queue (make-p-heap-node :value item)))
 
@@ -121,7 +123,7 @@
           (let ((first (dequeue queue))
                 (second (dequeue queue)))
             (enqueue queue (p-heap-merge comparator first second))))
-    (dequeue queue)))
+    (values (dequeue queue) size)))
 
 (defun p-heap-node-for-each (heap function)
   (funcall function (p-heap-node-value heap))
@@ -134,11 +136,14 @@
 
 (define-immutable-structure (pairing-heap (:constructor %make-pairing-heap))
   (tree (p-heap-nil) :type p-heap)
-  (comparator (error "comparator is required")))
+  (comparator (error "comparator is required"))
+  (size 0 :type (integer 0)))
 
 (defun make-pairing-heap (comparator &key items)
-  (%make-pairing-heap :comparator comparator
-                      :tree (make-p-heap comparator items)))
+  (multiple-value-bind (tree size) (make-p-heap comparator items)
+    (%make-pairing-heap :comparator comparator
+                        :tree tree
+                        :size size)))
 
 (defun pairing-heap (comparator &rest items)
   (make-pairing-heap comparator :items items))
@@ -148,31 +153,42 @@
               (pairing-heap-comparator second))
     (error "Attempting to merge heaps with non-eq comparators"))
 
-  (copy-pairing-heap first :tree (p-heap-merge (pairing-heap-comparator first)
-                                               (pairing-heap-tree first)
-                                               (pairing-heap-tree second))))
+  (copy-pairing-heap first
+                     :tree (p-heap-merge (pairing-heap-comparator first)
+                                         (pairing-heap-tree first)
+                                         (pairing-heap-tree second))
+                     :size (+ (pairing-heap-size first)
+                              (pairing-heap-size second))))
 
 (defmethod heap-top ((heap pairing-heap))
   (p-heap-find-min (pairing-heap-tree heap)))
 
 (defmethod without-heap-top ((heap pairing-heap))
+  (when (p-heap-nil-p (pairing-heap-tree heap))
+    (return-from without-heap-top
+      (values heap nil nil)))
+
   (multiple-value-bind
         (new-tree value found-p)
       (p-heap-remove-top (pairing-heap-comparator heap) (pairing-heap-tree heap))
-    (values (copy-pairing-heap heap :tree new-tree)
+    (values (copy-pairing-heap heap
+                               :tree new-tree
+                               :size (1- (pairing-heap-size heap)))
             value
             found-p)))
 
 (defmethod with-member ((heap pairing-heap) item)
-  (copy-pairing-heap heap :tree (p-heap-insert (pairing-heap-comparator heap)
-                                               (pairing-heap-tree heap)
-                                               item)))
+  (copy-pairing-heap heap
+                     :tree (p-heap-insert (pairing-heap-comparator heap)
+                                          (pairing-heap-tree heap)
+                                          item)
+                     :size (1+ (pairing-heap-size heap))))
 
 (defmethod is-empty ((heap pairing-heap))
   (p-heap-nil-p (pairing-heap-tree heap)))
 
 (defmethod empty ((heap pairing-heap))
-  (copy-pairing-heap heap :tree (p-heap-nil)))
+  (copy-pairing-heap heap :tree (p-heap-nil) :size 0))
 
 (defmethod for-each ((heap pairing-heap) function)
   (p-heap-for-each (pairing-heap-tree heap) function))

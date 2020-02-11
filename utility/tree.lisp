@@ -109,7 +109,9 @@
          (alist (make-symbol "ALIST"))
          (plist (make-symbol "PLIST"))
          (items (make-symbol "ITEMS"))
-         (id-vendor (gensym "ID-VENDOR")))
+         (id-vendor (gensym "ID-VENDOR"))
+         (count-changed-p (gensym "COUNT-CHANGED-P"))
+         (count (gensym "COUNT")))
 
     (unless insert-left-balancer
       (setf insert-left-balancer node-copy))
@@ -151,12 +153,15 @@
        (defun ,with-unequal (,comparator ,tree ,key ,@value-list)
          (etypecase ,tree
            (,node-n-type
-            (,copy-n-type ,tree
-                          :values (,(if map-p 'list-map-with 'list-set-with)
-                                   ,comparator
-                                   (,n-type-values ,tree)
-                                   ,key
-                                   ,@value-list)))
+            (multiple-value-bind
+                  (,values ,count-changed-p)
+                (,(if map-p 'list-map-with 'list-set-with)
+                 ,comparator
+                 (,n-type-values ,tree)
+                 ,key
+                 ,@value-list)
+              (values (,copy-n-type ,tree :values ,values)
+                      ,count-changed-p)))
            (,node-1-type
             (let ((,result (structure-convert (,node-n-type ,node-1-type)
                                               ,tree
@@ -172,24 +177,27 @@
                                                              (,1-type-key ,tree)
                                                              ,key)))))
               (assert (cdr (,n-type-values ,result)))
-              ,result))))
+              (values ,result t)))))
 
        (defun ,without-unequal (,comparator ,tree ,key)
          (etypecase ,tree
            (,node-n-type
-            (let ((,values (,(if map-p 'list-map-without 'list-set-without)
-                            ,comparator
-                            (,n-type-values ,tree)
-                            ,key)))
-              (if (cdr ,values)
-                  (,copy-n-type ,tree :values ,values)
-                  (structure-convert (,node-1-type ,node-n-type)
-                                     ,tree
-                                     ,@(if map-p
-                                           `(:key (car (car ,values)) :value (cdr (car ,values)))
-                                           `(:key (car ,values)))))))
+            (multiple-value-bind
+                  (,values ,count-changed-p)
+                (,(if map-p 'list-map-without 'list-set-without)
+                 ,comparator
+                 (,n-type-values ,tree)
+                 ,key)
+              (values (if (cdr ,values)
+                          (,copy-n-type ,tree :values ,values)
+                          (structure-convert (,node-1-type ,node-n-type)
+                                             ,tree
+                                             ,@(if map-p
+                                                   `(:key (car (car ,values)) :value (cdr (car ,values)))
+                                                   `(:key (car ,values)))))
+                      ,count-changed-p)))
            (,node-1-type
-            ,tree)))
+            (values ,tree nil))))
 
        (declaim (inline ,with-equal))
        (defun ,with-equal (,comparator ,tree ,key ,@value-list)
@@ -198,9 +206,9 @@
                    (,node-n-type
                     (,with-unequal ,comparator ,tree ,key ,@value-list))
                    (,node-1-type
-                    (,copy-1-type ,tree :value ,value))))
+                    (values (,copy-1-type ,tree :value ,value) nil))))
                `((declare (ignore ,comparator ,key ,@value-list))
-                 ,tree)))
+                 (values ,tree nil))))
 
        (declaim (inline ,without-equal))
        (defun ,without-equal (,comparator ,tree ,key)
@@ -208,7 +216,7 @@
            (,node-n-type
             (,without-unequal ,comparator ,tree ,key))
            (,node-1-type
-            (,nil-type))))
+            (values (,nil-type) t))))
 
        (declaim (inline ,with-key))
        (defun ,with-key (,comparator ,tree ,comparison ,key ,@value-list)
@@ -252,50 +260,87 @@
                (etypecase ,tree
                  (,nil-type
                   (values (,make-1-type :key ,key ,@(when map-p `(:value ,value)))
+                          t
                           t))
                  ((or ,node-1-type ,node-n-type)
                   (ecase (funcall ,comparator ,key (,representative-key ,tree))
                     (:less
-                     (multiple-value-bind (,result ,balance-needed-p) (,insert ,comparator (,node-left ,tree) ,key ,@value-list ,@emplace-p-list)
+                     (multiple-value-bind
+                           (,result ,balance-needed-p ,count-changed-p)
+                         (,insert ,comparator (,node-left ,tree) ,key ,@value-list ,@emplace-p-list)
                        (if ,balance-needed-p
-                           (values (,insert-left-balancer ,tree :left ,result) t)
-                           (values (,node-copy ,tree :left ,result) nil))))
+                           (values (,insert-left-balancer ,tree :left ,result) t ,count-changed-p)
+                           (values (,node-copy ,tree :left ,result) nil ,count-changed-p))))
                     (:greater
-                     (multiple-value-bind (,result ,balance-needed-p) (,insert ,comparator (,node-right ,tree) ,key ,@value-list ,@emplace-p-list)
+                     (multiple-value-bind
+                           (,result ,balance-needed-p ,count-changed-p)
+                         (,insert ,comparator (,node-right ,tree) ,key ,@value-list ,@emplace-p-list)
                        (if ,balance-needed-p
-                           (values (,insert-right-balancer ,tree :right ,result) t)
-                           (values (,node-copy ,tree :right ,result) nil))))
+                           (values (,insert-right-balancer ,tree :right ,result) t ,count-changed-p)
+                           (values (,node-copy ,tree :right ,result) nil ,count-changed-p))))
                     (:equal
                      ,(if map-p
                           `(if ,emplace-p
-                               (values ,tree nil)
-                               (values (,with-equal ,comparator ,tree ,key ,value) nil))
-                          `(values (,with-equal ,comparator ,tree ,key) nil)))
+                               (values ,tree nil nil)
+                               (multiple-value-bind
+                                     (,result ,count-changed-p)
+                                   (,with-equal ,comparator ,tree ,key ,value)
+                                 (values ,result nil ,count-changed-p)))
+                          `(multiple-value-bind
+                                 (,result ,count-changed-p)
+                               (,with-equal ,comparator ,tree ,key)
+                             (values ,result nil ,count-changed-p))))
                     (:unequal
                      ,(if map-p
                           `(if (and ,emplace-p
                                     (typep ,tree ',node-n-type)
                                     (nth-value 1 (list-map-lookup ,comparator (,n-type-values ,tree) ,key)))
-                               (values ,tree nil)
-                               (values (,with-unequal ,comparator ,tree ,key ,value) nil))
-                          `(values (,with-unequal ,comparator ,tree ,key) nil)))))))))
+                               (values ,tree nil nil)
+                               (multiple-value-bind
+                                     (,result ,count-changed-p)
+                                   (,with-unequal ,comparator ,tree ,key ,value)
+                                 (values ,result nil ,count-changed-p)))
+                          `(multiple-value-bind
+                                 (,result ,count-changed-p)
+                               (,with-unequal ,comparator ,tree ,key)
+                             (values ,result nil ,count-changed-p))))))))))
 
        ,@(when (and define-insert-p define-maker-p)
            (if map-p
                `((defun ,maker (,comparator &key ,alist ,plist)
-                   (let ((,tree (,nil-type)))
+                   (let ((,tree (,nil-type))
+                         (,count 0))
                      (loop :while ,plist
                            :for ,key = (pop ,plist)
                            :for ,value = (if ,plist (pop ,plist) (error "Odd number of items in plist"))
-                           :do (setf ,tree (,insert ,comparator ,tree ,key ,value t)))
+                           :do (multiple-value-bind
+                                     (,result ,balance-needed-p ,count-changed-p)
+                                   (,insert ,comparator ,tree ,key ,value t)
+                                 (declare (ignore ,balance-needed-p))
+                                 (setf ,tree ,result)
+                                 (when ,count-changed-p
+                                   (incf ,count))))
                      (dolist (,value ,alist)
-                       (setf ,tree (,insert ,comparator ,tree (car ,value) (cdr ,value) t)))
-                     ,tree)))
+                       (multiple-value-bind
+                             (,result ,balance-needed-p ,count-changed-p)
+                           (,insert ,comparator ,tree (car ,value) (cdr ,value) t)
+                         (declare (ignore ,balance-needed-p))
+                         (setf ,tree ,result)
+                         (when ,count-changed-p
+                           (incf ,count))))
+                     (values ,tree ,count))))
                `((defun ,maker (,comparator &key ,items)
-                   (let ((,tree (,nil-type)))
+                   (let ((,tree (,nil-type))
+                         (,count 0))
                      (dolist (,value ,items)
-                       (setf ,tree (,insert ,comparator ,tree ,value)))
-                     ,tree)))))
+                       (multiple-value-bind
+                             (,result ,balance-needed-p ,count-changed-p)
+                           (,insert ,comparator ,tree ,value)
+                         (declare (ignore ,balance-needed-p))
+                         (setf ,tree ,result)
+                         (when ,count-changed-p
+                           (incf ,count))))
+                     (values ,tree ,count))))))
 
        ,@(when define-lookup-p
            `((defun ,lookup (,comparator ,tree ,key)
@@ -358,21 +403,22 @@
              (defun ,remove (,comparator ,tree ,key)
                (etypecase ,tree
                  (,nil-type
-                  (values ,tree nil))
+                  (values ,tree nil nil))
+
                  ((or ,node-1-type ,node-n-type)
                   (ecase (funcall ,comparator ,key (,representative-key ,tree))
                     (:less
-                     (multiple-value-bind (,result ,balance-needed-p) (,remove ,comparator (,node-left ,tree) ,key)
+                     (multiple-value-bind (,result ,balance-needed-p ,count-changed-p) (,remove ,comparator (,node-left ,tree) ,key)
                        (if ,balance-needed-p
-                           (values (,remove-left-balancer ,tree :left ,result) t)
-                           (values (,node-copy ,tree :left ,result)))))
+                           (values (,remove-left-balancer ,tree :left ,result) t ,count-changed-p)
+                           (values (,node-copy ,tree :left ,result) nil ,count-changed-p))))
                     (:greater
-                     (multiple-value-bind (,result ,balance-needed-p) (,remove ,comparator (,node-right ,tree) ,key)
+                     (multiple-value-bind (,result ,balance-needed-p ,count-changed-p) (,remove ,comparator (,node-right ,tree) ,key)
                        (if ,balance-needed-p
-                           (values (,remove-right-balancer ,tree :right ,result) t)
-                           (values (,node-copy ,tree :right ,result)))))
+                           (values (,remove-right-balancer ,tree :right ,result) t ,count-changed-p)
+                           (values (,node-copy ,tree :right ,result) nil ,count-changed-p))))
                     (:equal
-                     (let ((,result (,without-equal ,comparator ,tree ,key)))
+                     (multiple-value-bind (,result ,count-changed-p) (,without-equal ,comparator ,tree ,key)
                        (if (,nil-type-p ,result)
                            (values (cond
                                      ((,nil-type-p (,node-left ,tree))
@@ -381,10 +427,12 @@
                                       (,node-left ,tree))
                                      (t
                                       (,append-children ,tree)))
-                                   t)
-                           (values ,result nil))))
+                                   t
+                                   ,count-changed-p)
+                           (values ,result nil ,count-changed-p))))
                     (:unequal
-                     (values (,without-unequal ,comparator ,tree ,key) nil))))))))
+                     (multiple-value-bind (,result ,count-changed-p) (,without-unequal ,comparator ,tree ,key)
+                       (values ,result nil ,count-changed-p)))))))))
 
        (defun ,do-tree-f (,tree ,fn)
          (when (,nil-type-p ,tree)

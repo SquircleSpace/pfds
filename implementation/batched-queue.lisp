@@ -15,7 +15,7 @@
 (defpackage :pfds.shcl.io/implementation/batched-queue
   (:use :common-lisp)
   (:import-from :pfds.shcl.io/interface/common
-   #:to-list #:check-invariants #:for-each)
+   #:to-list #:check-invariants #:for-each #:size)
   (:import-from :pfds.shcl.io/utility/misc
    #:cassert)
   (:import-from :pfds.shcl.io/utility/immutable-structure
@@ -37,15 +37,21 @@
 
 (define-immutable-structure (batched-queue (:constructor %make-batched-queue))
   (front-stack nil :type list)
-  (back-stack nil :type list))
+  (back-stack nil :type list)
+  (count 0 :type (integer 0)))
 
 (defmethod check-invariants ((queue batched-queue))
   (with-accessors ((front batched-queue-front-stack)
-                   (back batched-queue-back-stack))
+                   (back batched-queue-back-stack)
+                   (count batched-queue-count))
       queue
     (cassert (or (null back)
                  front)
-             nil "back stack cannot be non-nil unless front is non-nil")))
+             nil "back stack cannot be non-nil unless front is non-nil")
+    (cassert (equal count
+                    (+ (length front)
+                       (length back)))
+             nil "Count must be accurate")))
 
 (defmethod to-list ((queue batched-queue))
   (append (batched-queue-front-stack queue)
@@ -67,7 +73,8 @@
 (defun make-batched-queue (&key items)
   (if items
       (%make-batched-queue
-       :front-stack (copy-list items))
+       :front-stack (copy-list items)
+       :count (length items))
       *empty-batched-queue*))
 
 (defun batched-queue (&rest items)
@@ -77,10 +84,12 @@
   (if (batched-queue-front-stack queue)
       (copy-batched-queue
        queue
-       :back-stack (cons item (batched-queue-back-stack queue)))
+       :back-stack (cons item (batched-queue-back-stack queue))
+       :count (1+ (batched-queue-count queue)))
       (copy-batched-queue
        queue
-       :front-stack (cons item nil))))
+       :front-stack (cons item nil)
+       :count (1+ (batched-queue-count queue)))))
 
 (defmethod without-first ((queue batched-queue))
   (let ((front-stack (batched-queue-front-stack queue)))
@@ -94,9 +103,12 @@
       (values
        (cond
          (new-front-stack
-          (copy-batched-queue queue :front-stack new-front-stack))
+          (copy-batched-queue queue :front-stack new-front-stack
+                                    :count (1- (batched-queue-count queue))))
          (back-stack
-          (copy-batched-queue queue :front-stack (reverse back-stack) :back-stack nil))
+          (copy-batched-queue queue :front-stack (reverse back-stack)
+                                    :back-stack nil
+                                    :count (1- (batched-queue-count queue))))
          (t
           *empty-batched-queue*))
        value
@@ -113,3 +125,6 @@
 
 (defmethod empty ((queue batched-queue))
   *empty-batched-queue*)
+
+(defmethod size ((queue batched-queue))
+  (batched-queue-count queue))

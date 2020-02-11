@@ -18,7 +18,7 @@
   (:import-from :pfds.shcl.io/interface/list
    #:with-head #:head #:tail #:is-empty #:empty)
   (:import-from :pfds.shcl.io/interface/common
-   #:to-list #:for-each)
+   #:to-list #:for-each #:size)
   (:import-from :pfds.shcl.io/utility/immutable-structure
    #:define-adt)
   (:export
@@ -152,3 +152,6 @@
 
 (defun lazy-list (&rest items)
   (make-lazy-list :items items))
+
+(defmethod size ((lazy-list lazy-list))
+  (lazy-list-length lazy-list))

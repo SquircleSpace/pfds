@@ -15,7 +15,8 @@
 (defpackage :pfds.shcl.io/implementation/splay-tree
   (:use :common-lisp)
   (:import-from :pfds.shcl.io/interface/common
-   #:to-list #:check-invariants #:print-graphviz #:for-each)
+   #:to-list #:check-invariants #:print-graphviz #:for-each
+   #:size)
   (:import-from :pfds.shcl.io/utility/impure-list-builder
    #:make-impure-list-builder #:impure-list-builder-add
    #:impure-list-builder-extract)
@@ -38,6 +39,7 @@
    #:copy-impure-splay-set
    #:impure-splay-set-p
    #:impure-splay-set-comparator
+   #:impure-splay-set-size
    #:impure-splay-set-is-empty
    #:impure-splay-set-insert
    #:impure-splay-set-remove
@@ -50,6 +52,7 @@
    #:copy-impure-splay-map
    #:impure-splay-map-p
    #:impure-splay-map-comparator
+   #:impure-splay-map-size
    #:impure-splay-map-is-empty
    #:impure-splay-map-insert
    #:impure-splay-map-remove
@@ -309,28 +312,33 @@
        (defun ,insert (comparator tree key ,@value-list ,@(when map-p `(&optional ,emplace-p)))
          (when (,nil-p tree)
            (return-from ,insert
-             (,make-node-1 :key key ,@(when value `(:value ,value)))))
+             (values (,make-node-1 :key key ,@(when value `(:value ,value)))
+                     t)))
 
          (multiple-value-bind (splayed comparison) (,splay comparator tree key)
            (ecase comparison
              (:less
-              (,make-node-1 :key key ,@(when value `(:value ,value))
-                            :left (,node-copy splayed :right (,nil-type))
-                            :right (,right splayed)))
+              (values
+               (,make-node-1 :key key ,@(when value `(:value ,value))
+                             :left (,node-copy splayed :right (,nil-type))
+                             :right (,right splayed))
+               t))
              (:greater
-              (,make-node-1 :key key ,@(when value `(:value ,value))
-                            :left (,left splayed)
-                            :right (,node-copy splayed :left (,nil-type))))
+              (values
+               (,make-node-1 :key key ,@(when value `(:value ,value))
+                             :left (,left splayed)
+                             :right (,node-copy splayed :left (,nil-type)))
+               t))
              ,@(if map-p
                    `((:equal
                       (if ,emplace-p
-                          splayed
+                          (values splayed nil)
                           (,with-key comparator splayed comparison key ,value)))
                      (:unequal
                       (if (and ,emplace-p
                                (typep splayed ',node-n-type)
                                (nth-value 1 (list-map-lookup comparator (,node-n-values splayed) key)))
-                          splayed
+                          (values splayed nil)
                           (,with-key comparator splayed comparison key ,value))))
                    `(((:equal :unequal)
                       (,with-key comparator splayed comparison key ,@value-list)))))))
@@ -350,13 +358,13 @@
          (multiple-value-bind (splayed comparison) (,splay comparator tree key)
            (unless (or (eq comparison :equal)
                        (eq comparison :unequal))
-             (return-from ,remove splayed))
+             (return-from ,remove (values splayed nil)))
 
            (etypecase splayed
              (,node-1-type
               (if (eq comparison :equal)
-                  (,join (,left splayed) (,right splayed))
-                  splayed))
+                  (values (,join (,left splayed) (,right splayed)) t)
+                  (values splayed nil)))
              (,node-n-type
               (,without-key comparator tree comparison key)))))
 
@@ -388,7 +396,11 @@
 
 (define-struct (impure-splay-set (:constructor %make-impure-splay-set))
   (tree (sp-set-nil) :type sp-set)
+  (count 0 :type (integer 0))
   (comparator (error "comparator is required") :read-only t))
+
+(defun impure-splay-set-size (impure-splay-set)
+  (impure-splay-set-count impure-splay-set))
 
 (defmethod check-invariants ((set impure-splay-set))
   (check-sp-set (impure-splay-set-tree set) (impure-splay-set-comparator set)))
@@ -397,17 +409,26 @@
   (sp-set-nil-p (impure-splay-set-tree splay-set)))
 
 (defun impure-splay-set-insert (splay-set item)
-  (setf (impure-splay-set-tree splay-set)
-        (sp-set-insert (impure-splay-set-comparator splay-set) (impure-splay-set-tree splay-set) item))
-  (values))
+  (multiple-value-bind
+        (new-tree count-changed-p)
+      (sp-set-insert (impure-splay-set-comparator splay-set) (impure-splay-set-tree splay-set) item)
+    (setf (impure-splay-set-tree splay-set) new-tree)
+    (when count-changed-p
+      (incf (impure-splay-set-count splay-set)))
+    (values)))
 
 (defun impure-splay-set-remove (splay-set item)
-  (setf (impure-splay-set-tree splay-set)
-        (sp-set-remove (impure-splay-set-comparator splay-set) (impure-splay-set-tree splay-set) item))
-  (values))
+  (multiple-value-bind
+        (new-tree count-changed-p)
+      (sp-set-remove (impure-splay-set-comparator splay-set) (impure-splay-set-tree splay-set) item)
+    (setf (impure-splay-set-tree splay-set) new-tree)
+    (when count-changed-p
+      (decf (impure-splay-set-count splay-set)))
+    (values)))
 
 (defun impure-splay-set-remove-all (splay-set)
   (setf (impure-splay-set-tree splay-set) (sp-set-nil))
+  (setf (impure-splay-set-count splay-set) 0)
   (values))
 
 (defun impure-splay-set-is-member (splay-set item)
@@ -437,7 +458,11 @@
 
 (define-struct (impure-splay-map (:constructor %make-impure-splay-map))
   (tree (sp-map-nil) :type sp-map)
+  (count 0 :type (integer 0))
   (comparator (error "comparator is required")))
+
+(defun impure-splay-map-size (impure-splay-map)
+  (impure-splay-map-count impure-splay-map))
 
 (defmethod check-invariants ((map impure-splay-map))
   (check-sp-map (impure-splay-map-tree map) (impure-splay-map-comparator map)))
@@ -445,23 +470,33 @@
 (defun impure-splay-map-is-empty (splay-map)
   (sp-map-nil-p (impure-splay-map-tree splay-map)))
 
+(defun impure-splay-map-insert-common (splay-map key value emplace-p)
+  (multiple-value-bind
+        (new-tree count-changed-p)
+      (sp-map-insert (impure-splay-map-comparator splay-map) (impure-splay-map-tree splay-map) key value emplace-p)
+    (setf (impure-splay-map-tree splay-map) new-tree)
+    (when count-changed-p
+      (incf (impure-splay-map-count splay-map)))
+    (values)))
+
 (defun impure-splay-map-insert (splay-map key value)
-  (setf (impure-splay-map-tree splay-map)
-        (sp-map-insert (impure-splay-map-comparator splay-map) (impure-splay-map-tree splay-map) key value nil))
-  (values))
+  (impure-splay-map-insert-common splay-map key value nil))
 
 (defun impure-splay-map-emplace (splay-map key value)
-  (setf (impure-splay-map-tree splay-map)
-        (sp-map-insert (impure-splay-map-comparator splay-map) (impure-splay-map-tree splay-map) key value t))
-  (values))
+  (impure-splay-map-insert-common splay-map key value t))
 
 (defun impure-splay-map-remove (splay-map key)
-  (setf (impure-splay-map-tree splay-map)
-        (sp-map-remove (impure-splay-map-comparator splay-map) (impure-splay-map-tree splay-map) key))
-  (values))
+  (multiple-value-bind
+        (new-tree count-changed-p)
+      (sp-map-remove (impure-splay-map-comparator splay-map) (impure-splay-map-tree splay-map) key)
+    (setf (impure-splay-map-tree splay-map) new-tree)
+    (when count-changed-p
+      (decf (impure-splay-map-count splay-map)))
+    (values)))
 
 (defun impure-splay-map-remove-all (splay-map)
   (setf (impure-splay-map-tree splay-map) (sp-map-nil))
+  (setf (impure-splay-map-count splay-map) 0)
   (values))
 
 (defun impure-splay-map-lookup (splay-map key)
@@ -515,6 +550,7 @@
 
 (define-immutable-structure (splay-heap (:constructor %make-splay-heap))
   (tree (sp-heap-nil) :type sp-heap)
+  (size 0 :type (integer 0))
   (comparator (error "comparator is required")))
 
 (defun sp-heap-split (comparator sp-heap pivot)
@@ -551,7 +587,8 @@
   (copy-splay-heap heap
                    :tree (sp-heap-with-member (splay-heap-comparator heap)
                                               (splay-heap-tree heap)
-                                              item)))
+                                              item)
+                   :size (1+ (splay-heap-size heap))))
 
 (defun sp-heap-without-heap-top (sp-heap)
   (when (sp-heap-nil-p sp-heap)
@@ -569,7 +606,10 @@
   (multiple-value-bind
         (new-tree value valid-p)
       (sp-heap-without-heap-top (splay-heap-tree heap))
-    (values (copy-splay-heap heap :tree new-tree)
+    (values (copy-splay-heap heap :tree new-tree
+                                  :size (if valid-p
+                                            (1- (splay-heap-size heap))
+                                            (splay-heap-size heap)))
             value
             valid-p)))
 
@@ -593,13 +633,18 @@
   (%make-splay-heap :tree (sp-heap-merge (splay-heap-comparator first)
                                          (splay-heap-tree first)
                                          (splay-heap-tree second))
+                    :size (+ (splay-heap-size first)
+                             (splay-heap-size second))
                     :comparator (splay-heap-comparator first)))
 
 (defmethod is-empty ((heap splay-heap))
   (sp-heap-nil-p (splay-heap-tree heap)))
 
 (defmethod empty ((heap splay-heap))
-  (copy-splay-heap heap :tree (sp-heap-nil)))
+  (copy-splay-heap heap :tree (sp-heap-nil) :size 0))
+
+(defmethod size ((set splay-heap))
+  (splay-heap-size set))
 
 (defmethod to-list ((heap splay-heap))
   (sp-heap-to-list (splay-heap-tree heap)))
@@ -624,10 +669,12 @@
   (check-sp-heap (splay-heap-tree heap) (splay-heap-comparator heap)))
 
 (defun make-splay-heap (comparator &key items)
-  (let ((set (sp-heap-nil)))
+  (let ((set (sp-heap-nil))
+        (count 0))
     (dolist (key items)
-      (setf set (sp-heap-with-member comparator set key)))
-    (%make-splay-heap :tree set :comparator comparator)))
+      (setf set (sp-heap-with-member comparator set key))
+      (incf count))
+    (%make-splay-heap :tree set :size count :comparator comparator)))
 
 (defun splay-heap (comparator &rest items)
   (make-splay-heap comparator :items items))

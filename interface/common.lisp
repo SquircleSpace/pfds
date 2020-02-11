@@ -23,6 +23,7 @@
    #:to-list
    #:for-each
    #:do-sequence
+   #:size
    #:check-invariants
    #:graphviz
    #:print-graphviz
@@ -58,6 +59,10 @@ argument."))
                                (declare (ignore ,rest))
                                ,@body))
        ,result)))
+
+(defgeneric size (collection)
+  (:documentation
+   "Returns the number of elements in the given collection."))
 
 (defmethod to-list (collection)
   (let ((builder (make-impure-list-builder)))

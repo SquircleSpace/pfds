@@ -15,7 +15,8 @@
 (defpackage :pfds.shcl.io/implementation/unbalanced-tree
   (:use :common-lisp)
   (:import-from :pfds.shcl.io/interface/common
-   #:to-list #:is-empty #:empty #:for-each)
+   #:to-list #:is-empty #:empty #:for-each
+   #:size)
   (:import-from :pfds.shcl.io/utility/immutable-structure
    #:define-immutable-structure)
   (:import-from :pfds.shcl.io/interface/set
@@ -49,11 +50,12 @@
 
 (define-immutable-structure (unbalanced-set (:constructor %make-unbalanced-set))
   (tree (%unbalanced-set-tree-nil) :type %unbalanced-set-tree)
+  (size 0 :type (integer 0))
   (comparator (error "comparator is required")))
 
 (defun make-unbalanced-set (comparator &key items)
-  (let ((tree (make-%unbalanced-set-tree comparator :items items)))
-    (%make-unbalanced-set :tree tree :comparator comparator)))
+  (multiple-value-bind (tree size) (make-%unbalanced-set-tree comparator :items items)
+    (%make-unbalanced-set :tree tree :comparator comparator :size size)))
 
 (defun unbalanced-set (comparator &rest items)
   (make-unbalanced-set comparator :items items))
@@ -69,17 +71,34 @@
   (%unbalanced-set-tree-nil-p (unbalanced-set-tree set)))
 
 (defmethod empty ((set unbalanced-set))
-  (copy-unbalanced-set set :tree (%unbalanced-set-tree-nil)))
+  (copy-unbalanced-set set :tree (%unbalanced-set-tree-nil) :size 0))
+
+(defmethod size ((set unbalanced-set))
+  (unbalanced-set-size set))
 
 (defmethod with-member ((set unbalanced-set) item)
-  (copy-unbalanced-set set :tree (%unbalanced-set-tree-insert (unbalanced-set-comparator set)
-                                                              (unbalanced-set-tree set)
-                                                              item)))
+  (multiple-value-bind
+        (new-tree balance-needed-p count-changed-p)
+      (%unbalanced-set-tree-insert (unbalanced-set-comparator set)
+                                   (unbalanced-set-tree set)
+                                   item)
+    (declare (ignore balance-needed-p))
+    (copy-unbalanced-set set :tree new-tree
+                             :size (if count-changed-p
+                                       (1+ (unbalanced-set-size set))
+                                       (unbalanced-set-size set)))))
 
 (defmethod without-member ((set unbalanced-set) item)
-  (copy-unbalanced-set set :tree (%unbalanced-set-tree-remove (unbalanced-set-comparator set)
-                                                              (unbalanced-set-tree set)
-                                                              item)))
+  (multiple-value-bind
+        (new-tree balance-needed-p count-changed-p)
+      (%unbalanced-set-tree-remove (unbalanced-set-comparator set)
+                                   (unbalanced-set-tree set)
+                                   item)
+    (declare (ignore balance-needed-p))
+    (copy-unbalanced-set set :tree new-tree
+                             :size (if count-changed-p
+                                       (1- (unbalanced-set-size set))
+                                       (unbalanced-set-size set)))))
 
 (defmethod is-member ((set unbalanced-set) item)
   (nth-value 0 (%unbalanced-set-tree-lookup (unbalanced-set-comparator set)
@@ -97,11 +116,12 @@
 
 (define-immutable-structure (unbalanced-map (:constructor %make-unbalanced-map))
   (tree (%unbalanced-map-tree-nil) :type %unbalanced-map-tree)
+  (size 0 :type (integer 0))
   (comparator (error "comparator is required")))
 
 (defun make-unbalanced-map (comparator &key alist plist)
-  (let ((tree (make-%unbalanced-map-tree comparator :alist alist :plist plist)))
-    (%make-unbalanced-map :tree tree :comparator comparator)))
+  (multiple-value-bind (tree size) (make-%unbalanced-map-tree comparator :alist alist :plist plist)
+    (%make-unbalanced-map :tree tree :comparator comparator :size size)))
 
 (defun unbalanced-map (comparator &rest plist)
   (make-unbalanced-map comparator :plist plist))
@@ -119,18 +139,35 @@
   (%unbalanced-map-tree-nil-p (unbalanced-map-tree map)))
 
 (defmethod empty ((map unbalanced-map))
-  (copy-unbalanced-map map :tree (%unbalanced-map-tree-nil)))
+  (copy-unbalanced-map map :tree (%unbalanced-map-tree-nil) :size 0))
+
+(defmethod size ((map unbalanced-map))
+  (unbalanced-map-size map))
 
 (defmethod with-entry ((map unbalanced-map) key value)
-  (copy-unbalanced-map map :tree (%unbalanced-map-tree-insert (unbalanced-map-comparator map)
-                                                              (unbalanced-map-tree map)
-                                                              key
-                                                              value)))
+  (multiple-value-bind
+        (tree balance-needed-p count-changed-p)
+      (%unbalanced-map-tree-insert (unbalanced-map-comparator map)
+                                   (unbalanced-map-tree map)
+                                   key
+                                   value)
+    (declare (ignore balance-needed-p))
+    (copy-unbalanced-map map :tree tree
+                             :size (if count-changed-p
+                                       (1+ (unbalanced-map-size map))
+                                       (unbalanced-map-size map)))))
 
 (defmethod without-entry ((map unbalanced-map) key)
-  (copy-unbalanced-map map :tree (%unbalanced-map-tree-remove (unbalanced-map-comparator map)
-                                                              (unbalanced-map-tree map)
-                                                              key)))
+  (multiple-value-bind
+        (tree balance-needed-p count-changed-p)
+      (%unbalanced-map-tree-remove (unbalanced-map-comparator map)
+                                   (unbalanced-map-tree map)
+                                   key)
+    (declare (ignore balance-needed-p))
+    (copy-unbalanced-map map :tree tree
+                             :size (if count-changed-p
+                                       (1- (unbalanced-map-size map))
+                                       (unbalanced-map-size map)))))
 
 (defmethod lookup-entry ((map unbalanced-map) key)
   (%unbalanced-map-tree-lookup (unbalanced-map-comparator map)

@@ -15,7 +15,8 @@
 (defpackage :pfds.shcl.io/implementation/weight-balanced-tree
   (:use :common-lisp)
   (:import-from :pfds.shcl.io/interface/common
-   #:to-list #:is-empty #:empty #:check-invariants #:for-each)
+   #:to-list #:is-empty #:empty #:check-invariants #:for-each
+   #:size)
   (:import-from :pfds.shcl.io/utility/immutable-structure
    #:define-immutable-structure)
   (:import-from :pfds.shcl.io/utility/misc
@@ -176,6 +177,11 @@
 (defmethod empty ((set weight-balanced-set))
   (copy-weight-balanced-set set :tree (wb-set-nil)))
 
+(defmethod size ((set weight-balanced-set))
+  (if (wb-set-nil-p (weight-balanced-set-tree set))
+      0
+      (wb-set-node-size (weight-balanced-set-tree set))))
+
 (defmethod tree-size ((empty wb-set-nil))
   0)
 
@@ -236,6 +242,11 @@
 
 (defmethod empty ((map weight-balanced-map))
   (copy-weight-balanced-map map :tree (wb-map-nil)))
+
+(defmethod size ((map weight-balanced-map))
+  (if (wb-map-nil-p (weight-balanced-map-tree map))
+      0
+      (wb-map-node-size (weight-balanced-map-tree map))))
 
 (defmethod tree-size ((empty wb-map-nil))
   0)

@@ -17,7 +17,8 @@
   (:import-from :pfds.shcl.io/utility/lazy
    #:force #:lazy)
   (:import-from :pfds.shcl.io/interface/common
-   #:to-list #:check-invariants #:for-each)
+   #:to-list #:check-invariants #:for-each
+   #:size)
   (:import-from :pfds.shcl.io/utility/misc
    #:cassert)
   (:import-from :pfds.shcl.io/implementation/lazy-list
@@ -145,3 +146,7 @@
                   (lazy-list-length (bankers-queue-front-stack queue))))
   (cassert (equal (bankers-queue-back-stack-size queue)
                   (lazy-list-length (bankers-queue-back-stack queue)))))
+
+(defmethod size ((queue bankers-queue))
+  (+ (bankers-queue-front-stack-size queue)
+     (bankers-queue-back-stack-size queue)))

@@ -49,10 +49,10 @@
            (when (compare-equal-p comparator key (car pair))
              (if (eql (cdr pair) value)
                  (return-from list-map-with
-                   alist)
+                   (values alist nil))
                  (return
                    (setf alist (list-remove-index alist index))))))
-  (cons (cons key value) alist))
+  (values (cons (cons key value) alist) t))
 
 (defun list-map-without (comparator alist key)
   (loop :for pair :in alist
@@ -60,8 +60,8 @@
         :do
            (when (compare-equal-p comparator key (car pair))
              (return-from list-map-without
-               (list-remove-index alist index))))
-  alist)
+               (values (list-remove-index alist index) t))))
+  (values alist nil))
 
 (defun list-map-lookup (comparator alist key)
   (loop :for pair :in alist
@@ -83,8 +83,9 @@
   (loop :for item :in list
         :do
            (when (compare-equal-p comparator key item)
-             (return-from list-set-with list)))
-  (cons key list))
+             (return-from list-set-with
+               (values list nil))))
+  (values (cons key list) t))
 
 (defun list-set-without (comparator list key)
   (loop :for item :in list
@@ -92,8 +93,8 @@
         :do
         (when (compare-equal-p comparator key item)
           (return-from list-set-without
-            (list-remove-index list index))))
-  list)
+            (values (list-remove-index list index) t))))
+  (values list nil))
 
 (defun list-set-is-member (comparator list key)
   (loop :for item :in list

@@ -16,7 +16,7 @@
   (:use :common-lisp)
   (:import-from :pfds.shcl.io/interface/common
    #:to-list #:print-graphviz #:next-graphviz-id
-   #:check-invariants #:for-each)
+   #:check-invariants #:for-each #:size)
   (:import-from :pfds.shcl.io/utility/impure-list-builder
    #:make-impure-list-builder #:impure-list-builder-add
    #:impure-list-builder-extract)
@@ -338,3 +338,6 @@
   (dolist (ranked-tree (binomial-heap-ranked-trees heap))
     (check-rank (ranked-tree-tree ranked-tree) (ranked-tree-rank ranked-tree))
     (check-order (ranked-tree-tree ranked-tree) (binomial-heap-comparator heap))))
+
+(defmethod size ((heap binomial-heap))
+  (binomial-heap-size heap))

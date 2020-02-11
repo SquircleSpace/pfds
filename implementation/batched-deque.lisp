@@ -15,7 +15,7 @@
 (defpackage :pfds.shcl.io/implementation/batched-deque
   (:use :common-lisp)
   (:import-from :pfds.shcl.io/interface/common
-   #:to-list #:check-invariants #:for-each)
+   #:to-list #:check-invariants #:for-each #:size)
   (:import-from :pfds.shcl.io/utility/immutable-structure
    #:define-immutable-structure)
   (:import-from :pfds.shcl.io/interface/deque
@@ -258,3 +258,7 @@
 
 (defmethod empty ((deque batched-deque))
   *empty-batched-deque*)
+
+(defmethod size ((deque batched-deque))
+  (+ (batched-deque-front-count deque)
+     (batched-deque-back-count deque)))

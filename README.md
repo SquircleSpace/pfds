@@ -17,6 +17,7 @@ Structures" by Chris Okasaki.
 - `WITHOUT-ENTRY`: `O(log(n))`
 - `LOOKUP-ENTRY`: `O(log(n))`
 - `IS-EMPTY`: `O(1)`
+- `SIZE`: `O(1)`
 
 #### `WEIGHT-BALANCED-MAP`
 
@@ -25,6 +26,7 @@ Structures" by Chris Okasaki.
 - `WITHOUT-ENTRY`: `O(log(n))`
 - `LOOKUP-ENTRY`: `O(log(n))`
 - `IS-EMPTY`: `O(1)`
+- `SIZE`: `O(1)`
 
 ### Sets
 
@@ -35,6 +37,7 @@ Structures" by Chris Okasaki.
 - `WITHOUT-MEMBER`: `O(log(n))`
 - `IS-MEMBER`: `O(log(n))`
 - `IS-EMPTY`: `O(1)`
+- `SIZE`: `O(1)`
 
 #### `WEIGHT-BALANCED-SET`
 
@@ -43,6 +46,7 @@ Structures" by Chris Okasaki.
 - `WITHOUT-MEMBER`: `O(log(n))`
 - `IS-MEMBER`: `O(log(n))`
 - `IS-EMPTY`: `O(1)`
+- `SIZE`: `O(1)`
 
 ### Queues
 
@@ -52,6 +56,7 @@ Structures" by Chris Okasaki.
 - `WITH-LAST`, `WITHOUT-FIRST`: `O(1)` amortized
 - `PEEK-FIRST`: `O(1)`
 - `IS-EMPTY`: `O(1)`
+- `SIZE`: `O(1)`
 
 Note: this queue *is* purely functional, but the asymptotic bounds
 given above assume the queue is not used persistently.  If you require
@@ -63,6 +68,7 @@ persistence, consider using `BANKERS-QUEUE`.
 - `WITH-LAST`, `WITHOUT-FIRST`: `O(1)` amortized
 - `PEEK-FIRST`: `O(1)`
 - `IS-EMPTY`: `O(1)`
+- `SIZE`: `O(1)`
 
 Unlike `BATCHED-QUEUE`, the bounds given above remain true even if the
 queue is used persistently.  However, the constant factors `WITH-LAST`
@@ -78,6 +84,7 @@ consider using `BATCHED-QUEUE`.
 - `PEEK-FIRST`: `O(1)`
 - `PEEK-LAST`: `O(1)`
 - `IS-EMPTY`: `O(1)`
+- `SIZE`: `O(1)`
 
 Note: this queue *is* purely functional, but the asymptotic bounds
 given above assume the queue is not used persistently.  Also be aware
@@ -95,6 +102,7 @@ so if you only need a queue then you should consider using
 - `WITHOUT-HEAP-TOP`: `O(log(n))`
 - `MERGE-HEAPS`: `O(log(n))`
 - `IS-EMPTY`: `O(1)`
+- `SIZE`: `O(1)`
 
 #### `BINOMIAL-HEAP`
 
@@ -104,6 +112,7 @@ so if you only need a queue then you should consider using
 - `WITHOUT-HEAP-TOP`: `O(log(n))`
 - `MERGE-HEAPS`: `O(log(n))`
 - `IS-EMPTY`: `O(1)`
+- `SIZE`: `O(1)`
 
 #### `SPLAY-HEAP`
 
@@ -113,6 +122,7 @@ so if you only need a queue then you should consider using
 - `WITHOUT-HEAP-TOP`: `O(log(n))` amortized
 - `MERGE-HEAPS`: `O(n)` amortized
 - `IS-EMPTY`: `O(1)`
+- `SIZE`: `O(1)`
 
 Note: this heap *is* purely functional, but the asymptotic bounds
 given above assume the heap is not used persistently.
@@ -125,6 +135,7 @@ given above assume the heap is not used persistently.
 - `WITHOUT-HEAP-TOP`: `O(log(n))`
 - `MERGE-HEAPS`: `O(1)`
 - `IS-EMPTY`: `O(1)`
+- `SIZE`: `O(1)`
 
 Note: this heap *is* purely functional, but the asymptotic bounds
 given above assume the heap is not used persistently.
@@ -139,6 +150,7 @@ given above assume the heap is not used persistently.
 - `LOOKUP-ENTRY`: `O(log(n))`
 - `WITH-ENTRY`: `O(log(n))`
 - `IS-EMPTY`: `O(1)`
+- `SIZE`: `O(1)`
 
 Note: the logarithmic base for the bounds given above is very large.
 
@@ -148,6 +160,7 @@ Note: the logarithmic base for the bounds given above is very large.
 - `WITH-HEAD`: `O(1)`
 - `TAIL`: `O(1)`
 - `IS-EMPTY`: `O(1)`
+- `SIZE`: `O(n)`
 
 This is just like a Common Lisp list, except you can sleep soundly
 knowing that it is fully immutable.

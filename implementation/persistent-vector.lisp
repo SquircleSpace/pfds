@@ -16,7 +16,7 @@
   (:use :common-lisp)
   (:import-from :pfds.shcl.io/interface/common
    #:to-list #:check-invariants #:for-each
-   #:with-entry #:lookup-entry)
+   #:with-entry #:lookup-entry #:size)
   (:import-from :pfds.shcl.io/utility/immutable-structure
    #:define-immutable-structure)
   (:import-from :pfds.shcl.io/utility/misc
@@ -273,3 +273,6 @@
 
 (defun persistent-vector (&rest items)
   (make-persistent-vector :items items))
+
+(defmethod size ((p-vec persistent-vector))
+  (persistent-vector-count p-vec))
