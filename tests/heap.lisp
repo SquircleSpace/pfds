@@ -14,10 +14,12 @@
 
 (defpackage :pfds.shcl.io/tests/heap
   (:use :common-lisp)
+  (:import-from :pfds.shcl.io/tests/common
+   #:check-common-consistency)
   (:import-from :pfds.shcl.io/utility/compare #:compare)
   (:import-from :pfds.shcl.io/utility/misc #:cassert)
   (:import-from :pfds.shcl.io/interface/common
-   #:check-invariants)
+   #:check-invariants #:size)
   (:import-from :pfds.shcl.io/interface/heap
    #:merge-heaps #:heap-top #:without-heap-top #:with-member #:is-empty #:empty)
   (:import-from :pfds.shcl.io/implementation/leftist-heap #:make-leftist-heap)
@@ -34,9 +36,14 @@
   (multiple-value-bind (new-heap removed-value success-p) (without-heap-top heap)
     (when *check-invariants*
       (check-invariants new-heap))
-    (if (is-empty heap)
-        (cassert (not success-p))
-        (cassert success-p))
+    (cond
+      ((is-empty heap)
+       (cassert (not success-p))
+       (cassert (equal (size new-heap) 0)))
+      (t
+       (cassert success-p)
+       (cassert (equal (size new-heap) (1- (size heap))))))
+
     (multiple-value-bind (peek-top peek-success-p) (heap-top heap)
       (cassert (eq peek-top removed-value))
       (cassert (or (and success-p peek-success-p)
@@ -48,6 +55,7 @@
   (let ((result (with-member heap object)))
     (when *check-invariants*
       (check-invariants result))
+    (cassert (equal (size result) (1+ (size heap))))
     result))
 
 (defvar *sorted-numbers* (loop :for i :below 100000 :collect i))
@@ -71,6 +79,9 @@
     make-pairing-heap))
 
 (defun heap-sort (heap expected)
+  (is (size heap)
+      (length expected)
+      "At the outset, heap has the expected size")
   (let (sorted)
     (loop
       (multiple-value-bind (new-heap removed-value success-p) (without heap)
@@ -85,6 +96,7 @@
 
 (defun test-construction (constructor)
   (let ((empty-heap (funcall constructor)))
+    (check-common-consistency empty-heap)
     (ok (is-empty empty-heap)
         "Empty heap is empty"))
 
@@ -120,10 +132,15 @@
         (let ((heap (funcall constructor)))
           (dolist (number *short-random*)
             (setf heap (with heap number)))
+          (is (size heap)
+              (length *short-random*)
+              "Size should equal the number of objects added")
+          (check-common-consistency heap)
           (heap-sort heap *short-random-sorted*)))
       (subtest
           "Constructing a heap"
         (let ((heap (funcall constructor *short-random*)))
+          (check-common-consistency heap)
           (heap-sort heap *short-random-sorted*))))))
 
 (defun constructor (maker)
