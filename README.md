@@ -140,7 +140,7 @@ given above assume the heap is not used persistently.
 Note: this heap *is* purely functional, but the asymptotic bounds
 given above assume the heap is not used persistently.
 
-### Stacks
+### Sequences
 
 #### `PERSISTENT-VECTOR`
 
@@ -153,6 +153,8 @@ given above assume the heap is not used persistently.
 - `SIZE`: `O(1)`
 
 Note: the logarithmic base for the bounds given above is very large.
+Also, the `WITH-HEAD` and `TAIL` methods add to and remove from the
+end of the vector.
 
 #### `PURE-LIST`
 
