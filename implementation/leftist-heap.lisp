@@ -280,3 +280,9 @@
 
 (defmethod is-empty ((heap weight-biased-leftist-heap))
   (is-empty-common heap))
+
+(defmethod size ((heap height-biased-leftist-heap))
+  (leftist-heap-size heap))
+
+(defmethod size ((heap weight-biased-leftist-heap))
+  (leftist-heap-size heap))

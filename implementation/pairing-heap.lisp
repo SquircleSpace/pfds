@@ -202,3 +202,6 @@
 
 (defmethod print-graphviz ((heap pairing-heap) stream id-vendor)
   (print-graphviz (pairing-heap-tree heap) stream id-vendor))
+
+(defmethod size ((heap pairing-heap))
+  (pairing-heap-size heap))
