@@ -18,7 +18,8 @@
    :pfds.shcl.io/interface/common
    :pfds.shcl.io/interface/heap
    :pfds.shcl.io/interface/map
-   :pfds.shcl.io/interface/set)
+   :pfds.shcl.io/interface/set
+   :pfds.shcl.io/interface/list)
   (:import-from :pfds.shcl.io/implementation/red-black-tree
    #:make-red-black-map
    #:make-red-black-set)
