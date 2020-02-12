@@ -121,3 +121,20 @@ value."))
                 thing
                 (error "Invalid interface")))))
      ',name))
+
+(defmethod is-empty ((list list))
+  (null list))
+
+(defmethod empty ((list list))
+  nil)
+
+(defmethod to-list ((list list))
+  list)
+
+(defmethod for-each ((list list) function)
+  (when list
+    (funcall function (car list))
+    (for-each (cdr list) function)))
+
+(defmethod size ((list list))
+  (length list))
