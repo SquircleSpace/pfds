@@ -18,7 +18,7 @@
    #:force #:lazy)
   (:import-from :pfds.shcl.io/interface/common
    #:to-list #:check-invariants #:for-each
-   #:size)
+   #:size #:iterator)
   (:import-from :pfds.shcl.io/utility/misc
    #:cassert)
   (:import-from :pfds.shcl.io/implementation/lazy-list
@@ -131,6 +131,11 @@
 (defmethod for-each ((queue bankers-queue) function)
   (for-each (bankers-queue-front-stack queue) function)
   (for-each (nreverse (to-list (bankers-queue-back-stack queue))) function))
+
+(defmethod iterator ((queue bankers-queue))
+  (let ((front-iterator (iterator (bankers-queue-front-stack queue)))
+        (back-iterator (iterator (lazy-list-reverse (bankers-queue-back-stack queue)))))
+    (iterator-flatten* front-iterator back-iterator)))
 
 (defmethod print-object ((queue bankers-queue) stream)
   (write

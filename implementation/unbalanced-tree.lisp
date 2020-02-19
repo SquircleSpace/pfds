@@ -15,7 +15,7 @@
 (defpackage :pfds.shcl.io/implementation/unbalanced-tree
   (:use :common-lisp)
   (:import-from :pfds.shcl.io/interface/common
-   #:to-list #:is-empty #:empty #:for-each
+   #:to-list #:is-empty #:empty #:for-each #:iterator
    #:size)
   (:import-from :pfds.shcl.io/utility/immutable-structure
    #:define-immutable-structure)
@@ -112,6 +112,9 @@
   (do-%unbalanced-set-tree (key (unbalanced-set-tree set))
     (funcall function key)))
 
+(defmethod iterator ((set unbalanced-set))
+  (iterator (unbalanced-set-tree set)))
+
 (define-tree %unbalanced-map-tree (:map-p t))
 
 (define-immutable-structure (unbalanced-map (:constructor %make-unbalanced-map))
@@ -177,6 +180,9 @@
 (defmethod for-each ((map unbalanced-map) function)
   (do-%unbalanced-map-tree (key value (unbalanced-map-tree map))
     (funcall function key value)))
+
+(defmethod iterator ((map unbalanced-map))
+  (iterator (unbalanced-map-tree map)))
 
 (defmethod to-list ((map unbalanced-map))
   (%unbalanced-map-tree-to-list (unbalanced-map-tree map)))

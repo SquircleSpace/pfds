@@ -15,7 +15,7 @@
 (defpackage :pfds.shcl.io/implementation/batched-deque
   (:use :common-lisp)
   (:import-from :pfds.shcl.io/interface/common
-   #:to-list #:check-invariants #:for-each #:size)
+   #:to-list #:check-invariants #:for-each #:size #:iterator)
   (:import-from :pfds.shcl.io/utility/immutable-structure
    #:define-immutable-structure)
   (:import-from :pfds.shcl.io/interface/deque
@@ -63,6 +63,11 @@
 (defmethod to-list ((deque batched-deque))
   (append (batched-deque-front-stack deque)
           (reverse (batched-deque-back-stack deque))))
+
+(defmethod iterator ((deque batched-deque))
+  (let ((front-iterator (iterator (batched-deque-front-stack queue)))
+        (back-iterator (iterator (lazy-list-reverse (batched-deque-back-stack queue)))))
+    (flatten-iterator* front-iterator back-iterator)))
 
 (defmethod for-each ((deque batched-deque) function)
   (for-each (batched-deque-front-stack deque) function)

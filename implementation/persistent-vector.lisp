@@ -16,7 +16,7 @@
   (:use :common-lisp)
   (:import-from :pfds.shcl.io/interface/common
    #:to-list #:check-invariants #:for-each
-   #:with-entry #:lookup-entry #:size)
+   #:with-entry #:lookup-entry #:size #:iterator)
   (:import-from :pfds.shcl.io/utility/immutable-structure
    #:define-immutable-structure)
   (:import-from :pfds.shcl.io/utility/misc
@@ -257,6 +257,22 @@
   (let ((tree (persistent-vector-tree p-vec))
         (height (persistent-vector-height p-vec)))
     (do-vector-tree-f tree height function)))
+
+(defun make-persistent-vector-iterator (p-vec)
+  (let ((offset 0))
+    (lambda ()
+      ;; This won't be O(1) amortized, but its MUCH easier to write!
+      (cond
+        ((>= offset (persistent-vector-count p-vec))
+         (values nil nil))
+
+        (t
+         (let ((object (persistent-vector-lookup p-vec offset)))
+           (incf offset)
+           (values object t)))))))
+
+(defmethod iterator ((p-vec persistent-vector))
+  (make-persistent-vector-iterator p-vec))
 
 (defmethod print-object ((p-vec persistent-vector) stream)
   (write

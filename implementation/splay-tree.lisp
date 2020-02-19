@@ -16,7 +16,7 @@
   (:use :common-lisp)
   (:import-from :pfds.shcl.io/interface/common
    #:to-list #:check-invariants #:print-graphviz #:for-each
-   #:size)
+   #:size #:iterator)
   (:import-from :pfds.shcl.io/utility/impure-list-builder
    #:make-impure-list-builder #:impure-list-builder-add
    #:impure-list-builder-extract)
@@ -652,6 +652,9 @@
 (defmethod for-each ((heap splay-heap) function)
   (do-sp-heap (key (splay-heap-tree heap))
     (funcall function key)))
+
+(defmethod iterator ((heap splay-heap))
+  (iterator (splay-heap-tree heap)))
 
 (defun check-sp-heap (sp-heap comparator)
   (etypecase sp-heap

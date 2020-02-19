@@ -18,7 +18,7 @@
   (:import-from :pfds.shcl.io/interface/list
    #:with-head #:head #:tail #:is-empty #:empty)
   (:import-from :pfds.shcl.io/interface/common
-   #:to-list #:for-each #:size)
+   #:to-list #:for-each #:size #:iterator)
   (:import-from :pfds.shcl.io/utility/immutable-structure
    #:define-adt)
   (:export
@@ -155,3 +155,9 @@
 
 (defmethod size ((lazy-list lazy-list))
   (lazy-list-length lazy-list))
+
+(defmethod iterator ((lazy-list lazy-list))
+  (lambda ()
+    (multiple-value-bind (new-head result valid-p) (tail lazy-list)
+      (setf lazy-list new-head)
+      (values result valid-p))))

@@ -16,7 +16,7 @@
   (:use :common-lisp)
   (:import-from :pfds.shcl.io/interface/common
    #:to-list #:is-empty #:empty #:check-invariants #:for-each
-   #:size)
+   #:size #:iterator)
   (:import-from :pfds.shcl.io/utility/immutable-structure
    #:define-immutable-structure)
   (:import-from :pfds.shcl.io/utility/misc
@@ -171,6 +171,9 @@
   (do-wb-set (key (weight-balanced-set-tree set))
     (funcall function key)))
 
+(defmethod iterator ((set weight-balanced-set))
+  (iterator (weight-balanced-set-tree set)))
+
 (defmethod is-empty ((set weight-balanced-set))
   (wb-set-nil-p (weight-balanced-set-tree set)))
 
@@ -236,6 +239,9 @@
 (defmethod for-each ((map weight-balanced-map) function)
   (do-wb-map (key value (weight-balanced-map-tree map))
     (funcall function key value)))
+
+(defmethod iterator ((map weight-balanced-map))
+  (iterator (weight-balanced-map-tree map)))
 
 (defmethod is-empty ((map weight-balanced-map))
   (wb-map-nil-p (weight-balanced-map-tree map)))

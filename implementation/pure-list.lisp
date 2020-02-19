@@ -15,7 +15,7 @@
 (defpackage :pfds.shcl.io/implementation/pure-list
   (:use :common-lisp)
   (:import-from :pfds.shcl.io/interface/common
-   #:to-list #:for-each #:size)
+   #:to-list #:for-each #:size #:iterator)
   (:import-from :pfds.shcl.io/utility/immutable-structure
    #:define-adt)
   (:import-from :pfds.shcl.io/utility/compare
@@ -60,6 +60,20 @@
     (progn
       (funcall function (pure-list-cons-head list))
       (setf list (pure-list-cons-tail list)))))
+
+(defun make-pure-list-iterator (list)
+  (lambda ()
+    (cond
+      ((pure-list-nil-p list)
+       (values nil nil))
+
+      (t
+       (let ((result (pure-list-cons-head list)))
+         (setf list (pure-list-cons-tail list))
+         (values result t))))))
+
+(defmethod iterator ((list pure-list))
+  (make-pure-list-iterator list))
 
 (defmethod with-head ((list pure-list) item)
   (make-pure-list-cons :head item :tail list))

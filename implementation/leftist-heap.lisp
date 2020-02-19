@@ -16,7 +16,7 @@
   (:use :common-lisp)
   (:import-from :pfds.shcl.io/interface/common
    #:to-list #:print-graphviz #:next-graphviz-id #:for-each
-   #:size)
+   #:size #:iterator)
   (:import-from :pfds.shcl.io/utility/immutable-structure
    #:define-adt)
   (:import-from :pfds.shcl.io/interface/heap
@@ -102,6 +102,37 @@
 (defmethod for-each ((heap leftist-heap) function)
   (do-guts (item (leftist-heap-guts heap))
     (funcall function item)))
+
+(defun make-tree-iterator (tree)
+  (when (guts-nil-p tree)
+    (return-from make-tree-iterator
+      (lambda ()
+        (values nil nil))))
+
+  (let ((stack (list (list tree (guts-node-left tree) (guts-node-right tree)))))
+    (lambda ()
+      (loop
+        (unless stack
+          (return (values nil nil)))
+
+        (let* ((tip (car stack))
+               (tip-node (car tip))
+               (tip-children (cdr tip)))
+          (cond
+            (tip-node
+             (setf (car tip) nil)
+             (return (values (guts-node-value tip-node) t)))
+
+            (tip-children
+             (let ((child (pop (cdr tip))))
+               (unless (guts-nil-p child)
+                 (push (list child (guts-node-left child) (guts-node-right child)) stack))))
+
+            (t
+             (pop stack))))))))
+
+(defmethod iterator ((heap leftist-heap))
+  (make-tree-iterator (leftist-heap-guts heap)))
 
 (defun print-leftist-heap (heap stream)
   (let ((items (to-list heap))

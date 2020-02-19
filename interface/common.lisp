@@ -21,6 +21,7 @@
    #:is-empty #:empty #:with-member
    #:with-entry #:lookup-entry
    #:to-list
+   #:iterator
    #:for-each
    #:do-sequence
    #:size
@@ -34,6 +35,8 @@
 (defgeneric to-list (collection)
   (:documentation
    "Convert the given collection into a list."))
+
+(defgeneric iterator (collection))
 
 (defgeneric is-empty (collection)
   (:documentation
@@ -138,3 +141,13 @@ value."))
 
 (defmethod size ((list list))
   (length list))
+
+(defmethod iterator ((list list))
+  (lambda ()
+    (cond
+      (list
+       (let ((head (car list)))
+         (setf list (cdr list))
+         (values head t)))
+      (t
+       (values nil nil)))))

@@ -15,7 +15,10 @@
 (defpackage :pfds.shcl.io/implementation/batched-queue
   (:use :common-lisp)
   (:import-from :pfds.shcl.io/interface/common
-   #:to-list #:check-invariants #:for-each #:size)
+   #:to-list #:check-invariants #:for-each #:size
+   #:iterator)
+  (:import-from :pfds.shcl.io/utility/iterator-tools
+   #:iterator-flatten*)
   (:import-from :pfds.shcl.io/utility/misc
    #:cassert)
   (:import-from :pfds.shcl.io/utility/immutable-structure
@@ -56,6 +59,10 @@
 (defmethod to-list ((queue batched-queue))
   (append (batched-queue-front-stack queue)
           (reverse (batched-queue-back-stack queue))))
+
+(defmethod iterator ((queue batched-queue))
+  (iterator-flatten* (iterator (batched-queue-front-stack queue))
+                     (iterator (reverse (batched-queue-back-stack queue)))))
 
 (defmethod for-each ((queue batched-queue) function)
   (for-each (batched-queue-front-stack queue) function)

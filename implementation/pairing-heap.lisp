@@ -16,7 +16,7 @@
   (:use :common-lisp)
   (:import-from :pfds.shcl.io/interface/common
    #:to-list #:print-graphviz #:next-graphviz-id #:for-each
-   #:size)
+   #:size #:iterator)
   (:import-from :pfds.shcl.io/utility/immutable-structure
    #:define-adt #:define-immutable-structure)
   (:import-from :pfds.shcl.io/interface/heap
@@ -134,6 +134,33 @@
   (unless (p-heap-nil-p heap)
     (p-heap-node-for-each heap function)))
 
+(defun make-p-heap-iterator (heap)
+  (when (p-heap-nil-p heap)
+    (return-from make-p-heap-iterator
+      (lambda ()
+        (values nil nil))))
+
+  (let ((stack (list (cons heap (p-heap-node-children heap)))))
+    (lambda ()
+      (loop
+        (unless stack
+          (return (values nil nil)))
+
+        (let* ((tip (car stack))
+               (tip-node (car tip))
+               (tip-children (cdr tip)))
+          (cond
+            (tip-node
+             (setf (car tip) nil)
+             (return (values (p-heap-node-value tip-node) t)))
+
+            (tip-children
+             (let ((child (pop (cdr tip))))
+               (push (cons child (p-heap-node-children child)) stack)))
+
+            (t
+             (pop stack))))))))
+
 (define-immutable-structure (pairing-heap (:constructor %make-pairing-heap))
   (tree (p-heap-nil) :type p-heap)
   (comparator (error "comparator is required"))
@@ -192,6 +219,9 @@
 
 (defmethod for-each ((heap pairing-heap) function)
   (p-heap-for-each (pairing-heap-tree heap) function))
+
+(defmethod iterator ((heap pairing-heap))
+  (make-p-heap-iterator (pairing-heap-tree heap)))
 
 (defmethod print-object ((heap pairing-heap) stream)
   (write

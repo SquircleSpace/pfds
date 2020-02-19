@@ -15,7 +15,8 @@
 (defpackage :pfds.shcl.io/utility/tree
   (:use :common-lisp)
   (:import-from :pfds.shcl.io/interface/common
-   #:to-list #:print-graphviz #:next-graphviz-id #:for-each)
+   #:to-list #:print-graphviz #:next-graphviz-id #:for-each
+   #:iterator)
   (:import-from :pfds.shcl.io/utility/impure-list-builder
    #:make-impure-list-builder #:impure-list-builder-add
    #:impure-list-builder-extract)
@@ -111,7 +112,14 @@
          (items (make-symbol "ITEMS"))
          (id-vendor (gensym "ID-VENDOR"))
          (count-changed-p (gensym "COUNT-CHANGED-P"))
-         (count (gensym "COUNT")))
+         (count (gensym "COUNT"))
+         (node-value-iterator (gensym "NODE-VALUE-ITERATOR"))
+         (stack (gensym "STACK"))
+         (tip (gensym "TIP"))
+         (tip-left (gensym "TIP-LEFT"))
+         (tip-right (gensym "TIP-RIGHT"))
+         (tip-node-iter (gensym "TIP-NODE-ITER"))
+         (valid-p (gensym "VALID-P")))
 
     (unless insert-left-balancer
       (setf insert-left-balancer node-copy))
@@ -470,6 +478,69 @@
        (defmethod for-each ((,tree ,base-name) ,function)
          (,do-tree (,key ,@value-list ,tree)
            (funcall ,function ,key ,@value-list)))
+
+       (defun ,node-value-iterator (,tree)
+         (etypecase ,tree
+           (,node-1-type
+            (lambda ()
+              (if ,tree
+                  (multiple-value-prog1
+                      (values ,(if map-p
+                                   `(cons (,1-type-key ,tree) (,1-type-value ,tree))
+                                   `(,1-type-key ,tree))
+                              t)
+                    (setf ,tree nil))
+                  (values nil nil))))
+           (,node-n-type
+            (let ((,value (,n-type-values ,tree)))
+              (lambda ()
+                (if ,value
+                    (values (pop ,value) t)
+                    (values nil nil)))))))
+
+       (defmethod iterator ((,tree ,base-name))
+         (when (,nil-type-p ,tree)
+           (return-from iterator
+             (lambda ()
+               (values nil nil))))
+
+         (let ((,stack (list (list (,node-left ,tree)
+                                   (,node-value-iterator ,tree)
+                                   (,node-right ,tree)))))
+
+           (lambda ()
+             (loop
+               (unless ,stack
+                 (return (values nil nil)))
+
+               (let ((,tip (car ,stack)))
+                 (destructuring-bind (,tip-left ,tip-node-iter ,tip-right) ,tip
+                   (cond
+                     (,tip-left
+                      (setf (first ,tip) nil)
+                      (unless (,nil-type-p ,tip-left)
+                        (push (list (,node-left ,tip-left)
+                                    (,node-value-iterator ,tip-left)
+                                    (,node-right ,tip-left))
+                              ,stack)))
+
+                     (,tip-node-iter
+                      (multiple-value-bind (,value ,valid-p) (funcall ,tip-node-iter)
+                        (if ,valid-p
+                            (return (values ,value ,valid-p))
+                            (setf (second ,tip) nil))))
+
+                     (t
+                      (assert ,tip-right)
+                      ;; Instead of setting this element to nil, let's
+                      ;; just drop the whole frame.  We don't need it
+                      ;; any more!
+                      (pop ,stack)
+                      (unless (,nil-type-p ,tip-right)
+                        (push (list (,node-left ,tip-right)
+                                    (,node-value-iterator ,tip-right)
+                                    (,node-right ,tip-right))
+                              ,stack))))))))))
 
        (defmethod print-tree-node-properties ((,tree ,base-name) ,stream)
          (format ,stream "label=\"~A\" shape=box"

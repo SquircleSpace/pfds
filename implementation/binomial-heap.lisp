@@ -16,7 +16,7 @@
   (:use :common-lisp)
   (:import-from :pfds.shcl.io/interface/common
    #:to-list #:print-graphviz #:next-graphviz-id
-   #:check-invariants #:for-each #:size)
+   #:check-invariants #:for-each #:size #:iterator)
   (:import-from :pfds.shcl.io/utility/impure-list-builder
    #:make-impure-list-builder #:impure-list-builder-add
    #:impure-list-builder-extract)
@@ -202,6 +202,28 @@
   (dolist (child (tree-node-children tree))
     (do-tree-f fn child)))
 
+(defun make-heap-iterator (tree-list)
+  (let ((stack (list (cons nil tree-list))))
+    (lambda ()
+      (loop
+        (unless stack
+          (return (values nil nil)))
+
+        (let* ((tip (car stack))
+               (tip-node (car tip))
+               (tip-children (cdr tip)))
+          (cond
+            (tip-node
+             (setf (car tip) nil)
+             (return (values t (tree-node-value tip-node))))
+
+            (tip-children
+             (let ((child (pop (cdr tip))))
+               (push (cons child (tree-node-children child)) stack)))
+
+            (t
+             (pop stack))))))))
+
 (defmacro do-tree ((value tree &optional result) &body body)
   `(block nil
      (do-tree-f (lambda (,value) ,@body) ,tree)
@@ -224,6 +246,10 @@
   (dolist (ranked-tree (binomial-heap-ranked-trees heap))
     (do-tree (item (ranked-tree-tree ranked-tree))
       (funcall function item))))
+
+(defmethod iterator ((heap binomial-heap))
+  (let ((tree-list (mapcar #'ranked-tree-tree (binomial-heap-ranked-trees heap))))
+    (make-heap-iterator tree-list)))
 
 (defmethod print-object ((heap binomial-heap) stream)
   (write
