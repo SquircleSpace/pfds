@@ -17,6 +17,10 @@
   (:import-from :pfds.shcl.io/interface/common
    #:to-list #:print-graphviz #:next-graphviz-id #:for-each
    #:size #:iterator)
+  (:import-from :pfds.shcl.io/utility/iterator-tools
+   #:compare-heaps)
+  (:import-from :pfds.shcl.io/utility/compare
+   #:compare-objects #:compare)
   (:import-from :pfds.shcl.io/utility/immutable-structure
    #:define-adt)
   (:import-from :pfds.shcl.io/interface/heap
@@ -317,3 +321,8 @@
 
 (defmethod size ((heap weight-biased-leftist-heap))
   (leftist-heap-size heap))
+
+(defmethod compare-objects ((left leftist-heap) (right leftist-heap))
+  (compare-heaps left (leftist-heap-comparator left)
+                 right (leftist-heap-comparator right)
+                 #'compare))

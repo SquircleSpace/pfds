@@ -20,6 +20,10 @@
   (:import-from :pfds.shcl.io/utility/impure-list-builder
    #:make-impure-list-builder #:impure-list-builder-add
    #:impure-list-builder-extract)
+  (:import-from :pfds.shcl.io/utility/iterator-tools
+   #:compare-heaps)
+  (:import-from :pfds.shcl.io/utility/compare
+   #:compare-objects #:compare)
   (:import-from :pfds.shcl.io/utility/immutable-structure
    #:define-adt #:define-immutable-structure)
   (:import-from :pfds.shcl.io/utility/misc
@@ -367,3 +371,8 @@
 
 (defmethod size ((heap binomial-heap))
   (binomial-heap-size heap))
+
+(defmethod compare-objects ((left binomial-heap) (right binomial-heap))
+  (compare-heaps left (binomial-heap-comparator left)
+                 right (binomial-heap-comparator right)
+                 #'compare))

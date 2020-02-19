@@ -18,7 +18,9 @@
    #:to-list #:check-invariants #:for-each #:size
    #:iterator)
   (:import-from :pfds.shcl.io/utility/iterator-tools
-   #:iterator-flatten*)
+   #:iterator-flatten* #:compare-containers)
+  (:import-from :pfds.shcl.io/utility/compare
+   #:compare-objects #:compare)
   (:import-from :pfds.shcl.io/utility/misc
    #:cassert)
   (:import-from :pfds.shcl.io/utility/immutable-structure
@@ -135,3 +137,6 @@
 
 (defmethod size ((queue batched-queue))
   (batched-queue-count queue))
+
+(defmethod compare-objects ((left batched-queue) (right batched-queue))
+  (compare-containers left right #'compare))

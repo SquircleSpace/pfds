@@ -15,9 +15,16 @@
 (defpackage :pfds.shcl.io/utility/iterator-tools
   (:use :common-lisp)
   (:import-from :pfds.shcl.io/interface/common
-   #:iterator)
+   #:iterator #:size)
+  (:import-from :pfds.shcl.io/interface/heap
+   #:without-heap-top)
+  (:import-from :pfds.shcl.io/utility/compare
+   #:compare* #:compare-reals #:compare)
   (:export
-   #:iterator-flatten #:iterator-flatten*))
+   #:iterator-flatten #:iterator-flatten*
+   #:compare-iterator-contents
+   #:compare-containers #:compare-heaps #:compare-sets
+   #:compare-maps))
 (in-package :pfds.shcl.io/utility/iterator-tools)
 
 (defun iterator-flatten (iterator)
@@ -39,3 +46,66 @@
 
 (defun iterator-flatten* (&rest iterators)
   (iterator-flatten (iterator iterators)))
+
+(defun compare-iterator-contents (left right comparator)
+  (let ((result :equal))
+    (loop
+      (multiple-value-bind (left-value left-valid-p) (funcall left)
+        (multiple-value-bind (right-value right-valid-p) (funcall right)
+          (cond
+            ((and left-valid-p right-valid-p)
+             (let ((comparison (funcall comparator left-value right-value)))
+               (ecase comparison
+                 (:equal)
+                 (:unequal
+                  (setf result :unequal))
+                 ((:less :greater)
+                  (return comparison)))))
+
+            (left-valid-p
+             (return :greater))
+            (right-valid-p
+             (return :less))
+            (t
+             (return result))))))))
+
+(defun compare-containers (left-iterable right-iterable comparator)
+  (compare*
+    (compare-reals (size left-iterable) (size right-iterable))
+    (compare-iterator-contents (iterator left-iterable) (iterator right-iterable) comparator)))
+
+(defun heap-iterator (heap)
+  (lambda ()
+    (multiple-value-bind (new-heap removed-value valid-p) (without-heap-top heap)
+      (setf heap new-heap)
+      (values removed-value valid-p))))
+
+(defun nil-instead-of-unequal (value)
+  (unless (eq :unequal value)
+    value))
+
+(defun compare-heaps (left-heap left-comparator right-heap right-comparator &optional (comparator-comparator #'compare))
+  (compare*
+    (compare-reals (size left-heap) (size right-heap))
+    (or (nil-instead-of-unequal (funcall comparator-comparator left-comparator right-comparator))
+        (return-from compare-heaps :unequal))
+    (compare-iterator-contents (heap-iterator left-heap) (heap-iterator right-heap) left-comparator)))
+
+(defun compare-sets (left-set left-comparator right-set right-comparator &optional (comparator-comparator #'compare))
+  (compare*
+    (compare-reals (size left-set) (size right-set))
+    (or (nil-instead-of-unequal (funcall comparator-comparator left-comparator right-comparator))
+        (return-from compare-sets :unequal))
+    (compare-iterator-contents (iterator left-set) (iterator right-set) left-comparator)))
+
+(defun compare-maps (left-map left-comparator right-map right-comparator
+                     &optional (comparator-comparator #'compare)
+                       (value-comparator #'compare))
+  (compare*
+    (compare-reals (size left-map) (size right-map))
+    (or (nil-instead-of-unequal (funcall comparator-comparator left-comparator right-comparator))
+        (return-from compare-maps :unequal))
+    (compare-iterator-contents (iterator left-map) (iterator right-map)
+                               (lambda (l-pair r-pair)
+                                 (compare* (funcall left-comparator (car l-pair) (car r-pair))
+                                           (funcall value-comparator (cdr l-pair) (cdr r-pair)))))))

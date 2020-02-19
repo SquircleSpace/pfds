@@ -17,6 +17,10 @@
   (:import-from :pfds.shcl.io/interface/common
    #:to-list #:is-empty #:empty #:check-invariants #:for-each
    #:size #:iterator)
+  (:import-from :pfds.shcl.io/utility/iterator-tools
+   #:compare-sets #:compare-maps)
+  (:import-from :pfds.shcl.io/utility/compare
+   #:compare-objects #:compare)
   (:import-from :pfds.shcl.io/utility/immutable-structure
    #:define-immutable-structure)
   (:import-from :pfds.shcl.io/utility/misc
@@ -174,6 +178,11 @@
 (defmethod iterator ((set weight-balanced-set))
   (iterator (weight-balanced-set-tree set)))
 
+(defmethod compare-objects ((left weight-balanced-set) (right weight-balanced-set))
+  (compare-sets left (weight-balanced-set-comparator left)
+                right (weight-balanced-set-comparator right)
+                #'compare))
+
 (defmethod is-empty ((set weight-balanced-set))
   (wb-set-nil-p (weight-balanced-set-tree set)))
 
@@ -242,6 +251,11 @@
 
 (defmethod iterator ((map weight-balanced-map))
   (iterator (weight-balanced-map-tree map)))
+
+(defmethod compare-objects ((left weight-balanced-map) (right weight-balanced-map))
+  (compare-maps left (weight-balanced-map-comparator left)
+                right (weight-balanced-map-comparator right)
+                #'compare #'compare))
 
 (defmethod is-empty ((map weight-balanced-map))
   (wb-map-nil-p (weight-balanced-map-tree map)))

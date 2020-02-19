@@ -17,6 +17,10 @@
   (:import-from :pfds.shcl.io/interface/common
    #:to-list #:check-invariants #:for-each
    #:with-entry #:lookup-entry #:size #:iterator)
+  (:import-from :pfds.shcl.io/utility/iterator-tools
+   #:compare-containers)
+  (:import-from :pfds.shcl.io/utility/compare
+   #:compare-objects #:compare)
   (:import-from :pfds.shcl.io/utility/immutable-structure
    #:define-immutable-structure)
   (:import-from :pfds.shcl.io/utility/misc
@@ -292,3 +296,6 @@
 
 (defmethod size ((p-vec persistent-vector))
   (persistent-vector-count p-vec))
+
+(defmethod compare-objects ((left persistent-vector) (right persistent-vector))
+  (compare-containers left right #'compare))

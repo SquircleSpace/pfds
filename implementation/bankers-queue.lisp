@@ -19,6 +19,10 @@
   (:import-from :pfds.shcl.io/interface/common
    #:to-list #:check-invariants #:for-each
    #:size #:iterator)
+  (:import-from :pfds.shcl.io/utility/iterator-tools
+   #:compare-containers)
+  (:import-from :pfds.shcl.io/utility/compare
+   #:compare-objects #:compare)
   (:import-from :pfds.shcl.io/utility/misc
    #:cassert)
   (:import-from :pfds.shcl.io/implementation/lazy-list
@@ -155,3 +159,6 @@
 (defmethod size ((queue bankers-queue))
   (+ (bankers-queue-front-stack-size queue)
      (bankers-queue-back-stack-size queue)))
+
+(defmethod compare-objects ((left bankers-queue) (right bankers-queue))
+  (compare-containers left right #'compare))

@@ -17,6 +17,10 @@
   (:import-from :pfds.shcl.io/interface/common
    #:to-list #:print-graphviz #:next-graphviz-id #:for-each
    #:size #:iterator)
+  (:import-from :pfds.shcl.io/utility/iterator-tools
+   #:compare-heaps)
+  (:import-from :pfds.shcl.io/utility/compare
+   #:compare-objects #:compare)
   (:import-from :pfds.shcl.io/utility/immutable-structure
    #:define-adt #:define-immutable-structure)
   (:import-from :pfds.shcl.io/interface/heap
@@ -235,3 +239,8 @@
 
 (defmethod size ((heap pairing-heap))
   (pairing-heap-size heap))
+
+(defmethod compare-objects ((left pairing-heap) (right pairing-heap))
+  (compare-heaps left (pairing-heap-comparator left)
+                 right (pairing-heap-comparator right)
+                 #'compare))

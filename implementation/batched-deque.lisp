@@ -16,6 +16,10 @@
   (:use :common-lisp)
   (:import-from :pfds.shcl.io/interface/common
    #:to-list #:check-invariants #:for-each #:size #:iterator)
+  (:import-from :pfds.shcl.io/utility/iterator-tools
+   #:compare-containers)
+  (:import-from :pfds.shcl.io/utility/compare
+   #:compare-objects #:compare)
   (:import-from :pfds.shcl.io/utility/immutable-structure
    #:define-immutable-structure)
   (:import-from :pfds.shcl.io/interface/deque
@@ -267,3 +271,6 @@
 (defmethod size ((deque batched-deque))
   (+ (batched-deque-front-count deque)
      (batched-deque-back-count deque)))
+
+(defmethod compare-objects ((left batched-deque) (right batched-deque))
+  (compare-containers left right #'compare))

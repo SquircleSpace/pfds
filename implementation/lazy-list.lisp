@@ -19,6 +19,10 @@
    #:with-head #:head #:tail #:is-empty #:empty)
   (:import-from :pfds.shcl.io/interface/common
    #:to-list #:for-each #:size #:iterator)
+  (:import-from :pfds.shcl.io/utility/iterator-tools
+   #:compare-iterator-contents)
+  (:import-from :pfds.shcl.io/utility/compare
+   #:compare-objects #:compare)
   (:import-from :pfds.shcl.io/utility/immutable-structure
    #:define-adt)
   (:export
@@ -161,3 +165,6 @@
     (multiple-value-bind (new-head result valid-p) (tail lazy-list)
       (setf lazy-list new-head)
       (values result valid-p))))
+
+(defmethod compare-objects ((left lazy-list) (right lazy-list))
+  (compare-iterator-contents (iterator left) (iterator right) #'compare))

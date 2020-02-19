@@ -17,6 +17,10 @@
   (:import-from :pfds.shcl.io/interface/common
    #:to-list #:is-empty #:empty #:check-invariants
    #:print-graphviz #:for-each #:size #:iterator)
+  (:import-from :pfds.shcl.io/utility/iterator-tools
+   #:compare-sets #:compare-maps)
+  (:import-from :pfds.shcl.io/utility/compare
+   #:compare-objects #:compare)
   (:import-from :pfds.shcl.io/utility/immutable-structure
    #:define-immutable-structure)
   (:import-from :pfds.shcl.io/utility/misc
@@ -449,6 +453,11 @@
 (defmethod iterator ((set red-black-set))
   (iterator (red-black-set-tree set)))
 
+(defmethod compare-objects ((left red-black-set) (right red-black-set))
+  (compare-sets left (red-black-set-comparator left)
+                right (red-black-set-comparator right)
+                #'compare))
+
 (defmethod print-object ((set red-black-set) stream)
   (write
    (if *print-readably*
@@ -536,6 +545,11 @@
 
 (defmethod iterator ((map red-black-map))
   (iterator (red-black-map-tree map)))
+
+(defmethod compare-objects ((left red-black-map) (right red-black-map))
+  (compare-maps left (red-black-map-comparator left)
+                right (red-black-map-comparator right)
+                #'compare #'compare))
 
 (defmethod to-list ((map red-black-map))
   (rb-map-to-list (red-black-map-tree map)))

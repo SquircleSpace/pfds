@@ -17,6 +17,10 @@
   (:import-from :pfds.shcl.io/interface/common
    #:to-list #:is-empty #:empty #:for-each #:iterator
    #:size)
+  (:import-from :pfds.shcl.io/utility/iterator-tools
+   #:compare-sets #:compare-maps)
+  (:import-from :pfds.shcl.io/utility/compare
+   #:compare-objects #:compare)
   (:import-from :pfds.shcl.io/utility/immutable-structure
    #:define-immutable-structure)
   (:import-from :pfds.shcl.io/interface/set
@@ -115,6 +119,11 @@
 (defmethod iterator ((set unbalanced-set))
   (iterator (unbalanced-set-tree set)))
 
+(defmethod compare-objects ((left unbalanced-set) (right unbalanced-set))
+  (compare-sets left (unbalanced-set-comparator left)
+                right (unbalanced-set-comparator right)
+                #'compare))
+
 (define-tree %unbalanced-map-tree (:map-p t))
 
 (define-immutable-structure (unbalanced-map (:constructor %make-unbalanced-map))
@@ -183,6 +192,11 @@
 
 (defmethod iterator ((map unbalanced-map))
   (iterator (unbalanced-map-tree map)))
+
+(defmethod compare-objects ((left unbalanced-map) (right unbalanced-map))
+  (compare-maps left (unbalanced-map-comparator left)
+                right (unbalanced-map-comparator right)
+                #'compare #'compare))
 
 (defmethod to-list ((map unbalanced-map))
   (%unbalanced-map-tree-to-list (unbalanced-map-tree map)))

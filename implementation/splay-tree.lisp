@@ -17,6 +17,10 @@
   (:import-from :pfds.shcl.io/interface/common
    #:to-list #:check-invariants #:print-graphviz #:for-each
    #:size #:iterator)
+  (:import-from :pfds.shcl.io/utility/iterator-tools
+   #:compare-heaps)
+  (:import-from :pfds.shcl.io/utility/compare
+   #:compare-objects #:compare)
   (:import-from :pfds.shcl.io/utility/impure-list-builder
    #:make-impure-list-builder #:impure-list-builder-add
    #:impure-list-builder-extract)
@@ -655,6 +659,11 @@
 
 (defmethod iterator ((heap splay-heap))
   (iterator (splay-heap-tree heap)))
+
+(defmethod compare-objects ((left splay-heap) (right splay-heap))
+  (compare-heaps left (splay-heap-comparator left)
+                 right (splay-heap-comparator right)
+                 #'compare))
 
 (defun check-sp-heap (sp-heap comparator)
   (etypecase sp-heap

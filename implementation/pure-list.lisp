@@ -16,6 +16,10 @@
   (:use :common-lisp)
   (:import-from :pfds.shcl.io/interface/common
    #:to-list #:for-each #:size #:iterator)
+  (:import-from :pfds.shcl.io/utility/iterator-tools
+   #:compare-iterator-contents)
+  (:import-from :pfds.shcl.io/utility/compare
+   #:compare-objects #:compare)
   (:import-from :pfds.shcl.io/utility/immutable-structure
    #:define-adt)
   (:import-from :pfds.shcl.io/utility/compare
@@ -102,35 +106,8 @@
 (defmethod empty ((list pure-list-nil))
   list)
 
-(defun compare-pure-list (left right &key (head-compare-fn 'compare))
-  (when (eql left right)
-    (return-from compare-pure-list :equal))
-
-  (cond
-    ((and (pure-list-nil-p left)
-          (pure-list-nil-p right))
-     :equal)
-    ((pure-list-nil-p left)
-     :less)
-    ((pure-list-nil-p right)
-     :greater)
-    (t
-     (compare*
-       (funcall head-compare-fn (pure-list-cons-head left) (pure-list-cons-head right))
-       (compare-pure-list (pure-list-cons-tail left) (pure-list-cons-tail right)
-                          :head-compare-fn head-compare-fn)))))
-
-(defmethod compare-objects ((left pure-list-nil) (right pure-list-nil))
-  :equal)
-
-(defmethod compare-objects ((left pure-list-cons) (right pure-list-cons))
-  (compare-pure-list left right))
-
-(defmethod compare-objects ((left pure-list-nil) (right pure-list-cons))
-  :less)
-
-(defmethod compare-objects ((left pure-list-cons) (right pure-list-nil))
-  :greater)
+(defmethod compare-objects ((left pure-list) (right pure-list))
+  (compare-iterator-contents (iterator left) (iterator right) #'compare))
 
 (defmethod size ((list pure-list-nil))
   0)
