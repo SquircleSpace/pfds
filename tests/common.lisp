@@ -85,6 +85,4 @@
       (check-empty object)
       (check-nonempty object))
 
-  ;; Soon!
-  ;;(check-write-read-roundtrip object)
-  )
+  (check-write-read-roundtrip object))
