@@ -80,8 +80,7 @@ unspecified which value will be contained in the map."
   (let ((forms (read-delimited-list #\] stream t)))
     `(make-vector :items (list ,@forms))))
 
-(defun read-map (stream char)
-  (declare (ignore char))
+(defun read-map (stream)
   (let ((pairs (read-delimited-list #\} stream t)))
     (labels
         ((clean (pair)
@@ -93,12 +92,24 @@ unspecified which value will be contained in the map."
              `(cons ,key ,value))))
       `(make-map :alist (list ,@(mapcar #'clean pairs))))))
 
-(defun read-set (stream char arg)
-  (declare (ignore char))
-  (when arg
-    (error "Unexpected argument for set literal: ~A" arg))
+(defun read-set (stream)
   (let ((forms (read-delimited-list #\} stream t)))
     `(make-set :items (list ,@forms))))
+
+(defun read-map-or-set (stream char)
+  (declare (ignore char))
+  (let ((next-char (peek-char nil stream t :eof t)))
+    (cond
+      ((equal next-char #\{)
+       (read-char stream t :eof t)
+       (prog1
+           (read-set stream)
+         (let ((last-char (read-char stream t :eof t)))
+           (unless (equal last-char #\})
+             (error "Only one closing } for set!  Instead, got ~A" last-char)))))
+
+      (t
+       (read-map stream)))))
 
 (defun syntax-error (stream char)
   (declare (ignore stream))
@@ -107,7 +118,6 @@ unspecified which value will be contained in the map."
 (defreadtable syntax
   (:merge :standard)
   (:macro-char #\[ #'read-vector nil)
-  (:macro-char #\{ #'read-map nil)
-  (:dispatch-macro-char #\# #\{ #'read-set)
+  (:macro-char #\{ #'read-map-or-set nil)
   (:macro-char #\] #'syntax-error nil)
   (:macro-char #\} #'syntax-error nil))
