@@ -256,11 +256,10 @@
     (make-heap-iterator tree-list)))
 
 (defmethod print-object ((heap binomial-heap) stream)
-  (write
-   (if *print-readably*
-       `(make-binomial-heap ',(binomial-heap-comparator heap) :items ',(to-list heap))
-       `(binomial-heap ,(binomial-heap-comparator heap) ,@(to-list heap)))
-   :stream stream))
+  (if *print-readably*
+      (call-next-method)
+      (write `(binomial-heap ,(binomial-heap-comparator heap) ,@(to-list heap))
+             :stream stream)))
 
 (defun make-binomial-heap (comparator &key items)
   (let (ranked-tree-list

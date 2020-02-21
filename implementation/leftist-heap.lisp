@@ -138,21 +138,11 @@
 (defmethod iterator ((heap leftist-heap))
   (make-tree-iterator (leftist-heap-guts heap)))
 
-(defun print-leftist-heap (heap stream)
-  (let ((items (to-list heap))
-        (comparator (leftist-heap-comparator heap))
-        (bias (leftist-heap-bias heap)))
-    (write
-     (if (or *print-readably* (not (eq bias +default-bias+)))
-         `(make-leftist-heap ',comparator :bias ',bias :items ',items)
-         `(leftist-heap ,comparator ,@items))
-     :stream stream)))
-
-(defmethod print-object ((heap height-biased-leftist-heap) stream)
-  (print-leftist-heap heap stream))
-
-(defmethod print-object ((heap weight-biased-leftist-heap) stream)
-  (print-leftist-heap heap stream))
+(defmethod print-object ((heap leftist-heap) stream)
+  (if *print-readably*
+      (call-next-method)
+      (write `(leftist-heap ,(leftist-heap-comparator heap) ,@(to-list heap))
+             :stream stream)))
 
 (defun rank (guts)
   (etypecase guts

@@ -280,15 +280,9 @@
 (defmethod iterator ((p-vec persistent-vector))
   (make-persistent-vector-iterator p-vec))
 
-(defun persistent-vector-initlist (p-vec)
-  (let ((builder (make-impure-list-builder)))
-    (for-each p-vec (lambda (obj) (impure-list-builder-add builder (quote-if-symbol obj))))
-    (cons 'list (impure-list-builder-extract builder))))
-
 (defmethod print-object ((p-vec persistent-vector) stream)
   (if *print-readably*
-      (write `(make-persistent-vector :items ,(persistent-vector-initlist p-vec))
-             :stream stream)
+      (call-next-method)
       (print-vector p-vec stream)))
 
 (defun make-persistent-vector (&key items)

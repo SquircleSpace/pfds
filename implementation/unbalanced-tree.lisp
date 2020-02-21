@@ -70,9 +70,7 @@
 
 (defmethod print-object ((set unbalanced-set) stream)
   (if *print-readably*
-      (write `(make-unbalanced-set ,(quote-if-symbol (unbalanced-set-comparator set))
-                                   :items ,(u-set-initlist (unbalanced-set-tree set)))
-             :stream stream)
+      (call-next-method)
       (print-set set stream)))
 
 (defmethod is-empty ((set unbalanced-set))
@@ -144,9 +142,7 @@
 
 (defmethod print-object ((map unbalanced-map) stream)
   (if *print-readably*
-      (write `(make-unbalanced-map ,(quote-if-symbol (unbalanced-map-comparator map))
-                                   :alist ,(u-map-initlist (unbalanced-map-tree map)))
-             :stream stream)
+      (call-next-method)
       (print-map map stream)))
 
 (defmethod is-empty ((map unbalanced-map))

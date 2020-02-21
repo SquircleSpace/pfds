@@ -78,11 +78,10 @@
   (for-each (reverse (batched-deque-back-stack deque)) function))
 
 (defmethod print-object ((deque batched-deque) stream)
-  (write
-   (if *print-readably*
-       `(make-batched-deque :items ',(to-list deque))
-       `(batched-deque ,@(to-list deque)))
-   :stream stream))
+  (if *print-readably*
+      (call-next-method)
+      (write `(batched-deque ,@(to-list deque))
+             :stream stream)))
 
 (defvar *empty-batched-deque* (%make-batched-deque))
 

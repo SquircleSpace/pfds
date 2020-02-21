@@ -20,7 +20,7 @@
    #:to-list #:check-invariants #:for-each
    #:size #:iterator)
   (:import-from :pfds.shcl.io/utility/iterator-tools
-   #:compare-containers)
+   #:compare-containers #:iterator-flatten*)
   (:import-from :pfds.shcl.io/utility/compare
    #:compare-objects #:compare)
   (:import-from :pfds.shcl.io/utility/misc
@@ -142,11 +142,10 @@
     (iterator-flatten* front-iterator back-iterator)))
 
 (defmethod print-object ((queue bankers-queue) stream)
-  (write
-   (if *print-readably*
-       `(make-bankers-queue :items ',(to-list queue))
-       `(bankers-queue ,@(to-list queue)))
-   :stream stream))
+  (if *print-readably*
+      (call-next-method)
+      (write `(bankers-queue ,@(to-list queue))
+             :stream stream)))
 
 (defmethod check-invariants ((queue bankers-queue))
   (cassert (>= (bankers-queue-front-stack-size queue)

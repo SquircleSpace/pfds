@@ -462,9 +462,7 @@
 
 (defmethod print-object ((set red-black-set) stream)
   (if *print-readably*
-      (write `(make-red-black-set ,(quote-if-symbol (red-black-set-comparator set))
-                                  :items ,(rb-set-initlist (red-black-set-tree set)))
-             :stream stream)
+      (call-next-method)
       (print-set set stream)))
 
 (defmethod print-graphviz ((tree red-black-set) stream id-vendor)
@@ -558,9 +556,7 @@
 
 (defmethod print-object ((map red-black-map) stream)
   (if *print-readably*
-      (write `(make-red-black-map ,(quote-if-symbol (red-black-map-comparator map))
-                                  :alist ,(rb-map-initlist (red-black-map-tree map)))
-             :stream stream)
+      (call-next-method)
       (print-map map stream)))
 
 (defmethod print-graphviz ((tree red-black-map) stream id-vendor)

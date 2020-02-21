@@ -228,11 +228,10 @@
   (make-p-heap-iterator (pairing-heap-tree heap)))
 
 (defmethod print-object ((heap pairing-heap) stream)
-  (write
-   (if *print-readably*
-       `(make-pairing-heap ',(pairing-heap-comparator heap) :items ',(to-list heap))
-       `(pairing-heap ,(pairing-heap-comparator heap) ,@(to-list heap)))
-   :stream stream))
+  (if *print-readably*
+      (call-next-method)
+      (write `(pairing-heap ,(pairing-heap-comparator heap) ,@(to-list heap))
+             :stream stream)))
 
 (defmethod print-graphviz ((heap pairing-heap) stream id-vendor)
   (print-graphviz (pairing-heap-tree heap) stream id-vendor))

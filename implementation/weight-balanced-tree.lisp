@@ -208,10 +208,8 @@
 
 (defmethod print-object ((set weight-balanced-set) stream)
   (if *print-readably*
-      (write `(make-weight-balanced-set ,(quote-if-symbol (weight-balanced-set-comparator set))
-                                        :items ,(wb-set-initlist (weight-balanced-set-tree set)))
-             :stream stream)
-      (print-set set)))
+      (call-next-method)
+      (print-set set stream)))
 
 (defmethod with-member ((set weight-balanced-set) item)
   (copy-weight-balanced-set set :tree (wb-set-insert (weight-balanced-set-comparator set) (weight-balanced-set-tree set) item)))
@@ -282,9 +280,7 @@
 
 (defmethod print-object ((map weight-balanced-map) stream)
   (if *print-readably*
-      (write `(make-weight-balanced-map ,(quote-if-symbol (weight-balanced-map-comparator map))
-                                        :items (wb-map-initlist (weight-balanced-map-tree map)))
-             :stream stream)
+      (call-next-method)
       (print-map map stream)))
 
 (defmethod with-entry ((map weight-balanced-map) key value)
