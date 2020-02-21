@@ -15,7 +15,8 @@
 (defpackage :pfds.shcl.io/tests/common
   (:use :common-lisp)
   (:import-from :pfds.shcl.io/interface/common
-   #:size #:for-each #:to-list #:empty #:is-empty)
+   #:size #:for-each #:to-list #:empty #:is-empty
+   #:iterator)
   (:import-from :pfds.shcl.io/utility/compare
    #:compare)
   (:import-from :pfds.shcl.io/utility/misc
@@ -43,7 +44,11 @@
              list))
 
   (cassert (eq object (empty object))
-           nil "empty on an empty object should return itself"))
+           nil "empty on an empty object should return itself")
+
+  (multiple-value-bind (value valid-p) (funcall (iterator object))
+    (cassert (and (null value) (not valid-p))
+             nil "the iterator returned by an empty object should be empty")))
 
 (defun check-nonempty (object)
   (let ((size (size object))
@@ -66,6 +71,17 @@
     (cassert (equal (length list) size)
              nil "to-list and size must agree about the size: ~A vs ~A"
              size length)
+
+    (let ((iter (iterator object))
+          (count 0))
+      (loop
+        (multiple-value-bind (value valid-p) (funcall iter)
+          (declare (ignore value))
+          (if valid-p
+              (incf count)
+              (return))))
+      (cassert (equal count length)
+               nil "iterator should visit the same number of objects as to-list"))
 
     (cassert (not (eq object (empty object)))
              nil "empty on a non-empty object must return something different")
