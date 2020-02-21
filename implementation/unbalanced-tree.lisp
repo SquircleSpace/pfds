@@ -21,6 +21,10 @@
    #:compare-sets #:compare-maps)
   (:import-from :pfds.shcl.io/utility/compare
    #:compare-objects #:compare)
+  (:import-from :pfds.shcl.io/utility/misc
+   #:quote-if-symbol)
+  (:import-from :pfds.shcl.io/utility/printer
+   #:print-map #:print-set)
   (:import-from :pfds.shcl.io/utility/immutable-structure
    #:define-immutable-structure)
   (:import-from :pfds.shcl.io/interface/set
@@ -65,11 +69,11 @@
   (make-unbalanced-set comparator :items items))
 
 (defmethod print-object ((set unbalanced-set) stream)
-  (write
-   (if *print-readably*
-       `(make-unbalanced-set ',(unbalanced-set-comparator set) :items ',(to-list set))
-       `(unbalanced-set ,(unbalanced-set-comparator set) ,@(to-list set)))
-   :stream stream))
+  (if *print-readably*
+      (write `(make-unbalanced-set ,(quote-if-symbol (unbalanced-set-comparator set))
+                                   :items ,(u-set-initlist (unbalanced-set-tree set)))
+             :stream stream)
+      (print-set set stream)))
 
 (defmethod is-empty ((set unbalanced-set))
   (u-set-nil-p (unbalanced-set-tree set)))
@@ -139,13 +143,11 @@
   (make-unbalanced-map comparator :plist plist))
 
 (defmethod print-object ((map unbalanced-map) stream)
-  (write
-   (if *print-readably*
-       `(make-unbalanced-map ',(unbalanced-map-comparator map) :alist ',(to-list map))
-       `(unbalanced-map ,(unbalanced-map-comparator map)
-                        ,@(loop :for pair :in (to-list map)
-                                :collect (list (car pair) (cdr pair)))))
-   :stream stream))
+  (if *print-readably*
+      (write `(make-unbalanced-map ,(quote-if-symbol (unbalanced-map-comparator map))
+                                   :alist ,(u-map-initlist (unbalanced-map-tree map)))
+             :stream stream)
+      (print-map map stream)))
 
 (defmethod is-empty ((map unbalanced-map))
   (u-map-nil-p (unbalanced-map-tree map)))

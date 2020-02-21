@@ -24,7 +24,9 @@
   (:import-from :pfds.shcl.io/utility/immutable-structure
    #:define-immutable-structure)
   (:import-from :pfds.shcl.io/utility/misc
-   #:intern-conc #:cassert)
+   #:intern-conc #:cassert #:quote-if-symbol)
+  (:import-from :pfds.shcl.io/utility/printer
+   #:print-map #:print-set)
   (:import-from :pfds.shcl.io/interface/set
    #:with-member #:without-member #:is-member)
   (:import-from :pfds.shcl.io/interface/map
@@ -205,11 +207,11 @@
   (check-wb-invariants (weight-balanced-set-tree set)))
 
 (defmethod print-object ((set weight-balanced-set) stream)
-  (write
-   (if *print-readably*
-       `(make-weight-balanced-set ',(weight-balanced-set-comparator set) :items ',(to-list set))
-       `(weight-balanced-set ,(weight-balanced-set-comparator set) ,@(to-list set)))
-   :stream stream))
+  (if *print-readably*
+      (write `(make-weight-balanced-set ,(quote-if-symbol (weight-balanced-set-comparator set))
+                                        :items ,(wb-set-initlist (weight-balanced-set-tree set)))
+             :stream stream)
+      (print-set set)))
 
 (defmethod with-member ((set weight-balanced-set) item)
   (copy-weight-balanced-set set :tree (wb-set-insert (weight-balanced-set-comparator set) (weight-balanced-set-tree set) item)))
@@ -279,13 +281,11 @@
   (check-wb-invariants (weight-balanced-map-tree map)))
 
 (defmethod print-object ((map weight-balanced-map) stream)
-  (write
-   (if *print-readably*
-       `(make-weight-balanced-map ',(weight-balanced-map-comparator map) :items ',(to-list map))
-       `(weight-balanced-map ,(weight-balanced-map-comparator map)
-                             ,@(loop :for pair :in (to-list map)
-                                     :collect (list (car pair) (cdr pair)))))
-   :stream stream))
+  (if *print-readably*
+      (write `(make-weight-balanced-map ,(quote-if-symbol (weight-balanced-map-comparator map))
+                                        :items (wb-map-initlist (weight-balanced-map-tree map)))
+             :stream stream)
+      (print-map map stream)))
 
 (defmethod with-entry ((map weight-balanced-map) key value)
   (copy-weight-balanced-map map :tree (wb-map-insert (weight-balanced-map-comparator map) (weight-balanced-map-tree map) key value)))

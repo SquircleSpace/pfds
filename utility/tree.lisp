@@ -23,7 +23,7 @@
   (:import-from :pfds.shcl.io/utility/immutable-structure
    #:define-adt #:structure-convert #:define-immutable-structure)
   (:import-from :pfds.shcl.io/utility/misc
-   #:intern-conc #:cassert)
+   #:intern-conc #:cassert #:quote-if-symbol)
   (:import-from :pfds.shcl.io/utility/list
    #:list-set-with #:list-set-without #:list-set #:list-set-is-member
    #:list-map-with #:list-map-without #:list-map #:list-map-lookup)
@@ -78,6 +78,7 @@
                                  (intern-conc *package* node-base-type "-REPRESENTATIVE")
                                  (gensym "NODE-REPRESENTATIVE")))
          (checker (when define-checker-p (intern-conc *package* "CHECK-" base-name)))
+         (initlist (intern-conc *package* base-name "-INITLIST"))
          (with-key (intern-conc *package* node-base-type "-WITH-KEY"))
          (without-key (intern-conc *package* node-base-type "-WITHOUT-KEY"))
          (with-equal (gensym "NODE-WITH-EQUAL"))
@@ -461,6 +462,16 @@
          `(block nil
             (,',do-tree-f ,,tree (lambda (,,key ,,@value-list) ,@,body))
             ,,result))
+
+       (defun ,initlist (,tree)
+         (let ((,builder (make-impure-list-builder)))
+           (,do-tree (,key ,@value-list ,tree)
+             (impure-list-builder-add
+              ,builder
+              ,(if map-p
+                   ``(cons ,(quote-if-symbol ,key) ,(quote-if-symbol ,value))
+                   `(quote-if-symbol ,key))))
+           (cons 'list (impure-list-builder-extract ,builder))))
 
        (defun ,to-list (,tree)
          (let ((,builder (make-impure-list-builder)))

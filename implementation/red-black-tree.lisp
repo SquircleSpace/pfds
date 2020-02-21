@@ -19,12 +19,14 @@
    #:print-graphviz #:for-each #:size #:iterator)
   (:import-from :pfds.shcl.io/utility/iterator-tools
    #:compare-sets #:compare-maps)
+  (:import-from :pfds.shcl.io/utility/printer
+   #:print-map #:print-set)
   (:import-from :pfds.shcl.io/utility/compare
    #:compare-objects #:compare)
   (:import-from :pfds.shcl.io/utility/immutable-structure
    #:define-immutable-structure)
   (:import-from :pfds.shcl.io/utility/misc
-   #:intern-conc #:cassert)
+   #:intern-conc #:cassert #:quote-if-symbol)
   (:import-from :pfds.shcl.io/interface/set
    #:with-member #:without-member #:is-member)
   (:import-from :pfds.shcl.io/interface/map
@@ -459,11 +461,11 @@
                 #'compare))
 
 (defmethod print-object ((set red-black-set) stream)
-  (write
-   (if *print-readably*
-       `(make-red-black-set ',(red-black-set-comparator set) :items ',(to-list set))
-       `(red-black-set ,(red-black-set-comparator set) ,@(to-list set)))
-   :stream stream))
+  (if *print-readably*
+      (write `(make-red-black-set ,(quote-if-symbol (red-black-set-comparator set))
+                                  :items ,(rb-set-initlist (red-black-set-tree set)))
+             :stream stream)
+      (print-set set stream)))
 
 (defmethod print-graphviz ((tree red-black-set) stream id-vendor)
   (print-graphviz (red-black-set-tree tree) stream id-vendor))
@@ -555,13 +557,11 @@
   (rb-map-to-list (red-black-map-tree map)))
 
 (defmethod print-object ((map red-black-map) stream)
-  (write
-   (if *print-readably*
-       `(make-red-black-map ',(red-black-map-comparator map) :alist ',(to-list map))
-       `(red-black-map ,(red-black-map-comparator map)
-                       ,@(loop :for pair :in (to-list map)
-                               :collect (list (car pair) (cdr pair)))))
-   :stream stream))
+  (if *print-readably*
+      (write `(make-red-black-map ,(quote-if-symbol (red-black-map-comparator map))
+                                  :alist ,(rb-map-initlist (red-black-map-tree map)))
+             :stream stream)
+      (print-map map stream)))
 
 (defmethod print-graphviz ((tree red-black-map) stream id-vendor)
   (print-graphviz (red-black-map-tree tree) stream id-vendor))

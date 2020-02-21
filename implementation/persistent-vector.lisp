@@ -23,8 +23,10 @@
    #:compare-objects #:compare)
   (:import-from :pfds.shcl.io/utility/immutable-structure
    #:define-immutable-structure)
+  (:import-from :pfds.shcl.io/utility/printer
+   #:print-vector)
   (:import-from :pfds.shcl.io/utility/misc
-   #:intern-conc)
+   #:intern-conc #:quote-if-symbol)
   (:import-from :pfds.shcl.io/utility/impure-list-builder
    #:make-impure-list-builder #:impure-list-builder-add
    #:impure-list-builder-extract)
@@ -278,12 +280,16 @@
 (defmethod iterator ((p-vec persistent-vector))
   (make-persistent-vector-iterator p-vec))
 
+(defun persistent-vector-initlist (p-vec)
+  (let ((builder (make-impure-list-builder)))
+    (for-each p-vec (lambda (obj) (impure-list-builder-add builder (quote-if-symbol obj))))
+    (cons 'list (impure-list-builder-extract builder))))
+
 (defmethod print-object ((p-vec persistent-vector) stream)
-  (write
-   (if *print-readably*
-       `(make-persistent-vector :items ',(to-list p-vec))
-       `(persistent-vector ,@(to-list p-vec)))
-   :stream stream))
+  (if *print-readably*
+      (write `(make-persistent-vector :items ,(persistent-vector-initlist p-vec))
+             :stream stream)
+      (print-vector p-vec stream)))
 
 (defun make-persistent-vector (&key items)
   (let ((result *empty-persistent-vector*))

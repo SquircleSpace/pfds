@@ -15,7 +15,7 @@
 (defpackage :pfds.shcl.io/utility/misc
   (:use :common-lisp)
   (:export
-   #:intern-conc #:cassert))
+   #:intern-conc #:cassert #:quote-if-symbol))
 (in-package :pfds.shcl.io/utility/misc)
 
 (defun intern-conc (package &rest things)
@@ -37,3 +37,8 @@
            (assert ,condition ,places ,datum ,@args)
          (ignore ()
            (return-from ,done))))))
+
+(defun quote-if-symbol (object)
+  (if (symbolp object)
+      `',object
+      object))
