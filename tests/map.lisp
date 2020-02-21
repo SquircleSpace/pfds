@@ -15,7 +15,7 @@
 (defpackage :pfds.shcl.io/tests/map
   (:use :common-lisp)
   (:import-from :pfds.shcl.io/interface/common
-   #:to-list #:check-invariants)
+   #:to-list #:check-invariants #:iterator #:size #:for-each)
   (:import-from :pfds.shcl.io/utility/immutable-structure
    #:define-immutable-structure)
   (:import-from :pfds.shcl.io/utility/compare
@@ -58,7 +58,10 @@
   (is-empty (unwrap set)))
 
 (defmethod empty ((set set-wrapper))
-  (wrap (empty (unwrap set))))
+  (let ((result (empty (unwrap set))))
+    (if (eq result (unwrap set))
+        set
+        (wrap result))))
 
 (defmethod with-member ((set set-wrapper) key)
   (let ((result (with-entry (unwrap set) key nil)))
@@ -82,6 +85,15 @@
   (for-each (unwrap set) (lambda (k v)
                            (declare (ignore v))
                            (funcall function k))))
+
+(defmethod iterator ((set set-wrapper))
+  (iterator (unwrap set)))
+
+(defmethod size ((set set-wrapper))
+  (size (unwrap set)))
+
+(defmethod compare-objects ((left set-wrapper) (right set-wrapper))
+  (compare (unwrap left) (unwrap right)))
 
 (defmethod check-invariants ((set set-wrapper))
   (check-invariants (unwrap set)))
