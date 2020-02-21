@@ -16,6 +16,8 @@
   (:use :common-lisp)
   (:import-from :pfds.shcl.io/interface/common
    #:to-list #:check-invariants)
+  (:import-from :pfds.shcl.io/tests/common
+   #:check-common-consistency)
   (:import-from :pfds.shcl.io/utility/immutable-structure
    #:define-immutable-structure)
   (:import-from :pfds.shcl.io/utility/compare
@@ -159,7 +161,13 @@
       (is list nil
           "The set should be empty after removing everything"))))
 
+(defun test-basics (constructor)
+  (check-common-consistency (funcall constructor))
+  (check-common-consistency (funcall constructor *random-numbers*))
+  (check-common-consistency (funcall constructor *sorted-numbers*)))
+
 (defun test-set (constructor)
+  (test-basics constructor)
   (test-construction constructor)
   (test-unnecessary-removal constructor)
   (test-unnecessary-insert constructor)
