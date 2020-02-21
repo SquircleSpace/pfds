@@ -50,15 +50,15 @@
 
 ;; See "Purely Functional Data Structures" by Chris Okasaki
 
-(define-tree %unbalanced-set-tree (:map-p nil))
+(define-tree u-set (:map-p nil))
 
 (define-immutable-structure (unbalanced-set (:constructor %make-unbalanced-set))
-  (tree (%unbalanced-set-tree-nil) :type %unbalanced-set-tree)
+  (tree (u-set-nil) :type u-set)
   (size 0 :type (integer 0))
   (comparator (error "comparator is required")))
 
 (defun make-unbalanced-set (comparator &key items)
-  (multiple-value-bind (tree size) (make-%unbalanced-set-tree comparator :items items)
+  (multiple-value-bind (tree size) (make-u-set comparator :items items)
     (%make-unbalanced-set :tree tree :comparator comparator :size size)))
 
 (defun unbalanced-set (comparator &rest items)
@@ -72,10 +72,10 @@
    :stream stream))
 
 (defmethod is-empty ((set unbalanced-set))
-  (%unbalanced-set-tree-nil-p (unbalanced-set-tree set)))
+  (u-set-nil-p (unbalanced-set-tree set)))
 
 (defmethod empty ((set unbalanced-set))
-  (copy-unbalanced-set set :tree (%unbalanced-set-tree-nil) :size 0))
+  (copy-unbalanced-set set :tree (u-set-nil) :size 0))
 
 (defmethod size ((set unbalanced-set))
   (unbalanced-set-size set))
@@ -83,7 +83,7 @@
 (defmethod with-member ((set unbalanced-set) item)
   (multiple-value-bind
         (new-tree balance-needed-p count-changed-p)
-      (%unbalanced-set-tree-insert (unbalanced-set-comparator set)
+      (u-set-insert (unbalanced-set-comparator set)
                                    (unbalanced-set-tree set)
                                    item)
     (declare (ignore balance-needed-p))
@@ -95,7 +95,7 @@
 (defmethod without-member ((set unbalanced-set) item)
   (multiple-value-bind
         (new-tree balance-needed-p count-changed-p)
-      (%unbalanced-set-tree-remove (unbalanced-set-comparator set)
+      (u-set-remove (unbalanced-set-comparator set)
                                    (unbalanced-set-tree set)
                                    item)
     (declare (ignore balance-needed-p))
@@ -105,15 +105,15 @@
                                        (unbalanced-set-size set)))))
 
 (defmethod is-member ((set unbalanced-set) item)
-  (nth-value 0 (%unbalanced-set-tree-lookup (unbalanced-set-comparator set)
+  (nth-value 0 (u-set-lookup (unbalanced-set-comparator set)
                                             (unbalanced-set-tree set)
                                             item)))
 
 (defmethod to-list ((set unbalanced-set))
-  (%unbalanced-set-tree-to-list (unbalanced-set-tree set)))
+  (u-set-to-list (unbalanced-set-tree set)))
 
 (defmethod for-each ((set unbalanced-set) function)
-  (do-%unbalanced-set-tree (key (unbalanced-set-tree set))
+  (do-u-set (key (unbalanced-set-tree set))
     (funcall function key)))
 
 (defmethod iterator ((set unbalanced-set))
@@ -124,15 +124,15 @@
                 right (unbalanced-set-comparator right)
                 #'compare))
 
-(define-tree %unbalanced-map-tree (:map-p t))
+(define-tree u-map (:map-p t))
 
 (define-immutable-structure (unbalanced-map (:constructor %make-unbalanced-map))
-  (tree (%unbalanced-map-tree-nil) :type %unbalanced-map-tree)
+  (tree (u-map-nil) :type u-map)
   (size 0 :type (integer 0))
   (comparator (error "comparator is required")))
 
 (defun make-unbalanced-map (comparator &key alist plist)
-  (multiple-value-bind (tree size) (make-%unbalanced-map-tree comparator :alist alist :plist plist)
+  (multiple-value-bind (tree size) (make-u-map comparator :alist alist :plist plist)
     (%make-unbalanced-map :tree tree :comparator comparator :size size)))
 
 (defun unbalanced-map (comparator &rest plist)
@@ -148,10 +148,10 @@
    :stream stream))
 
 (defmethod is-empty ((map unbalanced-map))
-  (%unbalanced-map-tree-nil-p (unbalanced-map-tree map)))
+  (u-map-nil-p (unbalanced-map-tree map)))
 
 (defmethod empty ((map unbalanced-map))
-  (copy-unbalanced-map map :tree (%unbalanced-map-tree-nil) :size 0))
+  (copy-unbalanced-map map :tree (u-map-nil) :size 0))
 
 (defmethod size ((map unbalanced-map))
   (unbalanced-map-size map))
@@ -159,7 +159,7 @@
 (defmethod with-entry ((map unbalanced-map) key value)
   (multiple-value-bind
         (tree balance-needed-p count-changed-p)
-      (%unbalanced-map-tree-insert (unbalanced-map-comparator map)
+      (u-map-insert (unbalanced-map-comparator map)
                                    (unbalanced-map-tree map)
                                    key
                                    value)
@@ -172,7 +172,7 @@
 (defmethod without-entry ((map unbalanced-map) key)
   (multiple-value-bind
         (tree balance-needed-p count-changed-p)
-      (%unbalanced-map-tree-remove (unbalanced-map-comparator map)
+      (u-map-remove (unbalanced-map-comparator map)
                                    (unbalanced-map-tree map)
                                    key)
     (declare (ignore balance-needed-p))
@@ -182,12 +182,12 @@
                                        (unbalanced-map-size map)))))
 
 (defmethod lookup-entry ((map unbalanced-map) key)
-  (%unbalanced-map-tree-lookup (unbalanced-map-comparator map)
+  (u-map-lookup (unbalanced-map-comparator map)
                                (unbalanced-map-tree map)
                                key))
 
 (defmethod for-each ((map unbalanced-map) function)
-  (do-%unbalanced-map-tree (key value (unbalanced-map-tree map))
+  (do-u-map (key value (unbalanced-map-tree map))
     (funcall function key value)))
 
 (defmethod iterator ((map unbalanced-map))
@@ -199,4 +199,4 @@
                 #'compare #'compare))
 
 (defmethod to-list ((map unbalanced-map))
-  (%unbalanced-map-tree-to-list (unbalanced-map-tree map)))
+  (u-map-to-list (unbalanced-map-tree map)))
