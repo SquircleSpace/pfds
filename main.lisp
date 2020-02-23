@@ -77,13 +77,13 @@ unspecified which value will be contained in the map."
 (defun make-vector (&key items)
   (make-persistent-vector :items items))
 
-(defun make-sequence (&key items)
+(defun make-seq (&key items)
   (make-weight-balanced-sequence :items items))
 
-(defun read-sequence (stream char)
+(defun read-seq (stream char)
   (declare (ignore char))
   (let ((forms (read-delimited-list #\] stream t)))
-    `(make-sequence :items (list ,@forms))))
+    `(make-seq :items (list ,@forms))))
 
 (defun read-map (stream)
   (let ((pairs (read-delimited-list #\} stream t)))
@@ -122,7 +122,7 @@ unspecified which value will be contained in the map."
 
 (defreadtable syntax
   (:merge :standard)
-  (:macro-char #\[ #'read-sequence nil)
+  (:macro-char #\[ #'read-seq nil)
   (:macro-char #\{ #'read-map-or-set nil)
   (:macro-char #\] #'syntax-error nil)
   (:macro-char #\} #'syntax-error nil))
