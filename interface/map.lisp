@@ -16,7 +16,7 @@
   (:use :common-lisp)
   (:import-from :pfds.shcl.io/interface/common
    #:is-empty #:empty #:define-interface
-   #:with-entry #:lookup-entry)
+   #:with-entry #:lookup-entry #:without-entry)
   (:export
    #:is-empty
    #:empty
@@ -30,7 +30,4 @@
   empty
   with-entry
   lookup-entry
-
-  (defgeneric without-entry (map key)
-    (:documentation
-     "Return a map where the entry for the given key has been removed.")))
+  without-entry)

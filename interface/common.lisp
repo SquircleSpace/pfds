@@ -19,7 +19,7 @@
    #:impure-list-builder-extract)
   (:export
    #:is-empty #:empty #:with-member
-   #:with-entry #:lookup-entry
+   #:with-entry #:lookup-entry #:without-entry
    #:to-list
    #:iterator
    #:for-each
@@ -90,6 +90,10 @@ argument."))
 If the value doesn't exist in the collection, this returns two nil values.
 If the value does exist, it returns the stored value and a non-nil
 value."))
+
+(defgeneric without-entry (collection key)
+  (:documentation
+   "Return a collection where the entry for the given key has been removed."))
 
 (defgeneric check-invariants (collection)
   (:documentation
