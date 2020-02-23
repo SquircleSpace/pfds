@@ -92,6 +92,18 @@ that this data structure requires more consing than `BATCHED-QUEUE`,
 so if you only need a queue then you should consider using
 `BATCHED-QUEUE` instead.
 
+#### `WEIGHT-BALANCED-SEQUENCE`
+
+- `MAKE-WEIGHT-BALANCED-SEQUENCE`: `O(n log(n))`
+- `WITH-LAST`: `O(log(n))`
+- `WITHOUT-LAST`: `O(log(n))`
+- `WITH-FIRST`: `O(log(n))`
+- `WITHOUT-FIRST`: `O(log(n))`
+- `PEEK-FIRST`: `O(log(n))`
+- `PEEK-LAST`: `O(log(n))`
+- `IS-EMPTY`: `O(1)`
+- `SIZE`: `O(1)`
+
 ### Heaps
 
 #### `LEFTIST-HEAP`
@@ -152,9 +164,11 @@ given above assume the heap is not used persistently.
 - `IS-EMPTY`: `O(1)`
 - `SIZE`: `O(1)`
 
+This data structure is similar to an adjustable vector.  Pushing or
+popping at the end of the vector is cheap.  Looking up an index is
+cheap.  Operating on the middle of the vector is expensive.
+
 Note: the logarithmic base for the bounds given above is very large.
-Also, the `WITH-HEAD` and `TAIL` methods add to and remove from the
-end of the vector.
 
 #### `PURE-LIST`
 
@@ -166,6 +180,21 @@ end of the vector.
 
 This is just like a Common Lisp list, except you can sleep soundly
 knowing that it is fully immutable.
+
+#### `WEIGHT-BALANCED-SEQUENCE`
+
+- `HEAD`: `O(log(n))`
+- `WITH-HEAD`: `O(log(n))`
+- `TAIL`: `O(log(n))`
+- `LOOKUP-ENTRY`: `O(log(n))`
+- `WITH-ENTRY`: `O(log(n))`
+- `WITHOUT-ENTRY`: `O(log(n))`
+- `IS-EMPTY`: `O(1)`
+- `SIZE`: `O(1)`
+
+Compared to `PERSISTENT-VECTOR`, this sequence type permits efficient
+manipulation anywhere in the sequence.  Also, the `WITH-HEAD` and `TAIL`
+methods add to and remove from the end of the sequence.
 
 ## Design decisions
 
