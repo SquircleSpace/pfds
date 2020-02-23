@@ -18,7 +18,7 @@
    #:to-list #:is-empty #:empty #:check-invariants #:for-each
    #:size #:iterator #:with-entry #:lookup-entry)
   (:import-from :pfds.shcl.io/utility/iterator-tools
-   #:compare-sets #:compare-maps)
+   #:compare-sets #:compare-maps #:iterator-flatten)
   (:import-from :pfds.shcl.io/utility/compare
    #:compare-objects #:compare)
   (:import-from :pfds.shcl.io/utility/immutable-structure
@@ -313,147 +313,363 @@
 (defmethod print-graphviz ((map weight-balanced-map) stream id-vendor)
   (print-graphviz (weight-balanced-map-tree map) stream id-vendor))
 
-(defvar *wb-seq-nil*)
+(defvar *max-array-length* 16)
 
-(defun wb-seq-nil ()
-  *wb-seq-nil*)
+(deftype wb-seq ()
+  '(or null wb-seq-node simple-array string))
 
-(define-adt weight-balanced-sequence
-    ()
-  (wb-seq-nil)
-  (wb-seq-node
-   (left (wb-seq-nil) :type weight-balanced-sequence)
-   (right (wb-seq-nil) :type weight-balanced-sequence)
-   (size 1 :type (integer 1))
-   (value nil)))
+(deftype non-empty-wb-seq ()
+  '(or wb-seq-node simple-array string))
 
-(defvar *wb-seq-nil* (make-wb-seq-nil))
-
-(define-balance-operations wb-seq)
+(define-immutable-structure (wb-seq-node (:constructor %make-wb-seq-node)
+                                         (:copier nil))
+  (left nil :type non-empty-wb-seq)
+  (right nil :type non-empty-wb-seq)
+  (size 1 :type (integer 1)))
 
 (defun wb-seq-size (tree)
   (etypecase tree
-    (wb-seq-nil
+    (null
      0)
     (wb-seq-node
-     (wb-seq-node-size tree))))
+     (wb-seq-node-size tree))
+    (array
+     (length tree))))
+
+(defun make-wb-seq-node (&key left right)
+  (%make-wb-seq-node :left left
+                     :right right
+                     :size (+ (wb-seq-size left)
+                              (wb-seq-size right))))
+
+(defun wb-seq-concat-arrays (left right)
+  (if (and (or (stringp left) (null left))
+           (or (stringp right) (null right)))
+      (concatenate 'string left right)
+      (concatenate 'vector left right)))
+
+(defun maybe-stringify (array)
+  (if (and (not (stringp array))
+           (loop :for object :across array
+                 :do (unless (characterp object)
+                       (return nil))
+                 :finally (return t)))
+      (coerce array 'string)
+      array))
+
+(defun make-wb-seq-node-splitting-arrays (left right)
+  (let ((total-items (+ (length left) (length right))))
+    (multiple-value-bind (first-length remainder) (floor total-items 2)
+      (labels
+          ((get-nth (index)
+             (if (>= index (length left))
+                 (aref right (- index (length left)))
+                 (aref left index))))
+        (let* ((first-string-p
+                 (loop :for i :below first-length
+                       :do (unless (characterp (get-nth i))
+                             (return nil))
+                       :finally (return t)))
+               (second-string-p
+                 (loop :for i :from first-length :below total-items
+                       :do (unless (characterp (get-nth i))
+                             (return nil))
+                       :finally (return t)))
+               (new-left (if first-string-p
+                             (make-array first-length :element-type 'character)
+                             (make-array first-length)))
+               (new-right (if second-string-p
+                              (make-array (+ first-length remainder) :element-type 'character)
+                              (make-array (+ first-length remainder))))
+               (target-offset 0)
+               (target-array new-left))
+          (labels
+              ((store (item)
+                 (when (>= target-offset (length target-array))
+                   (assert (eq target-array new-left))
+                   (setf target-array new-right)
+                   (setf target-offset 0))
+                 (setf (aref target-array target-offset) item)
+                 (incf target-offset)))
+            (declare (dynamic-extent #'store))
+            (loop :for item :across left :do
+              (store item))
+            (loop :for item :across right :do
+              (store item)))
+          (%make-wb-seq-node :left new-left
+                             :right new-right
+                             :size total-items))))))
+
+(defun wb-seq-rotate-left (left right)
+  (make-wb-seq-node :left (make-wb-seq left (wb-seq-node-left right))
+                    :right (wb-seq-node-right right)))
+
+(defun wb-seq-rotate-double-left (left right)
+  (let* ((right-left (wb-seq-node-left right))
+         (right-left-left (if (wb-seq-node-p right-left)
+                              (wb-seq-node-left right-left)
+                              (return-from wb-seq-rotate-double-left
+                                (wb-seq-rotate-left left right))))
+         (right-left-right (wb-seq-node-right right-left)))
+    (make-wb-seq-node :left (make-wb-seq left right-left-left)
+                      :right (make-wb-seq right-left-right (wb-seq-node-right right)))))
+
+(defun wb-seq-rotate-right (left right)
+  (make-wb-seq-node :left (wb-seq-node-left left)
+                    :right (make-wb-seq (wb-seq-node-right left) right)))
+
+(defun wb-seq-rotate-double-right (left right)
+  (let* ((left-right (wb-seq-node-right left))
+         (left-right-right (if (wb-seq-node-p left-right)
+                               (wb-seq-node-right left-right)
+                               (return-from wb-seq-rotate-double-right
+                                 (wb-seq-rotate-right left right))))
+         (left-right-left (wb-seq-node-left left-right)))
+    (make-wb-seq-node :left (make-wb-seq (wb-seq-node-left left) left-right-left)
+                      :right (make-wb-seq left-right-right right))))
+
+(defun make-wb-seq (left right)
+  (let* ((left-size (wb-seq-size left))
+         (right-size (wb-seq-size right))
+         (total-items (+ left-size right-size)))
+    (cond
+      ((zerop right-size)
+       left)
+      ((zerop left-size)
+       right)
+
+      ((and (arrayp left) (arrayp right))
+       (cond
+         ((<= total-items *max-array-length*)
+          (wb-seq-concat-arrays left right))
+         ((or (> right-size (* *balance-factor* left-size))
+              (> left-size (* *balance-factor* right-size)))
+          (make-wb-seq-node-splitting-arrays left right))
+         (t
+          (%make-wb-seq-node :left left :right right :size total-items))))
+
+      ((> right-size (* *balance-factor* left-size))
+       (let ((right-left-size (wb-seq-size (wb-seq-node-left right)))
+             (right-right-size (wb-seq-size (wb-seq-node-right right))))
+         (if (<= right-left-size right-right-size)
+             (wb-seq-rotate-left left right)
+             (wb-seq-rotate-double-left left right))))
+
+      ((> left-size (* *balance-factor* right-size))
+       (let ((left-left-size (wb-seq-size (wb-seq-node-left left)))
+             (left-right-size (wb-seq-size (wb-seq-node-right left))))
+         (if (<= left-right-size left-left-size)
+             (wb-seq-rotate-right left right)
+             (wb-seq-rotate-double-right left right))))
+
+      (t
+       (%make-wb-seq-node :left left :right right :size total-items)))))
 
 (defun wb-seq-left-size (tree)
   (wb-seq-size (wb-seq-node-left tree)))
 
 (defun wb-seq-store (tree index value)
-  (if (wb-seq-nil-p tree)
-      (if (or (equal 0 index)
-              (equal -1 index))
-          (make-wb-seq-node :value value)
-          (error "Index out of bounds!"))
-      (let ((left-weight (wb-seq-left-size tree)))
-        (cond
-          ((< index left-weight)
-           (wb-seq-balance tree :left (wb-seq-store (wb-seq-node-left tree) index value)))
-          ((= index left-weight)
-           (copy-wb-seq-node tree :value value))
-          (t
-           (wb-seq-balance tree :right (wb-seq-store (wb-seq-node-right tree) (- index (1+ left-weight)) value)))))))
-
-(defun wb-seq-lookup (tree index)
-  (if (wb-seq-nil-p tree)
-      (values nil nil)
-      (let ((left-weight (wb-seq-left-size tree)))
-        (cond
-          ((< index left-weight)
-           (wb-seq-lookup (wb-seq-node-left tree) index))
-          ((= index left-weight)
-           (wb-seq-node-value tree))
-          (t
-           (wb-seq-lookup (wb-seq-node-right tree) (- index (1+ left-weight))))))))
-
-(defun wb-seq-remove-min (tree)
   (cond
-    ((wb-seq-nil-p (wb-seq-node-left tree))
-     (values tree (wb-seq-node-right tree)))
+    ((null tree)
+     (error "Index out of bounds!"))
+    ((arrayp tree)
+     (cond
+       ((eql value (aref tree index))
+        tree)
+       ((and (stringp tree)
+             (characterp value))
+        (let ((result (copy-seq tree)))
+          (setf (aref result index) value)
+          result))
+       (t
+        (let ((result (if (stringp tree)
+                          (coerce tree '(vector t))
+                          (copy-seq tree))))
+          (setf (aref result index) value)
+          (if (characterp value)
+              (maybe-stringify result)
+              result)))))
     (t
-     (multiple-value-bind (min without-min) (wb-seq-remove-min (wb-seq-node-left tree))
-       (values min (wb-seq-balance tree :left without-min))))))
+     (let ((left-weight (wb-seq-left-size tree)))
+       (cond
+         ((< index left-weight)
+          (let* ((old-left (wb-seq-node-left tree))
+                 (new-left (wb-seq-store old-left index value)))
+            (if (eq new-left old-left)
+                tree
+                (make-wb-seq new-left (wb-seq-node-right tree)))))
+         (t
+          (let* ((old-right (wb-seq-node-right tree))
+                 (new-right (wb-seq-store old-right (- index left-weight) value)))
+            (if (eq old-right new-right)
+                tree
+                (make-wb-seq (wb-seq-node-left tree) new-right)))))))))
+
+(defun wb-seq-concatenate (left right)
+  (cond
+    ((null left)
+     right)
+    ((null right)
+     left)
+
+    ((and (wb-seq-node-p left)
+          (> (wb-seq-size left) (* *balance-factor* (wb-seq-size right))))
+     (make-wb-seq (wb-seq-node-left left)
+                  (wb-seq-concatenate (wb-seq-node-right left) right)))
+
+    ((and (wb-seq-node-p right)
+          (> (wb-seq-size right) (* *balance-factor* (wb-seq-size left))))
+     (make-wb-seq (wb-seq-concatenate left (wb-seq-node-left right))
+                  (wb-seq-node-right right)))
+
+    (t
+     (make-wb-seq left right))))
+
+(defun wb-seq-with-first (sequence object)
+  (wb-seq-concatenate (if (characterp object)
+                          (string object)
+                          (make-array 1 :initial-element object))
+                      sequence))
+
+(defun wb-seq-with-last (sequence object)
+  (wb-seq-concatenate sequence
+                      (if (characterp object)
+                          (string object)
+                          (make-array 1 :initial-element object))))
 
 (defun wb-seq-remove (tree index)
-  (if (wb-seq-nil-p tree)
-      (error "Index out of bounds: ~A" index)
-      (let ((left-weight (wb-seq-left-size tree)))
-        (cond
-          ((< index left-weight)
-           (multiple-value-bind (new-left removed) (wb-seq-remove (wb-seq-node-left tree) index)
-             (values (wb-seq-balance tree :left new-left)
-                     removed)))
-          ((= index left-weight)
-           (cond
-             ((wb-seq-nil-p (wb-seq-node-left tree))
-              (values (wb-seq-node-right tree)
-                      (wb-seq-node-value tree)))
-             ((wb-seq-nil-p (wb-seq-node-right tree))
-              (values (wb-seq-node-left tree)
-                      (wb-seq-node-value tree)))
-             (t
-              (multiple-value-bind (min without-min) (wb-seq-remove-min (wb-seq-node-right tree))
-                (values (wb-seq-balance min :right without-min :left (wb-seq-node-left tree))
-                        (wb-seq-node-value tree))))))
-          (t
-           (multiple-value-bind (new-right removed) (wb-seq-remove (wb-seq-node-right tree) (- index (1+ left-weight)))
-             (values (wb-seq-balance tree :right new-right)
-                     removed)))))))
+  (etypecase tree
+    (array
+     (assert (and (>= index 0)
+                  (< index (length tree))))
+     (cond
+       ((equal 1 (length tree))
+        (values nil (aref tree 0)))
+
+       (t
+        (let ((new-array (if (stringp tree)
+                             (make-array (1- (length tree)) :element-type 'character)
+                             (make-array (1- (length tree))))))
+          (loop :for i :below index :do
+            (setf (aref new-array i) (aref tree i)))
+          (loop :for i :from (1+ index) :below (length tree) :do
+            (setf (aref new-array (1- i)) (aref tree i)))
+          (values (maybe-stringify new-array) (aref tree index))))))
+
+    (wb-seq-node
+     (let ((left-size (wb-seq-left-size tree)))
+       (if (>= index left-size)
+           (multiple-value-bind (new-right removed-value) (wb-seq-remove (wb-seq-node-right tree) (- index left-size))
+             (values (make-wb-seq (wb-seq-node-left tree) new-right) removed-value t))
+           (multiple-value-bind (new-left removed-value) (wb-seq-remove (wb-seq-node-left tree) index)
+             (values (make-wb-seq new-left (wb-seq-node-right tree)) removed-value t)))))))
+
+(defun wb-seq-lookup (tree index)
+  (etypecase tree
+    (wb-seq-node
+     (let ((left-size (wb-seq-left-size tree)))
+       (if (>= index left-size)
+           (wb-seq-lookup (wb-seq-node-right tree) (- index left-size))
+           (wb-seq-lookup (wb-seq-node-left tree) index))))
+    (array
+     (aref tree index))))
+
+(defun wb-seq-subseq (tree min max)
+  (let ((here-size (wb-seq-size tree)))
+    (when (and (equal 0 min)
+               (equal here-size max))
+      (return-from wb-seq-subseq tree)))
+
+  (etypecase tree
+    (wb-seq-node
+     (let* ((left-size (wb-seq-left-size tree))
+            (left-touched-p (< min left-size))
+            (right-touched-p (> max left-size)))
+       (cond
+         ((and left-touched-p right-touched-p)
+          (wb-seq-concatenate (wb-seq-subseq (wb-seq-node-left tree) min left-size)
+                              (wb-seq-subseq (wb-seq-node-right tree) 0 (- max left-size))))
+         (left-touched-p
+          (wb-seq-subseq (wb-seq-node-left tree) min max))
+         (right-touched-p
+          (wb-seq-subseq (wb-seq-node-right tree) (- min left-size) (- max left-size))))))
+    (array
+     (subseq tree min max))))
 
 (defun wb-seq-for-each (tree function)
-  (unless (wb-seq-nil-p tree)
-    (wb-seq-for-each (wb-seq-node-left tree) function)
-    (funcall function (wb-seq-node-value tree))
-    (wb-seq-for-each (wb-seq-node-right tree) function)))
+  (etypecase tree
+    (wb-seq-node
+     (wb-seq-for-each (wb-seq-node-left tree) function)
+     (wb-seq-for-each (wb-seq-node-right tree) function))
+    (array
+     (loop :for object :across tree :do (funcall function object)))
+    (null)))
+
+(define-immutable-structure (weight-balanced-sequence (:constructor %make-weight-balanced-sequnce))
+  (tree nil :type wb-seq))
+
+(defvar *empty-weight-balanced-sequence* (%make-weight-balanced-sequnce))
 
 (defmethod for-each ((seq weight-balanced-sequence) function)
-  (wb-seq-for-each seq function))
+  (wb-seq-for-each (weight-balanced-sequence-tree seq) function))
 
 (defmethod size ((seq weight-balanced-sequence))
-  (wb-seq-size seq))
+  (wb-seq-size (weight-balanced-sequence-tree seq)))
 
 (defmethod is-empty ((seq weight-balanced-sequence))
-  (wb-seq-nil-p seq))
+  (null (weight-balanced-sequence-tree seq)))
 
 (defmethod empty ((seq weight-balanced-sequence))
-  (wb-seq-nil))
+  *empty-weight-balanced-sequence*)
 
-(defun wb-seq-iterator (tree)
-  (when (wb-seq-nil-p tree)
-    (return-from wb-seq-iterator
-      (lambda ()
-        (values nil nil))))
+(defun array-iterator (array)
+  (let ((offset 0))
+    (lambda ()
+      (if (>= offset (length array))
+          (values nil nil)
+          (let ((object (aref array offset)))
+            (incf offset)
+            (values object t))))))
 
-  (let ((stack (list (wb-seq-node-left tree) tree (wb-seq-node-right tree))))
+(defun %wb-seq-iterator (tree)
+  (let ((stack (list (list (wb-seq-node-left tree) (wb-seq-node-right tree)))))
     (lambda ()
       (loop
         (if (null stack)
             (return (values nil nil))
             (let* ((tip (car stack))
                    (left (first tip))
-                   (mid (second tip))
-                   (right (third tip)))
+                   (right (second tip)))
               (cond
                 (left
                  (setf (first tip) nil)
-                 (unless (wb-seq-nil-p left)
-                   (push (list (wb-seq-node-left left) left (wb-seq-node-right left))
-                         stack)))
-
-                (mid
-                 (setf (second tip) nil)
-                 (return (values (wb-seq-node-value mid) t)))
-
-                (t
+                 (if (wb-seq-node-p left)
+                     (push (list (wb-seq-node-left left) (wb-seq-node-right left))
+                           stack)
+                     (return (values (array-iterator left) t))))
+                (right
                  (pop stack)
-                 (unless (wb-seq-nil-p right)
-                   (push (list (wb-seq-node-left right) right (wb-seq-node-right right))
-                         stack))))))))))
+                 (if (wb-seq-node-p right)
+                     (push (list (wb-seq-node-left right) (wb-seq-node-right right))
+                           stack)
+                     (return (values (array-iterator right) t))))
+                (t
+                 (assert nil nil "both left and right can't be nil!")))))))))
+
+(defun wb-seq-iterator (tree)
+  (etypecase tree
+    (null
+     (lambda ()
+       (values nil nil)))
+
+    (array
+     (array-iterator tree))
+
+    (wb-seq-node
+     (iterator-flatten (%wb-seq-iterator tree)))))
 
 (defmethod iterator ((seq weight-balanced-sequence))
-  (wb-seq-iterator seq))
+  (wb-seq-iterator (weight-balanced-sequence-tree seq)))
 
 (defmethod print-object ((seq weight-balanced-sequence) stream)
   (if *print-readably*
@@ -461,61 +677,98 @@
       (print-sequence seq stream)))
 
 (defun make-weight-balanced-sequence (&key items)
-  (let ((result (wb-seq-nil)))
+  (unless items
+    (return-from make-weight-balanced-sequence
+      *empty-weight-balanced-sequence*))
+  (let (tree
+        (wip-node (make-array *max-array-length* :fill-pointer 0))
+        (wip-node-string-p t))
     (dolist (item items)
-      (setf result (wb-seq-store result (wb-seq-size result) item)))
-    result))
+      (when (>= (length wip-node) *max-array-length*)
+        (setf tree (wb-seq-concatenate tree (if wip-node-string-p
+                                                (coerce wip-node 'string)
+                                                (make-array (length wip-node) :initial-contents wip-node))))
+        (setf wip-node (make-array *max-array-length* :fill-pointer 0))
+        (setf wip-node-string-p t))
+      (unless (characterp item)
+        (setf wip-node-string-p nil))
+      (vector-push item wip-node))
+
+    (setf tree (wb-seq-concatenate tree (if wip-node-string-p
+                                            (coerce wip-node 'string)
+                                            (make-array (length wip-node) :initial-contents wip-node))))
+
+    (%make-weight-balanced-sequnce :tree tree)))
 
 (defun weight-balanced-sequence (&rest items)
   (make-weight-balanced-sequence :items items))
 
 (defmethod with-entry ((seq weight-balanced-sequence) index value)
-  (wb-seq-store seq index value))
+  (if (equal index (wb-seq-size (weight-balanced-sequence-tree seq)))
+      (%make-weight-balanced-sequnce :tree (wb-seq-with-last (weight-balanced-sequence-tree seq) value))
+      (copy-weight-balanced-sequence seq :tree (wb-seq-store (weight-balanced-sequence-tree seq) index value))))
+
+(defun weight-balanced-sequence-remove-entry (seq index)
+  (let* ((tree (weight-balanced-sequence-tree seq))
+         (size (wb-seq-size tree)))
+    (cond
+      ((or (< index 0)
+           (>= index size))
+       (values seq nil nil))
+
+      (t
+       (multiple-value-bind (new-tree removed-value) (wb-seq-remove tree index)
+         (values
+          (if new-tree
+              (%make-weight-balanced-sequnce :tree new-tree)
+              *empty-weight-balanced-sequence*)
+          removed-value
+          t))))))
 
 (defmethod without-entry ((seq weight-balanced-sequence) index)
-  (nth-value 0 (wb-seq-remove seq index)))
+  (weight-balanced-sequence-remove-entry seq index))
 
 (defmethod lookup-entry ((seq weight-balanced-sequence) index)
-  (wb-seq-lookup seq index))
+  (let* ((tree (weight-balanced-sequence-tree seq))
+         (size (wb-seq-size tree)))
+    (cond
+      ((or (< index 0) (>= index size))
+       (values nil nil))
+      (t
+       (values (wb-seq-lookup tree index) t)))))
 
 (defmethod with-head ((seq weight-balanced-sequence) value)
-  (wb-seq-store seq (wb-seq-size seq) value))
+  (%make-weight-balanced-sequnce :tree (wb-seq-with-last (weight-balanced-sequence-tree seq) value)))
 
 (defmethod head ((seq weight-balanced-sequence))
-  (if (wb-seq-nil-p seq)
-      (values nil nil)
-      (wb-seq-lookup seq (1- (wb-seq-size seq)))))
+  (let ((tree (weight-balanced-sequence-tree seq)))
+    (if tree
+        (values (wb-seq-lookup tree (1- (wb-seq-size tree))) t)
+        (values nil nil))))
 
 (defmethod tail ((seq weight-balanced-sequence))
-  (if (wb-seq-nil-p seq)
-      (values seq nil nil)
-      (multiple-value-bind (new-seq removed-value) (wb-seq-remove seq (1- (wb-seq-size seq)))
-        (values new-seq removed-value t))))
+  (weight-balanced-sequence-remove-entry seq (1- (wb-seq-size (weight-balanced-sequence-tree seq)))))
 
 (defmethod with-first ((seq weight-balanced-sequence) value)
-  (wb-seq-store seq -1 value))
+  (%make-weight-balanced-sequnce :tree (wb-seq-with-first (weight-balanced-sequence-tree seq) value)))
 
 (defmethod with-last ((seq weight-balanced-sequence) value)
-  (wb-seq-store seq (wb-seq-size seq) value))
+  (%make-weight-balanced-sequnce :tree (wb-seq-with-last (weight-balanced-sequence-tree seq) value)))
 
 (defmethod without-first ((seq weight-balanced-sequence))
-  (if (wb-seq-nil-p seq)
-      (values seq nil nil)
-      (multiple-value-bind (new-seq removed) (wb-seq-remove seq 0)
-        (values new-seq removed t))))
+  (weight-balanced-sequence-remove-entry seq 0))
 
 (defmethod without-last ((seq weight-balanced-sequence))
-  (if (wb-seq-nil-p seq)
-      (values seq nil nil)
-      (multiple-value-bind (new-seq removed) (wb-seq-remove seq (1- (wb-seq-size seq)))
-        (values new-seq removed t))))
+  (weight-balanced-sequence-remove-entry seq (1- (wb-seq-size (weight-balanced-sequence-tree seq)))))
 
 (defmethod peek-first ((seq weight-balanced-sequence))
-  (if (wb-seq-nil-p seq)
-      (values nil nil)
-      (wb-seq-lookup seq 0)))
+  (let ((tree (weight-balanced-sequence-tree seq)))
+    (if tree
+        (values (wb-seq-lookup tree 0) t)
+        (values nil nil))))
 
 (defmethod peek-last ((seq weight-balanced-sequence))
-  (if (wb-seq-nil-p seq)
-      (values nil nil)
-      (wb-seq-lookup seq (1- (wb-seq-size seq)))))
+  (let ((tree (weight-balanced-sequence-tree seq)))
+    (if tree
+        (values (wb-seq-lookup tree (1- (wb-seq-size tree))) t)
+        (values nil nil))))
