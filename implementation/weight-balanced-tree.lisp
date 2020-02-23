@@ -16,9 +16,11 @@
   (:use :common-lisp)
   (:import-from :pfds.shcl.io/interface/common
    #:to-list #:is-empty #:empty #:check-invariants #:for-each
-   #:size #:iterator #:with-entry #:lookup-entry)
+   #:size #:iterator #:with-entry #:lookup-entry
+   #:print-graphviz #:next-graphviz-id
+   #:without-entry #:lookup-entry)
   (:import-from :pfds.shcl.io/utility/iterator-tools
-   #:compare-sets #:compare-maps #:iterator-flatten)
+   #:compare-sets #:compare-maps #:iterator-flatten #:compare-containers)
   (:import-from :pfds.shcl.io/utility/compare
    #:compare-objects #:compare)
   (:import-from :pfds.shcl.io/utility/immutable-structure
@@ -29,16 +31,14 @@
    #:print-map #:print-set #:print-sequence)
   (:import-from :pfds.shcl.io/interface/set
    #:with-member #:without-member #:is-member)
-  (:import-from :pfds.shcl.io/interface/map
-   #:with-entry #:without-entry #:lookup-entry)
+  (:import-from :pfds.shcl.io/interface/map)
   (:import-from :pfds.shcl.io/interface/list
    #:head #:with-head #:tail)
   (:import-from :pfds.shcl.io/interface/deque
    #:with-first #:with-last #:without-first
    #:without-last #:peek-first #:peek-last)
   (:import-from :pfds.shcl.io/utility/tree
-   #:define-tree #:print-graphviz
-   #:node-left #:node-right #:nil-tree-p)
+   #:define-tree #:node-left #:node-right #:nil-tree-p)
   (:export
    #:is-empty
    #:empty
@@ -772,3 +772,46 @@
     (if tree
         (values (wb-seq-lookup tree (1- (wb-seq-size tree))) t)
         (values nil nil))))
+
+(defmethod compare-objects ((left weight-balanced-sequence) (right weight-balanced-sequence))
+  (compare-containers left right #'compare))
+
+(defun wb-seq-print-graphviz (tree stream id-vendor)
+  (let ((id (next-graphviz-id id-vendor)))
+    (etypecase tree
+      (null
+       (format stream "ID~A [label=\"~A\"]~%" id nil)
+       id)
+      (wb-seq-node
+       (format stream "ID~A [label=\"~A\"]~%" id (wb-seq-size tree))
+       (let ((child-id (wb-seq-print-graphviz (wb-seq-node-left tree) stream id-vendor)))
+         (format stream "ID~A -> ID~A~%" id child-id))
+       (let ((child-id (wb-seq-print-graphviz (wb-seq-node-right tree) stream id-vendor)))
+         (format stream "ID~A -> ID~A~%" id child-id))
+       id)
+      (array
+       (format stream "ID~A [label=\"~A\" shape=box]~%" id tree)
+       id))))
+
+(defmethod print-graphviz ((seq weight-balanced-sequence) stream id-vendor)
+  (wb-seq-print-graphviz (weight-balanced-sequence-tree seq) stream id-vendor))
+
+(defun check-wb-seq-invariants (tree)
+  (etypecase tree
+    (null)
+    (array
+     (cassert (eq tree (maybe-stringify tree))))
+    (wb-seq-node
+     (let* ((left (wb-seq-node-left tree))
+            (left-size (wb-seq-size left))
+            (right (wb-seq-node-right tree))
+            (right-size (wb-seq-size right)))
+       (cassert (<= right-size (* *balance-factor* left-size)))
+       (cassert (<= left-size (* *balance-factor* right-size)))
+       (cassert (equal (wb-seq-size tree)
+                       (+ left-size right-size)))
+       (check-wb-seq-invariants left)
+       (check-wb-seq-invariants right)))))
+
+(defmethod check-invariants ((seq weight-balanced-sequence))
+  (check-wb-seq-invariants (weight-balanced-sequence-tree seq)))
