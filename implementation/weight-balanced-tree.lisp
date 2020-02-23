@@ -26,7 +26,7 @@
   (:import-from :pfds.shcl.io/utility/misc
    #:intern-conc #:cassert #:quote-if-symbol)
   (:import-from :pfds.shcl.io/utility/printer
-   #:print-map #:print-set #:print-vector)
+   #:print-map #:print-set #:print-sequence)
   (:import-from :pfds.shcl.io/interface/set
    #:with-member #:without-member #:is-member)
   (:import-from :pfds.shcl.io/interface/map
@@ -458,7 +458,7 @@
 (defmethod print-object ((seq weight-balanced-sequence) stream)
   (if *print-readably*
       (call-next-method)
-      (print-vector seq stream)))
+      (print-sequence seq stream)))
 
 (defun make-weight-balanced-sequence (&key items)
   (let ((result (wb-seq-nil)))

@@ -19,7 +19,7 @@
   (:import-from :pfds.shcl.io/utility/misc
    #:quote-if-symbol)
   (:export
-   #:print-set #:print-map))
+   #:print-set #:print-map #:print-sequence))
 (in-package :pfds.shcl.io/utility/printer)
 
 (defun print-set (set stream)
@@ -42,11 +42,11 @@
                         (write-string " " stream)
                         (pprint-newline :fill stream))))))
 
-(defun print-vector (vector stream)
-  (if (is-empty vector)
+(defun print-sequence (sequence stream)
+  (if (is-empty sequence)
       (write-string "[]" stream)
       (pprint-logical-block (stream nil :prefix "[ " :suffix "]")
-        (for-each vector (lambda (obj)
+        (for-each sequence (lambda (obj)
                            (write (quote-if-symbol obj) :stream stream)
                            (write-string " " stream)
                            (pprint-newline :fill stream))))))

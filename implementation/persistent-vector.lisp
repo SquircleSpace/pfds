@@ -24,7 +24,7 @@
   (:import-from :pfds.shcl.io/utility/immutable-structure
    #:define-immutable-structure)
   (:import-from :pfds.shcl.io/utility/printer
-   #:print-vector)
+   #:print-sequence)
   (:import-from :pfds.shcl.io/utility/misc
    #:intern-conc #:quote-if-symbol)
   (:import-from :pfds.shcl.io/utility/impure-list-builder
@@ -283,7 +283,7 @@
 (defmethod print-object ((p-vec persistent-vector) stream)
   (if *print-readably*
       (call-next-method)
-      (print-vector p-vec stream)))
+      (print-sequence p-vec stream)))
 
 (defun make-persistent-vector (&key items)
   (let ((result *empty-persistent-vector*))

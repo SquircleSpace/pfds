@@ -27,6 +27,8 @@
    #:make-leftist-heap)
   (:import-from :pfds.shcl.io/implementation/persistent-vector
    #:make-persistent-vector)
+  (:import-from :pfds.shcl.io/implementation/weight-balanced-tree
+   #:make-weight-balanced-sequence)
   (:import-from :pfds.shcl.io/utility/compare
    #:compare)
   (:import-from :named-readtables
@@ -75,10 +77,13 @@ unspecified which value will be contained in the map."
 (defun make-vector (&key items)
   (make-persistent-vector :items items))
 
-(defun read-vector (stream char)
+(defun make-sequence (&key items)
+  (make-weight-balanced-sequence :items items))
+
+(defun read-sequence (stream char)
   (declare (ignore char))
   (let ((forms (read-delimited-list #\] stream t)))
-    `(make-vector :items (list ,@forms))))
+    `(make-sequence :items (list ,@forms))))
 
 (defun read-map (stream)
   (let ((pairs (read-delimited-list #\} stream t)))
@@ -117,7 +122,7 @@ unspecified which value will be contained in the map."
 
 (defreadtable syntax
   (:merge :standard)
-  (:macro-char #\[ #'read-vector nil)
+  (:macro-char #\[ #'read-sequence nil)
   (:macro-char #\{ #'read-map-or-set nil)
   (:macro-char #\] #'syntax-error nil)
   (:macro-char #\} #'syntax-error nil))
