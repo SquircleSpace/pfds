@@ -535,16 +535,10 @@
      (make-wb-seq left right))))
 
 (defun wb-seq-with-first (sequence object)
-  (wb-seq-concatenate (if (characterp object)
-                          (string object)
-                          (make-array 1 :initial-element object))
-                      sequence))
+  (wb-seq-insert sequence 0 object))
 
 (defun wb-seq-with-last (sequence object)
-  (wb-seq-concatenate sequence
-                      (if (characterp object)
-                          (string object)
-                          (make-array 1 :initial-element object))))
+  (wb-seq-insert sequence (wb-seq-size sequence) object))
 
 (defun wb-seq-remove (tree index)
   (etypecase tree
