@@ -17,6 +17,8 @@
   (:import-from :pfds.shcl.io/interface/common
    #:to-list #:check-invariants #:for-each #:size
    #:iterator)
+  (:import-from :pfds.shcl.io/utility/printer
+   #:print-container)
   (:import-from :pfds.shcl.io/utility/iterator-tools
    #:iterator-flatten* #:compare-containers)
   (:import-from :pfds.shcl.io/utility/compare
@@ -73,8 +75,7 @@
 (defmethod print-object ((queue batched-queue) stream)
   (if *print-readably*
       (call-next-method)
-      (write `(batched-queue ,@(to-list queue))
-             :stream stream)))
+      (print-container queue stream)))
 
 (defvar *empty-batched-queue* (%make-batched-queue))
 

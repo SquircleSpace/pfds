@@ -27,7 +27,7 @@
   (:import-from :pfds.shcl.io/utility/printer
    #:print-sequence)
   (:import-from :pfds.shcl.io/utility/misc
-   #:intern-conc #:quote-if-symbol)
+   #:intern-conc)
   (:import-from :pfds.shcl.io/utility/impure-list-builder
    #:make-impure-list-builder #:impure-list-builder-add
    #:impure-list-builder-extract)

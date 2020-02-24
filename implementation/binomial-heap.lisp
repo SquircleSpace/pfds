@@ -17,6 +17,8 @@
   (:import-from :pfds.shcl.io/interface/common
    #:to-list #:print-graphviz #:next-graphviz-id
    #:check-invariants #:for-each #:size #:iterator)
+  (:import-from :pfds.shcl.io/utility/printer
+   #:print-container)
   (:import-from :pfds.shcl.io/utility/impure-list-builder
    #:make-impure-list-builder #:impure-list-builder-add
    #:impure-list-builder-extract)
@@ -258,8 +260,7 @@
 (defmethod print-object ((heap binomial-heap) stream)
   (if *print-readably*
       (call-next-method)
-      (write `(binomial-heap ,(binomial-heap-comparator heap) ,@(to-list heap))
-             :stream stream)))
+      (print-container heap stream)))
 
 (defun make-binomial-heap (comparator &key items)
   (let (ranked-tree-list

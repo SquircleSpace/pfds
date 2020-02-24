@@ -15,19 +15,29 @@
 (defpackage :pfds.shcl.io/utility/printer
   (:use :common-lisp)
   (:import-from :pfds.shcl.io/interface/common
-   #:for-each #:is-empty)
-  (:import-from :pfds.shcl.io/utility/misc
-   #:quote-if-symbol)
+   #:for-each #:is-empty #:to-list)
   (:export
-   #:print-set #:print-map #:print-sequence))
+   #:print-set #:print-map #:print-sequence
+   #:print-container))
 (in-package :pfds.shcl.io/utility/printer)
+
+(defun quote-for-printing (object)
+  (typecase object
+    (keyword
+     object)
+    (symbol
+     `',object)
+    (cons
+     `',object)
+    (t
+     object)))
 
 (defun print-set (set stream)
   (if (is-empty set)
       (write-string "{{}}" stream)
       (pprint-logical-block (stream nil :prefix "{{ " :suffix "}}")
         (for-each set (lambda (obj)
-                        (write (quote-if-symbol obj) :stream stream)
+                        (write (quote-for-printing obj) :stream stream)
                         (write-string " " stream)
                         (pprint-newline :fill stream))))))
 
@@ -36,8 +46,8 @@
       (write-string "{}" stream)
       (pprint-logical-block (stream nil :prefix "{ " :suffix "}")
         (for-each map (lambda (pair)
-                        (write `(,(quote-if-symbol (car pair))
-                                 ,(quote-if-symbol (cdr pair)))
+                        (write `(,(quote-for-printing (car pair))
+                                 ,(quote-for-printing (cdr pair)))
                                :stream stream)
                         (write-string " " stream)
                         (pprint-newline :fill stream))))))
@@ -47,6 +57,15 @@
       (write-string "[]" stream)
       (pprint-logical-block (stream nil :prefix "[ " :suffix "]")
         (for-each sequence (lambda (obj)
-                           (write (quote-if-symbol obj) :stream stream)
+                           (write (quote-for-printing obj) :stream stream)
                            (write-string " " stream)
                            (pprint-newline :fill stream))))))
+
+(defun print-container (container stream)
+  (print-unreadable-object (container stream :type t)
+    (let ((items (to-list container)))
+      (pprint-logical-block (stream items)
+        (dolist (item items)
+          (write item :stream stream)
+          (format stream " ")
+          (pprint-newline :fill stream))))))

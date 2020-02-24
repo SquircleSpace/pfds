@@ -17,6 +17,8 @@
   (:import-from :pfds.shcl.io/interface/common
    #:to-list #:check-invariants #:print-graphviz #:for-each
    #:size #:iterator)
+  (:import-from :pfds.shcl.io/utility/printer
+   #:print-container)
   (:import-from :pfds.shcl.io/utility/iterator-tools
    #:compare-heaps #:iterator-to-list)
   (:import-from :pfds.shcl.io/utility/compare
@@ -27,7 +29,7 @@
   (:import-from :pfds.shcl.io/utility/tree
    #:define-tree)
   (:import-from :pfds.shcl.io/utility/misc
-   #:intern-conc #:cassert #:quote-if-symbol)
+   #:intern-conc #:cassert)
   (:import-from :pfds.shcl.io/utility/list
    #:list-set-is-member #:list-map-lookup)
   (:import-from :pfds.shcl.io/utility/structure-mop
@@ -456,9 +458,13 @@
 (defmethod print-object ((splay-set impure-splay-set) stream)
   (if *print-readably*
       (call-next-method)
-      (write `(make-impure-splay-set ,(quote-if-symbol (impure-splay-set-comparator splay-set))
-                                     :items (list ,@(mapcar #'quote-if-symbol (impure-splay-set-to-list splay-set))))
-             :stream stream)))
+      (print-unreadable-object (splay-set stream :type t)
+        (let ((items (impure-splay-set-to-list splay-set)))
+          (pprint-logical-block (stream items)
+            (dolist (item items)
+              (write item :stream stream)
+              (format stream " ")
+              (pprint-newline :fill stream)))))))
 
 (defmethod print-graphviz ((map impure-splay-set) stream id-vendor)
   (print-graphviz (impure-splay-set-tree map) stream id-vendor))
@@ -531,12 +537,13 @@
 (defmethod print-object ((splay-map impure-splay-map) stream)
   (if *print-readably*
       (call-next-method)
-      (labels
-          ((clean (pair)
-             `(cons ,(quote-if-symbol (car pair)) ,(quote-if-symbol (cdr pair)))))
-        (write `(make-impure-splay-map ,(quote-if-symbol (impure-splay-map-comparator splay-map))
-                                       :alist (list ,@(mapcar #'clean (impure-splay-map-to-list splay-map))))
-               :stream stream))))
+      (print-unreadable-object (splay-map stream :type t)
+        (let ((items (impure-splay-map-to-list splay-map)))
+          (pprint-logical-block (stream items)
+            (dolist (item items)
+              (write item :stream stream)
+              (format stream " ")
+              (pprint-newline :fill stream)))))))
 
 (defmethod print-graphviz ((map impure-splay-map) stream id-vendor)
   (print-graphviz (impure-splay-map-tree map) stream id-vendor))
@@ -705,8 +712,7 @@
 (defmethod print-object ((heap splay-heap) stream)
   (if *print-readably*
       (call-next-method)
-      (write `(splay-heap ,(splay-heap-comparator heap) ,@(to-list heap))
-             :stream stream)))
+      (print-container heap stream)))
 
 (defmethod print-graphviz ((heap splay-heap) stream id-vendor)
   (print-graphviz (splay-heap-tree heap) stream id-vendor))

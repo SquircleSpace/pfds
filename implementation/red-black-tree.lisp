@@ -27,7 +27,7 @@
   (:import-from :pfds.shcl.io/utility/immutable-structure
    #:define-immutable-structure)
   (:import-from :pfds.shcl.io/utility/misc
-   #:intern-conc #:cassert #:quote-if-symbol)
+   #:intern-conc #:cassert)
   (:import-from :pfds.shcl.io/interface/set
    #:with-member #:without-member #:is-member)
   (:import-from :pfds.shcl.io/interface/map

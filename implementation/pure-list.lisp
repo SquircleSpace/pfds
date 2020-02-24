@@ -17,8 +17,8 @@
   (:import-from :pfds.shcl.io/interface/common
    #:to-list #:for-each #:size #:iterator
    #:for-each-kv)
-  (:import-from :pfds.shcl.io/utility/misc
-   #:quote-if-symbol)
+  (:import-from :pfds.shcl.io/utility/printer
+   #:print-container)
   (:import-from :pfds.shcl.io/utility/iterator-tools
    #:compare-iterator-contents)
   (:import-from :pfds.shcl.io/utility/compare
@@ -131,8 +131,7 @@
 (defmethod print-object ((list pure-list) stream)
   (if *print-readably*
       (call-next-method)
-      (write `(make-pure-list :items (list ,@(mapcar #'quote-if-symbol (to-list list))))
-             :stream stream)))
+      (print-container list stream)))
 
 (defmethod size ((list pure-list-nil))
   0)

@@ -23,7 +23,7 @@
   (:import-from :pfds.shcl.io/utility/immutable-structure
    #:define-adt #:structure-convert #:define-immutable-structure)
   (:import-from :pfds.shcl.io/utility/misc
-   #:intern-conc #:cassert #:quote-if-symbol)
+   #:intern-conc #:cassert)
   (:import-from :pfds.shcl.io/utility/list
    #:list-set-with #:list-set-without #:list-set #:list-set-is-member
    #:list-map-with #:list-map-without #:list-map #:list-map-lookup)

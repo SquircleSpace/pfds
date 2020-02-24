@@ -21,8 +21,6 @@
    #:compare-sets #:compare-maps)
   (:import-from :pfds.shcl.io/utility/compare
    #:compare-objects #:compare)
-  (:import-from :pfds.shcl.io/utility/misc
-   #:quote-if-symbol)
   (:import-from :pfds.shcl.io/utility/printer
    #:print-map #:print-set)
   (:import-from :pfds.shcl.io/utility/immutable-structure

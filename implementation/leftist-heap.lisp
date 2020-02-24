@@ -17,6 +17,8 @@
   (:import-from :pfds.shcl.io/interface/common
    #:to-list #:print-graphviz #:next-graphviz-id #:for-each
    #:size #:iterator)
+  (:import-from :pfds.shcl.io/utility/printer
+   #:print-container)
   (:import-from :pfds.shcl.io/utility/iterator-tools
    #:compare-heaps)
   (:import-from :pfds.shcl.io/utility/compare
@@ -141,8 +143,7 @@
 (defmethod print-object ((heap leftist-heap) stream)
   (if *print-readably*
       (call-next-method)
-      (write `(leftist-heap ,(leftist-heap-comparator heap) ,@(to-list heap))
-             :stream stream)))
+      (print-container heap stream)))
 
 (defun rank (guts)
   (etypecase guts

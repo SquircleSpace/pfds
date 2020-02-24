@@ -16,6 +16,8 @@
   (:use :common-lisp)
   (:import-from :pfds.shcl.io/interface/common
    #:to-list #:check-invariants #:for-each #:size #:iterator)
+  (:import-from :pfds.shcl.io/utility/printer
+   #:print-container)
   (:import-from :pfds.shcl.io/utility/iterator-tools
    #:compare-containers)
   (:import-from :pfds.shcl.io/utility/compare
@@ -80,8 +82,7 @@
 (defmethod print-object ((deque batched-deque) stream)
   (if *print-readably*
       (call-next-method)
-      (write `(batched-deque ,@(to-list deque))
-             :stream stream)))
+      (print-container deque stream)))
 
 (defvar *empty-batched-deque* (%make-batched-deque))
 

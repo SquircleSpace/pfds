@@ -26,7 +26,7 @@
   (:import-from :pfds.shcl.io/utility/immutable-structure
    #:define-immutable-structure #:define-adt)
   (:import-from :pfds.shcl.io/utility/misc
-   #:intern-conc #:cassert #:quote-if-symbol)
+   #:intern-conc #:cassert)
   (:import-from :pfds.shcl.io/utility/printer
    #:print-map #:print-set #:print-sequence)
   (:import-from :pfds.shcl.io/interface/set
