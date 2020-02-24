@@ -6,6 +6,17 @@ structures.
 Mostly, the data structures come from "Purely Functional Data
 Structures" by Chris Okasaki.
 
+This library provides multiple implementations of various data
+structures so that you can pick the one that fits your needs.  If you
+don't want to think too much about it, the `PFDS.SHCL.IO` package
+exposes convenience constructors for common data structures (namely
+sets, maps, sequences, and heaps).  Unless documented otherwise, you
+may assume that all data structures provided by this library may be
+used persistently.
+
+If you are inclined to use reader macros, `PFDS.SHCL.IO` contains a
+named readtable with macros for sets, maps, and sequences.
+
 ## Data Structures
 
 ### Maps
