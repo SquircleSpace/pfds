@@ -16,7 +16,8 @@
   (:use :common-lisp)
   (:import-from :pfds.shcl.io/interface/common
    #:to-list #:is-empty #:empty #:check-invariants
-   #:print-graphviz #:for-each #:size #:iterator)
+   #:print-graphviz #:for-each #:size #:iterator
+   #:for-each-kv)
   (:import-from :pfds.shcl.io/utility/iterator-tools
    #:compare-sets #:compare-maps)
   (:import-from :pfds.shcl.io/utility/printer
@@ -542,6 +543,10 @@
 (defmethod for-each ((map red-black-map) function)
   (do-rb-map (key value (red-black-map-tree map))
     (funcall function (cons key value))))
+
+(defmethod for-each-kv ((map red-black-map) function)
+  (do-rb-map (key value (red-black-map-tree map))
+    (funcall function key value)))
 
 (defmethod iterator ((map red-black-map))
   (iterator (red-black-map-tree map)))

@@ -18,7 +18,7 @@
    #:to-list #:is-empty #:empty #:check-invariants #:for-each
    #:size #:iterator #:with-entry #:lookup-entry
    #:print-graphviz #:next-graphviz-id
-   #:without-entry #:lookup-entry #:do-sequence)
+   #:without-entry #:lookup-entry #:do-sequence #:for-each-kv)
   (:import-from :pfds.shcl.io/utility/iterator-tools
    #:compare-sets #:compare-maps #:iterator-flatten #:compare-containers)
   (:import-from :pfds.shcl.io/utility/compare
@@ -271,6 +271,10 @@
 (defmethod for-each ((map weight-balanced-map) function)
   (do-wb-map (key value (weight-balanced-map-tree map))
     (funcall function (cons key value))))
+
+(defmethod for-each-kv ((map weight-balanced-map) function)
+  (do-wb-map (key value (weight-balanced-map-tree map))
+    (funcall function key value)))
 
 (defmethod iterator ((map weight-balanced-map))
   (iterator (weight-balanced-map-tree map)))
@@ -655,13 +659,17 @@
     (array
      (subseq tree min max))))
 
-(defun wb-seq-for-each (tree function)
+(defun wb-seq-for-each (tree function offset)
   (etypecase tree
     (wb-seq-node
-     (wb-seq-for-each (wb-seq-node-left tree) function)
-     (wb-seq-for-each (wb-seq-node-right tree) function))
+     (let ((left (wb-seq-node-left tree))
+           (right (wb-seq-node-right tree)))
+       (wb-seq-for-each left function offset)
+       (wb-seq-for-each right function (+ offset (wb-seq-size left)))))
     (array
-     (loop :for object :across tree :do (funcall function object)))
+     (loop :for object :across tree
+           :for index :from offset
+           :do (funcall function index object)))
     (null)))
 
 (define-immutable-structure (weight-balanced-sequence (:constructor %make-weight-balanced-sequnce))
@@ -670,7 +678,14 @@
 (defvar *empty-weight-balanced-sequence* (%make-weight-balanced-sequnce))
 
 (defmethod for-each ((seq weight-balanced-sequence) function)
-  (wb-seq-for-each (weight-balanced-sequence-tree seq) function))
+  (wb-seq-for-each (weight-balanced-sequence-tree seq)
+                   (lambda (k v)
+                     (declare (ignore k))
+                     (funcall function v))
+                   0))
+
+(defmethod for-each-kv ((seq weight-balanced-sequence) function)
+  (wb-seq-for-each (weight-balanced-sequence-tree seq) function 0))
 
 (defmethod size ((seq weight-balanced-sequence))
   (wb-seq-size (weight-balanced-sequence-tree seq)))

@@ -15,7 +15,7 @@
 (defpackage :pfds.shcl.io/implementation/persistent-vector
   (:use :common-lisp)
   (:import-from :pfds.shcl.io/interface/common
-   #:to-list #:check-invariants #:for-each
+   #:to-list #:check-invariants #:for-each #:for-each-kv
    #:with-entry #:lookup-entry #:size #:iterator
    #:without-entry)
   (:import-from :pfds.shcl.io/utility/iterator-tools
@@ -338,22 +338,34 @@
       (values nil nil)
       (values (persistent-vector-lookup p-vec key) t)))
 
-(defun do-vector-tree-f (vec height fn)
+(defun do-vector-tree-f (vec height fn index)
   (cond
     ((equal height 1)
-     (loop :for object :across vec :do
-       (funcall fn object)))
+     (loop :for object :across vec
+           :for offset :from index
+           :do
+              (funcall fn offset object)))
     (t
-     (loop :for object :across vec :do
-       (do-vector-tree-f object (1- height) fn)))))
+     (loop :for object :across vec
+           :for offset = index :then (+ offset (expt +branching-factor+ (1- height))) :do
+             (do-vector-tree-f object (1- height) fn offset)))))
 
-(defmethod for-each ((p-vec persistent-vector) function)
+(defun persistent-vector-for-each-kv (p-vec function)
   (when (zerop (persistent-vector-count p-vec))
-    (return-from for-each))
+    (return-from persistent-vector-for-each-kv))
 
   (let ((tree (persistent-vector-tree p-vec))
         (height (persistent-vector-height p-vec)))
-    (do-vector-tree-f tree height function)))
+    (do-vector-tree-f tree height function 0)))
+
+(defmethod for-each ((p-vec persistent-vector) function)
+  (persistent-vector-for-each-kv p-vec
+                                 (lambda (k v)
+                                   (declare (ignore k))
+                                   (funcall function v))))
+
+(defmethod for-each-kv ((p-vec persistent-vector) function)
+  (persistent-vector-for-each-kv p-vec function))
 
 (defun make-persistent-vector-iterator (p-vec)
   (let ((offset 0))

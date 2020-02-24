@@ -15,7 +15,8 @@
 (defpackage :pfds.shcl.io/implementation/pure-list
   (:use :common-lisp)
   (:import-from :pfds.shcl.io/interface/common
-   #:to-list #:for-each #:size #:iterator)
+   #:to-list #:for-each #:size #:iterator
+   #:for-each-kv)
   (:import-from :pfds.shcl.io/utility/misc
    #:quote-if-symbol)
   (:import-from :pfds.shcl.io/utility/iterator-tools
@@ -65,11 +66,23 @@
 (defmethod for-each ((list pure-list-nil) function)
   nil)
 
-(defmethod for-each ((list pure-list-cons) function)
-  (loop :until (pure-list-nil-p list) :do
+(defmethod for-each-kv ((list pure-list-nil) function)
+  nil)
+
+(defun pure-list-for-each-kv (list function)
+  (loop :until (pure-list-nil-p list)
+        :for index :from 0 :do
     (progn
-      (funcall function (pure-list-cons-head list))
+      (funcall function index (pure-list-cons-head list))
       (setf list (pure-list-cons-tail list)))))
+
+(defmethod for-each ((list pure-list-cons) function)
+  (pure-list-for-each-kv list (lambda (k v)
+                                (declare (ignore k))
+                                (funcall function v))))
+
+(defmethod for-each-kv ((list pure-list-cons) function)
+  (pure-list-for-each-kv list function))
 
 (defun make-pure-list-iterator (list)
   (lambda ()

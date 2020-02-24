@@ -16,7 +16,7 @@
   (:use :common-lisp)
   (:import-from :pfds.shcl.io/interface/common
    #:to-list #:is-empty #:empty #:for-each #:iterator
-   #:size)
+   #:size #:for-each-kv)
   (:import-from :pfds.shcl.io/utility/iterator-tools
    #:compare-sets #:compare-maps)
   (:import-from :pfds.shcl.io/utility/compare
@@ -187,6 +187,10 @@
 (defmethod for-each ((map unbalanced-map) function)
   (do-u-map (key value (unbalanced-map-tree map))
     (funcall function (cons key value))))
+
+(defmethod for-each-kv ((map unbalanced-map) function)
+  (do-u-map (key value (unbalanced-map-tree map))
+    (funcall function key value)))
 
 (defmethod iterator ((map unbalanced-map))
   (iterator (unbalanced-map-tree map)))

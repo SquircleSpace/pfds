@@ -23,6 +23,7 @@
    #:to-list
    #:iterator
    #:for-each
+   #:for-each-kv
    #:do-sequence
    #:size
    #:check-invariants
@@ -52,6 +53,18 @@
 
 In the case of maps, the function will receive a cons cell containing
 a key and a value."))
+
+(defgeneric for-each-kv (collection function)
+  (:documentation
+   "Call the given function on each pair in the collection.
+
+Each time the function is called, it receives a key and a value.  The
+key argument represents a value that can be passed to functions such
+as `LOOKUP-ENTRY', `WITH-ENTRY', and `WITHOUT-ENTRY'.  The value is
+the object the collection stores in association with the key.
+
+This generic function is only valid for containers that support
+`LOOKUP-ENTRY' and similar functions."))
 
 (defmacro do-sequence ((value collection &optional result) &body body)
   "Iterate over the values contained in the collection."
