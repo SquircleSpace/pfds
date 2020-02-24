@@ -16,6 +16,8 @@
   (:use :common-lisp)
   (:import-from :pfds.shcl.io/interface/common
    #:to-list #:for-each #:size #:iterator)
+  (:import-from :pfds.shcl.io/utility/misc
+   #:quote-if-symbol)
   (:import-from :pfds.shcl.io/utility/iterator-tools
    #:compare-iterator-contents)
   (:import-from :pfds.shcl.io/utility/compare
@@ -26,6 +28,10 @@
    #:compare #:compare* #:compare-objects)
   (:import-from :pfds.shcl.io/interface/list
    #:with-head #:head #:tail #:is-empty #:empty)
+  (:import-from :pfds.shcl.io/interface/sequence
+   #:with-entry #:lookup-entry #:without-entry
+   #:concatenate-sequences #:subsequence
+   #:sequence-insert)
   (:export
    #:with-head #:head #:tail #:is-empty #:empty
    #:pure-list #:make-pure-list #:pure-list-p))
@@ -51,10 +57,10 @@
          (if objects
              (make-pure-list-cons :head (car objects) :tail (visit (cdr objects)))
              *empty-pure-list*)))
-    (visit objects)))
+    (visit items)))
 
 (defun pure-list (&rest items)
-  (make-pure-list :items objects))
+  (make-pure-list :items items))
 
 (defmethod for-each ((list pure-list-nil) function)
   nil)
@@ -109,6 +115,12 @@
 (defmethod compare-objects ((left pure-list) (right pure-list))
   (compare-iterator-contents (iterator left) (iterator right) #'compare))
 
+(defmethod print-object ((list pure-list) stream)
+  (if *print-readably*
+      (call-next-method)
+      (write `(make-pure-list :items (list ,@(mapcar #'quote-if-symbol (to-list list))))
+             :stream stream)))
+
 (defmethod size ((list pure-list-nil))
   0)
 
@@ -119,3 +131,128 @@
             (incf size)
             (setf list (pure-list-cons-tail list))))
     size))
+
+(defun pure-list-with-entry (list index object)
+  (let (stack)
+    (dotimes (i index)
+      (when (pure-list-nil-p list)
+        (error "index is out of bounds"))
+      (push (pure-list-cons-head list) stack)
+      (setf list (pure-list-cons-tail list)))
+    (unless (pure-list-nil-p list)
+      (setf list (pure-list-cons-tail list)))
+    (setf list (make-pure-list-cons :head object :tail list))
+    (dolist (value stack)
+      (setf list (make-pure-list-cons :head value :tail list)))
+    list))
+
+(defmethod with-entry ((list pure-list) index object)
+  (check-type index (integer 0))
+  (pure-list-with-entry list index object))
+
+(defun pure-list-lookup (list index)
+  (dotimes (i index)
+    (when (pure-list-nil-p list)
+      (return-from pure-list-lookup
+        (values nil nil)))
+    (setf list (pure-list-cons-tail list)))
+  (if (pure-list-nil-p list)
+      (values nil nil)
+      (values (pure-list-cons-head list) t)))
+
+(defmethod lookup-entry ((list pure-list) index)
+  (check-type index (integer 0))
+  (pure-list-lookup list index))
+
+(defun pure-list-without (list index)
+  (check-type index (integer 0))
+  (let (stack)
+    (dotimes (i index)
+      (when (pure-list-nil-p list)
+        (error "index is out of bounds: ~A" index))
+      (push (pure-list-cons-head list) stack)
+      (setf list (pure-list-cons-tail list)))
+    (if (pure-list-nil-p list)
+        (error "index is out of bounds: ~A" index)
+        (setf list (pure-list-cons-tail list)))
+    (dolist (value stack)
+      (setf list (make-pure-list-cons :head value :tail list)))
+    list))
+
+(defmethod without-entry ((list pure-list) index)
+  (pure-list-without list index))
+
+(defmethod concatenate-sequences ((list pure-list) other)
+  (when (is-empty other)
+    (return-from concatenate-sequences
+      list))
+
+  (let ((stack (nreverse (to-list list)))
+        (iter (iterator other))
+        (result *empty-pure-list*))
+    (loop
+      (multiple-value-bind (value valid-p) (funcall iter)
+        (if valid-p
+            (push value stack)
+            (return))))
+    (dolist (value stack)
+      (setf result (make-pure-list-cons :head value :tail result)))
+    result))
+
+(defmethod concatenate-sequences ((left pure-list) (right pure-list))
+  (when (pure-list-nil-p right)
+    (return-from concatenate-sequences
+      left))
+
+  (let ((stack (nreverse (to-list left)))
+        (result right))
+    (dolist (value stack)
+      (setf result (make-pure-list-cons :head value :tail result)))
+    result))
+
+(defmethod sequence-insert ((list pure-list) before-index object)
+  (check-type before-index (integer 0))
+  (let (stack)
+    (dotimes (i before-index)
+      (when (pure-list-nil-p list)
+        (error "before-index is out of bounds: ~A" before-index))
+      (push (pure-list-cons-head list) stack)
+      (setf list (pure-list-cons-tail list)))
+    (setf list (make-pure-list-cons :head object :tail list))
+    (dolist (value stack)
+      (setf list (make-pure-list-cons :head value :tail list)))
+    list))
+
+(defmethod subsequence ((list pure-list) min max)
+  (check-type min (integer 0))
+  (check-type max (or null (integer 0)))
+  (when (equal min max)
+    (return-from subsequence
+      *empty-pure-list*))
+
+  (dotimes (i min)
+    (when (pure-list-nil-p list)
+      (error "min index is out of bounds: ~A" min))
+    (setf list (pure-list-cons-tail list)))
+
+  (unless max
+    (return-from subsequence
+      list))
+
+  (let (stack
+        (result *empty-pure-list*)
+        (tail list))
+    (dotimes (i (- max min))
+      (when (pure-list-nil-p tail)
+        (error "max index is out of bounds: ~A" max))
+      (push (pure-list-cons-head tail) stack)
+      (setf tail (pure-list-cons-tail tail)))
+
+    (when (pure-list-nil-p tail)
+      (return-from subsequence
+        list))
+
+    (dolist (value stack)
+      (setf result (make-pure-list-cons :head value :tail result)))
+
+    result))

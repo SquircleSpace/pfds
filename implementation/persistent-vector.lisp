@@ -16,7 +16,8 @@
   (:use :common-lisp)
   (:import-from :pfds.shcl.io/interface/common
    #:to-list #:check-invariants #:for-each
-   #:with-entry #:lookup-entry #:size #:iterator)
+   #:with-entry #:lookup-entry #:size #:iterator
+   #:without-entry)
   (:import-from :pfds.shcl.io/utility/iterator-tools
    #:compare-containers)
   (:import-from :pfds.shcl.io/utility/compare
@@ -32,12 +33,18 @@
    #:impure-list-builder-extract)
   (:import-from :pfds.shcl.io/interface/list
    #:with-head #:head #:tail #:is-empty #:empty)
+  (:import-from :pfds.shcl.io/interface/sequence
+   #:sequence-insert #:concatenate-sequences #:subsequence)
   (:export
    #:with-head
    #:head
    #:tail
    #:with-entry
+   #:without-entry
    #:lookup-entry
+   #:sequence-insert
+   #:concatenate-sequences
+   #:subsequence
    #:is-empty
    #:empty
    #:make-persistent-vector
@@ -230,6 +237,90 @@
 
 (defmethod empty ((p-vec persistent-vector))
   *empty-persistent-vector*)
+
+(defun persistent-vector-pour (recipient donor donor-start-index donor-end-index)
+  (loop :for i :from donor-start-index :below donor-end-index :do
+    (setf recipient (persistent-vector-push recipient (persistent-vector-lookup donor i))))
+  recipient)
+
+(defmethod without-entry ((p-vec persistent-vector) index)
+  (check-type index (integer 0))
+  (let ((count (persistent-vector-count p-vec)))
+    (when (or (>= index count)
+              (< index 0))
+      (error "index out of bounds: ~A" index))
+
+    (cond
+      ((zerop index)
+       (values (subsequence p-vec 1 count)
+               (persistent-vector-lookup p-vec 0)
+               t))
+
+      ((equal index (1- (persistent-vector-count p-vec)))
+       (persistent-vector-pop p-vec))
+
+      (t
+       (persistent-vector-pour (subsequence p-vec 0 index) p-vec (1+ index) count)))))
+
+(defmethod sequence-insert ((p-vec persistent-vector) before-index object)
+  (check-type before-index (integer 0))
+  (cond
+    ((equal before-index (persistent-vector-count p-vec))
+     (persistent-vector-push p-vec object))
+    ((< before-index (persistent-vector-count p-vec))
+     (let ((result (subsequence p-vec 0 before-index)))
+       (setf result (persistent-vector-push result object))
+       (persistent-vector-pour result p-vec before-index (persistent-vector-count p-vec))))
+    (t
+     (error "before-index is out of bounds: ~A" before-index))))
+
+(defmethod concatenate-sequences ((p-vec persistent-vector) other)
+  (when (and (zerop (persistent-vector-count p-vec))
+             (persistent-vector-p other))
+    (return-from concatenate-sequences other))
+
+  (loop :with iter = (iterator other) :do
+    (multiple-value-bind (value valid-p) (funcall iter)
+      (if valid-p
+          (setf p-vec (persistent-vector-push p-vec value))
+          (return))))
+
+  p-vec)
+
+(defmethod subsequence ((p-vec persistent-vector) min max)
+  (check-type min (integer 0))
+  (check-type max (or null (integer 0)))
+  (let ((count (persistent-vector-count p-vec)))
+    (unless max
+      (setf max count))
+
+    (when (> max count)
+      (error "max is out of bounds: ~A" max))
+
+    (when (< max min)
+      (error "bounds are invalid: min ~A, max ~A" min max))
+
+    (cond
+      ((equal min max)
+       *empty-persistent-vector*)
+
+      ((and (zerop min)
+            (equal max count))
+       p-vec)
+
+      ((zerop min)
+       (let ((elements-to-cut (- count max))
+             (expected-length (- max min)))
+         (cond
+           ((> elements-to-cut expected-length)
+            (persistent-vector-pour *empty-persistent-vector* p-vec min max))
+           (t
+            (dotimes (i elements-to-cut)
+              (setf p-vec (persistent-vector-pop p-vec)))
+            p-vec))))
+
+      (t
+       (persistent-vector-pour *empty-persistent-vector* p-vec min max)))))
 
 (defmethod with-entry ((p-vec persistent-vector) key value)
   (check-type key (integer 0))

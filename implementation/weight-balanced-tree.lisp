@@ -18,7 +18,7 @@
    #:to-list #:is-empty #:empty #:check-invariants #:for-each
    #:size #:iterator #:with-entry #:lookup-entry
    #:print-graphviz #:next-graphviz-id
-   #:without-entry #:lookup-entry)
+   #:without-entry #:lookup-entry #:do-sequence)
   (:import-from :pfds.shcl.io/utility/iterator-tools
    #:compare-sets #:compare-maps #:iterator-flatten #:compare-containers)
   (:import-from :pfds.shcl.io/utility/compare
@@ -32,6 +32,8 @@
   (:import-from :pfds.shcl.io/interface/set
    #:with-member #:without-member #:is-member)
   (:import-from :pfds.shcl.io/interface/map)
+  (:import-from :pfds.shcl.io/interface/sequence
+   #:sequence-insert #:concatenate-sequences #:subsequence)
   (:import-from :pfds.shcl.io/interface/list
    #:head #:with-head #:tail)
   (:import-from :pfds.shcl.io/interface/deque
@@ -68,6 +70,9 @@
    #:without-last
    #:peek-first
    #:peek-last
+   #:sequence-insert
+   #:concatenate-sequences
+   #:subsequence
    #:make-weight-balanced-sequence
    #:weight-balanced-sequence
    #:weight-balanced-sequence-p))
@@ -564,6 +569,60 @@
            (multiple-value-bind (new-left removed-value) (wb-seq-remove (wb-seq-node-left tree) index)
              (values (make-wb-seq new-left (wb-seq-node-right tree)) removed-value t)))))))
 
+(defun array-insert (array before-index object)
+  (cond
+    ((<= (1+ (length array)) *max-array-length*)
+     (let ((result (make-array (1+ (length array)) :element-type (if (and (stringp array) (characterp object))
+                                                                     'character
+                                                                     t))))
+       (loop :for i :below before-index :do
+         (setf (aref result i) (aref array i)))
+       (setf (aref result before-index) object)
+       (loop :for i :from before-index :below (length array) :do
+         (setf (aref result (1+ i)) (aref array i)))
+       result))
+
+    (t
+     (assert (equal *max-array-length* (length array)))
+     (let* ((split-point (floor *max-array-length* 2))
+            (first-half (subseq array 0 split-point))
+            (second-half (subseq array split-point)))
+       (cond
+         ((<= before-index split-point)
+          (setf second-half (maybe-stringify second-half))
+          (setf first-half (array-insert (if (characterp object)
+                                             (maybe-stringify first-half)
+                                             first-half)
+                                         before-index
+                                         object)))
+         (t
+          (setf first-half (maybe-stringify first-half))
+          (setf second-half (array-insert (if (characterp object)
+                                              (maybe-stringify second-half)
+                                              second-half)
+                                          (- before-index split-point)
+                                          object))))
+       (wb-seq-concatenate first-half second-half)))))
+
+(defun wb-seq-insert (tree before-index object)
+  (etypecase tree
+    (null
+     (assert (zerop before-index))
+     (if (characterp object)
+         (string object)
+         (make-array 1 :initial-element object)))
+
+    (array
+     (array-insert tree before-index object))
+
+    (wb-seq-node
+     (let ((left-size (wb-seq-left-size tree)))
+       (if (>= before-index left-size)
+           (make-wb-seq (wb-seq-node-left tree)
+                        (wb-seq-insert (wb-seq-node-right tree) (- before-index left-size) object))
+           (make-wb-seq (wb-seq-insert (wb-seq-node-left tree) before-index object)
+                        (wb-seq-node-right tree)))))))
+
 (defun wb-seq-lookup (tree index)
   (etypecase tree
     (wb-seq-node
@@ -775,6 +834,53 @@
 
 (defmethod compare-objects ((left weight-balanced-sequence) (right weight-balanced-sequence))
   (compare-containers left right #'compare))
+
+(defmethod sequence-insert ((seq weight-balanced-sequence) before-index object)
+  (check-type before-index (integer 0))
+  (let ((tree (weight-balanced-sequence-tree seq)))
+    (when (> before-index (wb-seq-size tree))
+      (error "before-index is out of bounds: ~A" before-index))
+    (%make-weight-balanced-sequnce :tree (wb-seq-insert tree before-index object))))
+
+(defmethod concatenate-sequences ((left weight-balanced-sequence) (right weight-balanced-sequence))
+  (let ((tree (wb-seq-concatenate (weight-balanced-sequence-tree left)
+                                  (weight-balanced-sequence-tree right))))
+    (if tree
+        (%make-weight-balanced-sequnce :tree tree)
+        *empty-weight-balanced-sequence*)))
+
+(defmethod concatenate-sequences ((seq weight-balanced-sequence) other)
+  (let ((tree (weight-balanced-sequence-tree seq)))
+    (do-sequence (value other)
+      (setf tree (wb-seq-with-last tree value)))
+    (if tree
+        (%make-weight-balanced-sequnce :tree tree)
+        *empty-weight-balanced-sequence*)))
+
+(defmethod subsequence ((seq weight-balanced-sequence) min max)
+  (check-type min (integer 0))
+  (check-type max (or null (integer 0)))
+  (let* ((tree (weight-balanced-sequence-tree seq))
+         (count (wb-seq-size tree)))
+    (unless max
+      (setf max count))
+
+    (when (> max count)
+      (error "max is out of bounds: ~A" max))
+
+    (when (< max min)
+      (error "bounds are invalid: min ~A, max ~A" min max))
+
+    (cond
+      ((equal min max)
+       *empty-weight-balanced-sequence*)
+
+      ((and (zerop min)
+            (equal max count))
+       seq)
+
+      (t
+       (%make-weight-balanced-sequnce :tree (wb-seq-subseq tree min max))))))
 
 (defun wb-seq-print-graphviz (tree stream id-vendor)
   (let ((id (next-graphviz-id id-vendor)))

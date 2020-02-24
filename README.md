@@ -161,6 +161,10 @@ given above assume the heap is not used persistently.
 - `TAIL`: `O(log(n))`
 - `LOOKUP-ENTRY`: `O(log(n))`
 - `WITH-ENTRY`: `O(log(n))`
+- `WITHOUT-ENTRY`: `O(n log(n))` in general, `O(log(n))` if removing the last entry
+- `CONCATENATE-SEQUENCES`: `O(n log(n))`
+- `SEQUENCE-INSERT`: `O(n log(n))` in general, `O(log(n))` if adding to the end
+- `SUBSEQUENCE`: `O(n log(n))`
 - `IS-EMPTY`: `O(1)`
 - `SIZE`: `O(1)`
 
@@ -175,6 +179,12 @@ Note: the logarithmic base for the bounds given above is very large.
 - `HEAD`: `O(1)`
 - `WITH-HEAD`: `O(1)`
 - `TAIL`: `O(1)`
+- `LOOKUP-ENTRY`: `O(n)`
+- `WITH-ENTRY`: `O(n)`
+- `WITHOUT-ENTRY`: `O(n)`
+- `CONCATENATE-SEQUENCES`: `O(n)`
+- `SEQUENCE-INSERT`: `O(n)`
+- `SUBSEQUENCE`: `O(n)`
 - `IS-EMPTY`: `O(1)`
 - `SIZE`: `O(n)`
 
@@ -189,6 +199,9 @@ knowing that it is fully immutable.
 - `LOOKUP-ENTRY`: `O(log(n))`
 - `WITH-ENTRY`: `O(log(n))`
 - `WITHOUT-ENTRY`: `O(log(n))`
+- `CONCATENATE-SEQUENCES`: `O(log(n))`
+- `SEQUENCE-INSERT`: `O(log(n))`
+- `SUBSEQUENCE`: `O(log(n))`
 - `IS-EMPTY`: `O(1)`
 - `SIZE`: `O(1)`
 
