@@ -222,6 +222,14 @@ variables are a bit hand-wavy, but the running time should look
 something like `O(log(n/m))`.  `n` is the length of the longer
 sequence, and `m` is the length of the shorter sequence.
 
+The implementation for weight-balanced sequences attempts to
+efficiently store character types.  When possible, character types are
+collected together to form short strings.  The optimization is
+defeated if the sequence contains non-character types, but the effect
+is only local to the portion of the sequence where the non-character
+is found.  More distant portions of the sequence will still optimize
+the storage of characters.
+
 ## Design decisions
 
 ### Dependencies
