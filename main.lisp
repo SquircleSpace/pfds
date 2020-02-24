@@ -37,6 +37,7 @@
   (:export
    #:make-map
    #:make-set
+   #:make-seq
    #:make-min-heap #:make-max-heap #:make-heap
    #:syntax
    #:compare))
