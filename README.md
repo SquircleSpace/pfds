@@ -199,15 +199,28 @@ knowing that it is fully immutable.
 - `LOOKUP-ENTRY`: `O(log(n))`
 - `WITH-ENTRY`: `O(log(n))`
 - `WITHOUT-ENTRY`: `O(log(n))`
-- `CONCATENATE-SEQUENCES`: `O(log(n))`
+- `CONCATENATE-SEQUENCES`: `O(log(n))` (see below)
 - `SEQUENCE-INSERT`: `O(log(n))`
 - `SUBSEQUENCE`: `O(log(n))`
 - `IS-EMPTY`: `O(1)`
 - `SIZE`: `O(1)`
 
 Compared to `PERSISTENT-VECTOR`, this sequence type permits efficient
-manipulation anywhere in the sequence.  Also, the `WITH-HEAD` and `TAIL`
-methods add to and remove from the end of the sequence.
+manipulation anywhere in the sequence.
+
+Interestingly, concatenating weight-balanced sequences is `O(1)` when
+the sequences are a similar length.  Weight balanced trees ensure that
+the "heavier" child weighs no more than some constant times the weight
+of the "lighter" child.  As long as the sequence lengths satisfy the
+balance criteria, concatenation is `O(1)`.  Concatenation can be done
+by simply recursively descending down the spine of the longer sequence
+until we find a node of similar size to the smaller sequence. At that
+point, the sequences can be joined in `O(1)` time.  We'll still need
+to rebalance the tree on our way back up, but each individual balance
+operation only takes `O(1)` time.  Asymptotic bounds with multiple
+variables are a bit hand-wavy, but the running time should look
+something like `O(log(n/m))`.  `n` is the length of the longer
+sequence, and `m` is the length of the shorter sequence.
 
 ## Design decisions
 
