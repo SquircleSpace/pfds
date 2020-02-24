@@ -101,11 +101,14 @@
 (defun compare-maps (left-map left-comparator right-map right-comparator
                      &optional (comparator-comparator #'compare)
                        (value-comparator #'compare))
-  (compare*
-    (compare-reals (size left-map) (size right-map))
-    (or (nil-instead-of-unequal (funcall comparator-comparator left-comparator right-comparator))
-        (return-from compare-maps :unequal))
-    (compare-iterator-contents (iterator left-map) (iterator right-map)
-                               (lambda (l-pair r-pair)
-                                 (compare* (funcall left-comparator (car l-pair) (car r-pair))
-                                           (funcall value-comparator (cdr l-pair) (cdr r-pair)))))))
+  (let (comparator-comparison)
+    (compare*
+      (compare-reals (size left-map) (size right-map))
+      (setf comparator-comparison (funcall comparator-comparator left-comparator right-comparator))
+      (compare-iterator-contents (iterator left-map) (iterator right-map)
+                                 (if (eq :equal comparator-comparison)
+                                     (lambda (l-pair r-pair)
+                                       (compare* (funcall left-comparator (car l-pair) (car r-pair))
+                                                 (funcall value-comparator (cdr l-pair) (cdr r-pair))))
+                                     (lambda (l-pair r-pair)
+                                       (funcall value-comparator (cdr l-pair) (cdr r-pair))))))))
