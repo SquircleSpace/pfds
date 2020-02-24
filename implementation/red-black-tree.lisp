@@ -541,7 +541,7 @@
 
 (defmethod for-each ((map red-black-map) function)
   (do-rb-map (key value (red-black-map-tree map))
-    (funcall function key value)))
+    (funcall function (cons key value))))
 
 (defmethod iterator ((map red-black-map))
   (iterator (red-black-map-tree map)))

@@ -50,9 +50,8 @@
   (:documentation
    "Call the given function on each object in the collection.
 
-In the case of maps, the function should accept two arguments: the key
-and the value.  For all other types, it need only accept one
-argument."))
+In the case of maps, the function will receive a cons cell containing
+a key and a value."))
 
 (defmacro do-sequence ((value collection &optional result) &body body)
   "Iterate over the values contained in the collection."

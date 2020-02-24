@@ -82,9 +82,8 @@
   (mapcar 'car (to-list (unwrap set))))
 
 (defmethod for-each ((set set-wrapper) function)
-  (for-each (unwrap set) (lambda (k v)
-                           (declare (ignore v))
-                           (funcall function k))))
+  (for-each (unwrap set) (lambda (pair)
+                           (funcall function (car pair)))))
 
 (defmethod iterator ((set set-wrapper))
   (iterator (unwrap set)))

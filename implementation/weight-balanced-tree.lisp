@@ -270,7 +270,7 @@
 
 (defmethod for-each ((map weight-balanced-map) function)
   (do-wb-map (key value (weight-balanced-map-tree map))
-    (funcall function key value)))
+    (funcall function (cons key value))))
 
 (defmethod iterator ((map weight-balanced-map))
   (iterator (weight-balanced-map-tree map)))

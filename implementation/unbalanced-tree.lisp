@@ -186,7 +186,7 @@
 
 (defmethod for-each ((map unbalanced-map) function)
   (do-u-map (key value (unbalanced-map-tree map))
-    (funcall function key value)))
+    (funcall function (cons key value))))
 
 (defmethod iterator ((map unbalanced-map))
   (iterator (unbalanced-map-tree map)))
