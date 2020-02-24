@@ -454,8 +454,8 @@
 (defmethod print-object ((splay-set impure-splay-set) stream)
   (if *print-readably*
       (call-next-method)
-      (write `(make-impure-splay-set ,(impure-splay-set-comparator splay-set)
-                                     :items ,(to-list splay-set))
+      (write `(make-impure-splay-set ,(quote-if-symbol (impure-splay-set-comparator splay-set))
+                                     :items (list ,@(mapcar #'quote-if-symbol (impure-splay-set-to-list splay-set))))
              :stream stream)))
 
 (defmethod print-graphviz ((map impure-splay-set) stream id-vendor)
@@ -527,9 +527,12 @@
 (defmethod print-object ((splay-map impure-splay-map) stream)
   (if *print-readably*
       (call-next-method)
-      (write `(make-impure-splay-map ,(impure-splay-map-comparator splay-map)
-                                     :alist ,(to-list splay-map))
-             :stream stream)))
+      (labels
+          ((clean (pair)
+             `(cons ,(quote-if-symbol (car pair)) ,(quote-if-symbol (cdr pair)))))
+        (write `(make-impure-splay-map ,(quote-if-symbol (impure-splay-map-comparator splay-map))
+                                       :alist (list ,@(mapcar #'clean (impure-splay-map-to-list splay-map))))
+               :stream stream))))
 
 (defmethod print-graphviz ((map impure-splay-map) stream id-vendor)
   (print-graphviz (impure-splay-map-tree map) stream id-vendor))
