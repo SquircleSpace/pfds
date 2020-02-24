@@ -18,7 +18,7 @@
    #:to-list #:check-invariants #:print-graphviz #:for-each
    #:size #:iterator)
   (:import-from :pfds.shcl.io/utility/iterator-tools
-   #:compare-heaps)
+   #:compare-heaps #:iterator-to-list)
   (:import-from :pfds.shcl.io/utility/compare
    #:compare-objects #:compare)
   (:import-from :pfds.shcl.io/utility/impure-list-builder
@@ -449,7 +449,9 @@
     set))
 
 (defun impure-splay-set-to-list (splay-set)
-  (sp-set-to-list (impure-splay-set-tree splay-set)))
+  ;; splay trees can be VERY imbalanced.  We're going to be defensive
+  ;; and avoid traversing the tree with recursion.
+  (iterator-to-list (iterator (impure-splay-set-tree splay-set))))
 
 (defmethod print-object ((splay-set impure-splay-set) stream)
   (if *print-readably*
@@ -522,7 +524,9 @@
     map))
 
 (defun impure-splay-map-to-list (splay-map)
-  (sp-map-to-list (impure-splay-map-tree splay-map)))
+  ;; splay trees can be VERY imbalanced.  We're going to be defensive
+  ;; and avoid traversing the tree with recursion.
+  (iterator-to-list (iterator (impure-splay-map-tree splay-map))))
 
 (defmethod print-object ((splay-map impure-splay-map) stream)
   (if *print-readably*
@@ -656,7 +660,9 @@
   (splay-heap-size set))
 
 (defmethod to-list ((heap splay-heap))
-  (sp-heap-to-list (splay-heap-tree heap)))
+  ;; splay trees can be VERY imbalanced.  We're going to be defensive
+  ;; and avoid traversing the tree with recursion.
+  (iterator-to-list (iterator heap)))
 
 (defmethod for-each ((heap splay-heap) function)
   (do-sp-heap (key (splay-heap-tree heap))

@@ -20,8 +20,12 @@
    #:without-heap-top)
   (:import-from :pfds.shcl.io/utility/compare
    #:compare* #:compare-reals #:compare)
+  (:import-from :pfds.shcl.io/utility/impure-list-builder
+   #:make-impure-list-builder #:impure-list-builder-add
+   #:impure-list-builder-extract)
   (:export
    #:iterator-flatten #:iterator-flatten*
+   #:iterator-to-list
    #:compare-iterator-contents
    #:compare-containers #:compare-heaps #:compare-sets
    #:compare-maps))
@@ -46,6 +50,15 @@
 
 (defun iterator-flatten* (&rest iterators)
   (iterator-flatten (iterator iterators)))
+
+(defun iterator-to-list (iterator)
+  (let ((builder (make-impure-list-builder)))
+    (loop
+      (multiple-value-bind (value valid-p) (funcall iterator)
+        (if valid-p
+            (impure-list-builder-add builder value)
+            (return))))
+    (impure-list-builder-extract builder)))
 
 (defun compare-iterator-contents (left right comparator)
   (let ((result :equal))
