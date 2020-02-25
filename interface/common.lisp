@@ -70,7 +70,7 @@ This generic function is only valid for containers that support
   "Iterate over the values contained in the collection."
   (let ((rest (gensym "REST")))
     `(block nil
-       (for-each ,collection (lambda (,value &rest ,rest)
+       (for-each ,collection (lambda (,value)
                                (declare (ignore ,rest))
                                ,@body))
        ,result)))
