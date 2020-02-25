@@ -76,9 +76,11 @@ unspecified which value will be contained in the map."
                          comparator)
                      :items items))
 
+(declaim (inline make-vector))
 (defun make-vector (&key items)
   (make-persistent-vector :items items))
 
+(declaim (inline make-seq))
 (defun make-seq (&key items)
   (make-weight-balanced-sequence :items items))
 
