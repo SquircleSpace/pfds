@@ -81,7 +81,7 @@
   (equal +branching-factor+ (length vector)))
 
 (defun vector-with-update (vec value index)
-  (when (eq (aref vec index) value)
+  (when (eql (aref vec index) value)
     (return-from vector-with-update vec))
 
   (let ((result (make-vector vec)))
