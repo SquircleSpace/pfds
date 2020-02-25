@@ -48,22 +48,9 @@
 
 ;; See "Purely Functional Data Structures" by Chris Okasaki
 
-(define-adt heap-tree
-    ()
-  (tree-nil)
-  (tree-node
-   (value)
-   (children nil :type list)))
-
-(defvar *tree-nil* (make-tree-nil))
-
-(defun tree-nil ()
-  *tree-nil*)
-
-(defmethod print-graphviz ((heap tree-nil) stream id-vendor)
-  (let ((id (next-graphviz-id id-vendor)))
-    (format stream "ID~A [label=\"nil\"]~%" id)
-    id))
+(define-immutable-structure tree-node
+  (value (error "value is required"))
+  (children nil :type list))
 
 (defmethod print-graphviz ((heap tree-node) stream id-vendor)
   (let ((id (next-graphviz-id id-vendor)))
@@ -81,7 +68,7 @@
    :children (cons right (tree-node-children left))))
 
 (define-immutable-structure ranked-tree
-  (tree (error "required arg") :type heap-tree)
+  (tree (error "required arg") :type tree-node)
   (rank (error "required arg") :type (integer 0)))
 
 (defmethod print-graphviz ((ranked-tree ranked-tree) stream id-vendor)
@@ -201,9 +188,6 @@
        t))))
 
 (defun do-tree-f (fn tree)
-  (when (tree-nil-p tree)
-    (return-from do-tree-f))
-
   (funcall fn (tree-node-value tree))
   (dolist (child (tree-node-children tree))
     (do-tree-f fn child)))
