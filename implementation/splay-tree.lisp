@@ -672,8 +672,14 @@
   (iterator-to-list (iterator heap)))
 
 (defmethod for-each ((heap splay-heap) function)
-  (do-sp-heap (key (splay-heap-tree heap))
-    (funcall function key)))
+  ;; splay trees can be VERY imbalanced.  We're going to be defensive
+  ;; and avoid traversing the tree with recursion.
+  (let ((iterator (iterator heap)))
+    (loop
+      (multiple-value-bind (value valid-p) (funcall iterator)
+        (unless valid-p
+          (return))
+        (funcall function value)))))
 
 (defmethod iterator ((heap splay-heap))
   (iterator (splay-heap-tree heap)))
