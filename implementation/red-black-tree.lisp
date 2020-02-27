@@ -17,7 +17,7 @@
   (:import-from :pfds.shcl.io/interface/common
    #:to-list #:is-empty #:empty #:check-invariants
    #:print-graphviz #:for-each #:size #:iterator
-   #:for-each-kv)
+   #:for-each-kv #:map-kv)
   (:import-from :pfds.shcl.io/utility/iterator-tools
    #:compare-sets #:compare-maps)
   (:import-from :pfds.shcl.io/utility/printer
@@ -547,6 +547,9 @@
 (defmethod for-each-kv ((map red-black-map) function)
   (do-rb-map (key value (red-black-map-tree map))
     (funcall function key value)))
+
+(defmethod map-kv ((map red-black-map) function)
+  (copy-red-black-map map :tree (rb-map-map-kv (red-black-map-tree map) function)))
 
 (defmethod iterator ((map red-black-map))
   (iterator (red-black-map-tree map)))

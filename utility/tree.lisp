@@ -16,7 +16,7 @@
   (:use :common-lisp)
   (:import-from :pfds.shcl.io/interface/common
    #:to-list #:print-graphviz #:next-graphviz-id #:for-each
-   #:iterator)
+   #:iterator #:map-kv)
   (:import-from :pfds.shcl.io/utility/impure-list-builder
    #:make-impure-list-builder #:impure-list-builder-add
    #:impure-list-builder-extract)
@@ -26,7 +26,8 @@
    #:intern-conc #:cassert)
   (:import-from :pfds.shcl.io/utility/list
    #:list-set-with #:list-set-without #:list-set #:list-set-is-member
-   #:list-map-with #:list-map-without #:list-map #:list-map-lookup)
+   #:list-map-with #:list-map-without #:list-map #:list-map-lookup
+   #:list-map-map-kv)
   (:export
    #:define-tree #:print-tree-node-properties
    #:nil-tree-p #:node-left #:node-right #:node-values))
@@ -78,6 +79,7 @@
                                  (intern-conc *package* node-base-type "-REPRESENTATIVE")
                                  (gensym "NODE-REPRESENTATIVE")))
          (checker (when define-checker-p (intern-conc *package* "CHECK-" base-name)))
+         (tree-map-kv (when map-p (intern-conc *package* base-name "-MAP-KV")))
          (with-key (intern-conc *package* node-base-type "-WITH-KEY"))
          (without-key (intern-conc *package* node-base-type "-WITHOUT-KEY"))
          (with-equal (gensym "NODE-WITH-EQUAL"))
@@ -478,6 +480,25 @@
        (defmethod for-each ((,tree ,base-name) ,function)
          (,do-tree (,key ,@value-list ,tree)
            (funcall ,function ,key ,@value-list)))
+
+       ,@(when map-p
+           `((defun ,tree-map-kv (,tree ,function)
+               (etypecase ,tree
+                 (,nil-type
+                  ,tree)
+                 (,node-1-type
+                  (,copy-1-type ,tree
+                                :left (,tree-map-kv (,node-left ,tree) ,function)
+                                :right (,tree-map-kv (,node-right ,tree) ,function)
+                                :value (funcall ,function (,1-type-key ,tree) (,1-type-value ,tree))))
+                 (,node-n-type
+                  (,copy-n-type ,tree
+                                :left (,tree-map-kv (,node-left ,tree) ,function)
+                                :right (,tree-map-kv (,node-right ,tree) ,function)
+                                :values (list-map-map-kv (,n-type-values ,tree) ,function)))))
+
+             (defmethod map-kv ((,tree ,base-name) ,function)
+               (,tree-map-kv ,tree ,function))))
 
        (defun ,node-value-iterator (,tree)
          (etypecase ,tree

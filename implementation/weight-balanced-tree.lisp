@@ -18,7 +18,8 @@
    #:to-list #:is-empty #:empty #:check-invariants #:for-each
    #:size #:iterator #:with-entry #:lookup-entry
    #:print-graphviz #:next-graphviz-id
-   #:without-entry #:lookup-entry #:do-sequence #:for-each-kv)
+   #:without-entry #:lookup-entry #:do-sequence #:for-each-kv
+   #:map-kv)
   (:import-from :pfds.shcl.io/utility/iterator-tools
    #:compare-sets #:compare-maps #:iterator-flatten #:compare-containers)
   (:import-from :pfds.shcl.io/utility/compare
@@ -275,6 +276,9 @@
 (defmethod for-each-kv ((map weight-balanced-map) function)
   (do-wb-map (key value (weight-balanced-map-tree map))
     (funcall function key value)))
+
+(defmethod map-kv ((map weight-balanced-map) function)
+  (copy-weight-balanced-map map :tree (wb-map-map-kv (weight-balanced-map-tree map) function)))
 
 (defmethod iterator ((map weight-balanced-map))
   (iterator (weight-balanced-map-tree map)))
@@ -680,6 +684,9 @@
 
 (defmethod for-each-kv ((seq weight-balanced-sequence) function)
   (wb-seq-for-each (weight-balanced-sequence-tree seq) function 0))
+
+(defmethod map-kv ((seq weight-balanced-sequence) function)
+  (copy-weight-balanced-sequence seq :tree (wb-seq-map-kv (weight-balanced-sequence-tree maseq) function)))
 
 (defmethod size ((seq weight-balanced-sequence))
   (wb-seq-size (weight-balanced-sequence-tree seq)))

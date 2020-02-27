@@ -16,7 +16,7 @@
   (:use :common-lisp)
   (:import-from :pfds.shcl.io/interface/common
    #:to-list #:for-each #:size #:iterator
-   #:for-each-kv)
+   #:for-each-kv #:map-kv)
   (:import-from :pfds.shcl.io/utility/printer
    #:print-container)
   (:import-from :pfds.shcl.io/utility/iterator-tools
@@ -69,12 +69,55 @@
 (defmethod for-each-kv ((list pure-list-nil) function)
   nil)
 
+(defmethod map-kv ((list pure-list-nil) function)
+  list)
+
 (defun pure-list-for-each-kv (list function)
   (loop :until (pure-list-nil-p list)
         :for index :from 0 :do
     (progn
       (funcall function index (pure-list-cons-head list))
       (setf list (pure-list-cons-tail list)))))
+
+(defun pure-list-map-kv (list function)
+  ;; Because lists are built from the end toward the front, we won't
+  ;; really know if we can have data sharing until its too late.  We
+  ;; need to record the result of all invocations of function just in
+  ;; case something later in the list produces a different result.
+  ;; That doesn't mean we can't return a result that shares data!  It
+  ;; just means we can't avoid creating ephemeral garbage in the
+  ;; process.
+
+  ;; full-stack is a stack of all values we've obtained from function.
+  ;; fixed-stack only contains the portion of the list (in reverse
+  ;; order) that we'll need to rebuild.  equal-tail represents the
+  ;; part of the list that we don't believe needs rebuilding.
+  ;; Whenever the function returns something un-eql to the input, we
+  ;; adjust fixed-stack and equal-tail accordingly.
+
+  ;; This would be much simpler if written recursively.  We'd recurse
+  ;; to get the new tail.  If the tail we get back is unchanged and
+  ;; our new head value is unchanged, we return the same list as we
+  ;; were given.  I'm writing it this way because I don't want stack
+  ;; overflows when dealing with a long list.  Yes, its unlikely that
+  ;; we'll have a pure list with thousands of elements... but I'd like
+  ;; to support it all the same.
+  (let (full-stack
+        fixed-stack
+        (equal-tail list))
+    (loop :for tip = list :then (pure-list-cons-tail tip) :until (pure-list-nil-p tip)
+          :for index :from 0 :do
+            (progn
+              (let* ((old-object (pure-list-cons-head tip))
+                     (new-object (funcall function index old-object)))
+                (push new-object full-stack)
+                (unless (eql new-object old-object)
+                  (setf fixed-stack full-stack)
+                  (setf equal-tail (pure-list-cons-tail tip))))))
+    (let ((result equal-tail))
+      (loop :for object :in fixed-stack :do
+        (setf result (make-pure-list-cons :head object :tail result)))
+      result)))
 
 (defmethod for-each ((list pure-list-cons) function)
   (pure-list-for-each-kv list (lambda (k v)
@@ -83,6 +126,9 @@
 
 (defmethod for-each-kv ((list pure-list-cons) function)
   (pure-list-for-each-kv list function))
+
+(defmethod map-kv ((list pure-list-cons) function)
+  (pure-list-map-kv list function))
 
 (defun make-pure-list-iterator (list)
   (lambda ()

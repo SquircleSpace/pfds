@@ -20,6 +20,7 @@
    #:list-map-with
    #:list-map-without
    #:list-map-lookup
+   #:list-map-map-kv
    #:list-map
    #:list-set-with
    #:list-set-without
@@ -70,6 +71,22 @@
           (return-from list-map-lookup
             (values (cdr pair) t))))
   (values nil nil))
+
+(defun list-map-map-kv (list function)
+  ;; list maps are really inefficient.  If a list map is long enough
+  ;; that this recursive solution becomes a problem then we have much
+  ;; more serious problems.
+  (when list
+    (let* ((head (car list))
+           (key (car head))
+           (old-value (cdr head))
+           (new-value (funcall function key old-value))
+           (old-tail (cdr list))
+           (new-tail (list-map-map-kv (cdr list) function)))
+      (if (and (eql new-value old-value)
+               (eql new-tail old-tail))
+          list
+          (cons (cons key new-value) new-tail)))))
 
 (defun list-map (comparator &rest plist)
   (let (map)

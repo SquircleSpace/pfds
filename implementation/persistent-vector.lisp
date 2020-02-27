@@ -17,7 +17,7 @@
   (:import-from :pfds.shcl.io/interface/common
    #:to-list #:check-invariants #:for-each #:for-each-kv
    #:with-entry #:lookup-entry #:size #:iterator
-   #:without-entry)
+   #:without-entry #:map-kv)
   (:import-from :pfds.shcl.io/utility/iterator-tools
    #:compare-containers)
   (:import-from :pfds.shcl.io/utility/compare
@@ -350,6 +350,33 @@
            :for offset = index :then (+ offset (expt +branching-factor+ (1- height))) :do
              (do-vector-tree-f object (1- height) fn offset)))))
 
+(defun map-vector-tree-f (vec height fn index)
+  (let ((here-function (if (equal height 1)
+                           fn
+                           (lambda (offset value)
+                             (map-vector-tree-f value (1- height) fn offset)))))
+    (loop :with result = nil
+          :with offset-step = (expt +branching-factor+ (1- height))
+          :for object :across vec
+          :for offset = index :then (+ offset offset-step)
+          :for here-index :from 0
+          :for new-object = (funcall here-function offset object) :do
+            (cond
+              (result
+               (setf (aref result here-index) new-object))
+              ((not (eql new-object object))
+               (setf result (make-vector vec))
+               (setf (aref result here-index) new-object)))
+          :finally (return (or result vec)))))
+
+(defun persistent-vector-map-kv (p-vec function)
+  (when (zerop (persistent-vector-count p-vec))
+    (return-from persistent-vector-map-kv))
+
+  (let ((tree (persistent-vector-tree p-vec))
+        (height (persistent-vector-height p-vec)))
+    (copy-persistent-vector p-vec :tree (map-vector-tree-f tree height function 0))))
+
 (defun persistent-vector-for-each-kv (p-vec function)
   (when (zerop (persistent-vector-count p-vec))
     (return-from persistent-vector-for-each-kv))
@@ -366,6 +393,9 @@
 
 (defmethod for-each-kv ((p-vec persistent-vector) function)
   (persistent-vector-for-each-kv p-vec function))
+
+(defmethod map-kv ((p-vec persistent-vector) function)
+  (persistent-vector-map-kv p-vec function))
 
 (defun make-persistent-vector-iterator (p-vec)
   (let ((offset 0))

@@ -24,6 +24,7 @@
    #:iterator
    #:for-each
    #:for-each-kv
+   #:map-kv
    #:do-sequence
    #:size
    #:check-invariants
@@ -65,6 +66,50 @@ the object the collection stores in association with the key.
 
 This generic function is only valid for containers that support
 `LOOKUP-ENTRY' and similar functions."))
+
+(defgeneric map-kv (collection function)
+  (:documentation
+   "Return an associative collection where the values have been updated.
+
+Each time the function is called, it receives a key and a value.  The
+key argument represents an object that can be passed to functions such
+as `LOOKUP-ENTRY', `WITH-ENTRY', and `WITHOUT-ENTRY'.  The value is
+the object the collection stores in association with the key.  The
+function is expected to return a new value for the collection to
+store.  This function returns the collection where all values have
+been updated accordingly.
+
+Note: If your function returns a value eql to the one it was given,
+the collection may be able to avoid some consing.  In the extreme
+case, the resulting collection may be eql to the initial one!
+Naturally, if you intend to always return the input value, you'd be
+better served by the `FOR-EACH-KV' generic function.
+
+This generic function is only valid for containers that support
+`LOOKUP-ENTRY' and similar functions."))
+
+(defun list-map-kv (list function)
+  ;; The comments for implementation/pure-list::pure-list-map-kv apply
+  ;; here, too
+  (let (full-stack
+        fixed-stack
+        (equal-tail list))
+    (loop :for tip = list :then (cdr tip) :while tip
+          :for index :from 0 :do
+            (progn
+              (let* ((old-object (car tip))
+                     (new-object (funcall function index old-object)))
+                (push new-object full-stack)
+                (unless (eql new-object old-object)
+                  (setf fixed-stack full-stack)
+                  (setf equal-tail (cdr tip))))))
+    (let ((result equal-tail))
+      (loop :for object :in fixed-stack :do
+        (push object result))
+      result)))
+
+(defmethod map-kv ((list list) function)
+  (list-map-kv list function))
 
 (defmacro do-sequence ((value collection &optional result) &body body)
   "Iterate over the values contained in the collection."
