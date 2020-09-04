@@ -288,7 +288,7 @@ set or keys in a map.  If all un-`EQL` symbols and strings were
 if we established an ordering somehow (e.g. using pointer address in
 implementations that allow that) strings that are `EQUAL` but not
 `EQL` would be distinct keys in a map.  That's unlikely to be what
-most people want. As a concession for practicality, the `COMPARE`
+most people want.  As a concession for practicality, the `COMPARE`
 function ignores the mutability of data types provided by Common Lisp.
 
 For user-defined mutable classes, you are strongly encouraged to use
