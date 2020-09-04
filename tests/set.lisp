@@ -17,20 +17,23 @@
   (:import-from :pfds.shcl.io/interface/common
    #:to-list #:check-invariants)
   (:import-from :pfds.shcl.io/tests/common
-   #:check-common-consistency)
+   #:check-common-consistency #:do-type-records
+   #:check-interface-conformance)
   (:import-from :pfds.shcl.io/utility/immutable-structure
    #:define-immutable-structure)
   (:import-from :pfds.shcl.io/utility/compare
    #:compare #:compare-objects)
   (:import-from :pfds.shcl.io/interface/set
-   #:is-empty #:empty #:is-member #:with-member #:without-member)
+   #:is-empty #:empty #:is-member #:with-member #:without-member
+   #:set)
   (:import-from :pfds.shcl.io/implementation/red-black-tree
    #:make-red-black-set #:red-black-set)
-  (:import-from :pfds.shcl.io/implementation/unbalanced-tree #:make-unbalanced-set)
+  (:import-from :pfds.shcl.io/implementation/unbalanced-tree
+   #:make-unbalanced-set #:unbalanced-set)
   (:import-from :pfds.shcl.io/implementation/weight-balanced-tree
-   #:make-weight-balanced-set)
+   #:make-weight-balanced-set #:weight-balanced-set)
   (:import-from :prove #:is #:subtest #:ok #:pass #:fail)
-  (:export #:run-tests #:test-set))
+  (:export #:run-tests #:test-set-constructor))
 (in-package :pfds.shcl.io/tests/set)
 
 (defun checked (thing)
@@ -70,10 +73,10 @@
 (defparameter *random-numbers* (list* 666.0 666 666 (loop :for i :below 1000 :collect (random 1000))))
 (defparameter *random-numbers-uniqued* (eql-unique *random-numbers*))
 
-(defparameter *makers*
-  '(make-red-black-set
-    make-weight-balanced-set
-    make-unbalanced-set))
+(defparameter *sets*
+  '(red-black-set
+    weight-balanced-set
+    unbalanced-set))
 
 (defun compare-< (left right)
   (eq :less (compare left right)))
@@ -166,7 +169,7 @@
   (check-common-consistency (funcall constructor *random-numbers*))
   (check-common-consistency (funcall constructor *sorted-numbers*)))
 
-(defun test-set (constructor)
+(defun test-set-constructor (constructor)
   (test-basics constructor)
   (test-construction constructor)
   (test-unnecessary-removal constructor)
@@ -174,11 +177,16 @@
   (test-unequal-members constructor)
   (test-buildup-and-teardown constructor))
 
+(defun test-set (maker)
+  (subtest (symbol-name maker)
+    (test-set-constructor (constructor maker))))
+
 (defun constructor (maker)
   (lambda (&optional items)
     (funcall maker 'compare :items items)))
 
-(defun run-tests (&optional (makers *makers*))
-  (dolist (maker makers)
-    (subtest (symbol-name maker)
-      (test-set (constructor maker)))))
+(defun run-tests (&optional (sets *sets*))
+  (do-type-records ((name makers) sets)
+    (check-interface-conformance 'set name)
+    (dolist (maker makers)
+      (test-set maker))))

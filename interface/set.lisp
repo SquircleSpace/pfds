@@ -17,6 +17,7 @@
   (:import-from :pfds.shcl.io/interface/common
    #:is-empty #:empty #:with-member #:define-interface)
   (:export
+   #:set
    #:with-member
    #:without-member
    #:is-member

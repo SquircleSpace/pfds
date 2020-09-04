@@ -17,6 +17,7 @@
   (:import-from :pfds.shcl.io/interface/common
    #:is-empty #:empty #:define-interface)
   (:export
+   #:queue
    #:with-last
    #:without-first
    #:peek-first

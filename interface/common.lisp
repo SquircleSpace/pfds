@@ -31,7 +31,8 @@
    #:graphviz
    #:print-graphviz
    #:next-graphviz-id
-   #:define-interface))
+   #:define-interface
+   #:interface-functions))
 (in-package :pfds.shcl.io/interface/common)
 
 (defgeneric to-list (collection)
@@ -173,18 +174,37 @@ value."))
     (format stream "}~%"))
   (values))
 
+(defun set-interface-functions (protocol-name new-value)
+  ;; Not using a setf function so we can avoid exporting it.  Use
+  ;; `DEFINE-INTERFACE'!
+  (setf (get protocol-name 'interface-functions) new-value))
+
+(defun interface-functions (protocol-name)
+  (get protocol-name 'interface-functions))
+
 (defmacro define-interface (name &body functions)
-  `(progn
-     ,@(loop
-         :for thing :in functions
-         :collect
-         (etypecase thing
-           (symbol `',thing)
-           (cons
-            (if (eq (car thing) 'defgeneric)
-                thing
-                (error "Invalid interface")))))
-     ',name))
+  (let ((forms
+          (loop
+            :for thing :in functions
+            :nconc
+            (etypecase thing
+              (symbol nil)
+              (cons
+               (if (eq (car thing) 'defgeneric)
+                   (list thing)
+                   (error "Invalid interface"))))))
+        (names
+          (loop
+            :for thing :in functions
+            :collect
+            (etypecase thing
+              (symbol thing)
+              (cons
+               (second thing))))))
+    `(progn
+       ,@forms
+       (set-interface-functions ',name ',names)
+       ',name)))
 
 (defmethod is-empty ((list list))
   (null list))

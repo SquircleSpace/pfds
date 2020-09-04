@@ -18,6 +18,7 @@
    #:is-empty #:empty #:define-interface
    #:with-entry #:lookup-entry #:without-entry)
   (:export
+   #:map
    #:is-empty
    #:empty
    #:with-entry

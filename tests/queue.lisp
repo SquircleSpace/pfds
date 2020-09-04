@@ -16,14 +16,17 @@
   (:use :common-lisp)
   (:import-from :pfds.shcl.io/interface/common
    #:check-invariants #:to-list)
+  (:import-from :pfds.shcl.io/tests/common
+   #:check-interface-conformance #:do-type-records)
   (:import-from :pfds.shcl.io/interface/queue
-   #:is-empty #:empty #:with-last #:without-first #:peek-first)
+   #:is-empty #:empty #:with-last #:without-first #:peek-first
+   #:queue)
   (:import-from :pfds.shcl.io/utility/misc
    #:cassert)
   (:import-from :pfds.shcl.io/implementation/batched-queue
-   #:make-batched-queue)
+   #:make-batched-queue #:batched-queue)
   (:import-from :pfds.shcl.io/implementation/bankers-queue
-   #:make-bankers-queue)
+   #:make-bankers-queue #:bankers-queue)
   (:import-from :prove #:is #:subtest #:ok #:pass)
   (:export #:run-tests))
 (in-package :pfds.shcl.io/tests/queue)
@@ -147,17 +150,19 @@
              nil "Pointers to old queues remain valid after using with-last and without-first")))
 
 (defun test-queue (maker)
-  (let ((constructor (constructor maker)))
-    (test-empty-queues constructor)
-    (test-maker constructor)
-    (test-mixed-operations constructor)
-    (test-purity constructor)))
+  (subtest (symbol-name maker)
+    (let ((constructor (constructor maker)))
+      (test-empty-queues constructor)
+      (test-maker constructor)
+      (test-mixed-operations constructor)
+      (test-purity constructor))))
 
-(defparameter *makers*
-  '(make-batched-queue
-    make-bankers-queue))
+(defparameter *queues*
+  '(batched-queue
+    bankers-queue))
 
-(defun run-tests (&optional (makers *makers*))
-  (dolist (maker makers)
-    (subtest (symbol-name maker)
+(defun run-tests (&optional (queues *queues*))
+  (do-type-records ((name makers) queues)
+    (check-interface-conformance 'queue name)
+    (dolist (maker makers)
       (test-queue maker))))

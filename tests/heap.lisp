@@ -15,17 +15,18 @@
 (defpackage :pfds.shcl.io/tests/heap
   (:use :common-lisp)
   (:import-from :pfds.shcl.io/tests/common
-   #:check-common-consistency)
+   #:check-common-consistency #:check-interface-conformance
+   #:do-type-records)
   (:import-from :pfds.shcl.io/utility/compare #:compare)
   (:import-from :pfds.shcl.io/utility/misc #:cassert)
   (:import-from :pfds.shcl.io/interface/common
    #:check-invariants #:size)
   (:import-from :pfds.shcl.io/interface/heap
-   #:merge-heaps #:heap-top #:without-heap-top #:with-member #:is-empty #:empty)
-  (:import-from :pfds.shcl.io/implementation/leftist-heap #:make-leftist-heap)
-  (:import-from :pfds.shcl.io/implementation/binomial-heap #:make-binomial-heap)
-  (:import-from :pfds.shcl.io/implementation/splay-tree #:make-splay-heap)
-  (:import-from :pfds.shcl.io/implementation/pairing-heap #:make-pairing-heap)
+   #:merge-heaps #:heap-top #:without-heap-top #:with-member #:is-empty #:empty #:heap)
+  (:import-from :pfds.shcl.io/implementation/leftist-heap #:make-leftist-heap #:leftist-heap)
+  (:import-from :pfds.shcl.io/implementation/binomial-heap #:make-binomial-heap #:binomial-heap)
+  (:import-from :pfds.shcl.io/implementation/splay-tree #:make-splay-heap #:splay-heap)
+  (:import-from :pfds.shcl.io/implementation/pairing-heap #:make-pairing-heap #:pairing-heap)
   (:import-from :prove #:is #:subtest #:ok)
   (:export #:run-tests))
 (in-package :pfds.shcl.io/tests/heap)
@@ -71,12 +72,13 @@
 (defun make-height-biased-leftist-heap (comparator &key items)
   (make-leftist-heap comparator :bias :height :items items))
 
-(defparameter *makers*
-  '(make-weight-biased-leftist-heap
-    make-height-biased-leftist-heap
-    make-binomial-heap
-    make-splay-heap
-    make-pairing-heap))
+(defparameter *heaps*
+  '((leftist-heap
+     make-weight-biased-leftist-heap
+     make-height-biased-leftist-heap)
+    binomial-heap
+    splay-heap
+    pairing-heap))
 
 (defun heap-sort (heap expected)
   (is (size heap)
@@ -157,6 +159,8 @@
       (test-removal-from-empty constructor)
       (test-with-invariants constructor))))
 
-(defun run-tests ()
-  (dolist (maker *makers*)
-    (test-heap maker)))
+(defun run-tests (&optional (heaps *heaps*))
+  (do-type-records ((name makers) heaps)
+    (check-interface-conformance 'heap name)
+    (dolist (maker makers)
+      (test-heap maker))))

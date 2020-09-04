@@ -16,12 +16,16 @@
   (:use :common-lisp)
   (:import-from :pfds.shcl.io/interface/common
    #:size #:for-each #:to-list #:empty #:is-empty
-   #:iterator)
+   #:iterator #:interface-functions)
   (:import-from :pfds.shcl.io/utility/compare
    #:compare)
   (:import-from :pfds.shcl.io/utility/misc
    #:cassert)
-  (:export #:check-common-consistency))
+  (:import-from :closer-mop)
+  (:export
+   #:check-common-consistency
+   #:check-interface-conformance
+   #:do-type-records))
 (in-package :pfds.shcl.io/tests/common)
 
 (defun check-empty (object)
@@ -102,3 +106,37 @@
       (check-nonempty object))
 
   (check-write-read-roundtrip object))
+
+(defun check-has-method (function-name class-name)
+  (let* ((function (symbol-function function-name))
+         (class (find-class class-name))
+         (methods (closer-mop:generic-function-methods function)))
+    (dolist (method methods)
+      (let ((specializers (closer-mop:method-specializers method)))
+        (when (find class specializers)
+          (return-from check-has-method))))
+    (error "No method found on ~W for type ~W" function-name class-name)
+    (values)))
+
+(defun check-interface-conformance (interface-name class-name)
+  (dolist (function-name (interface-functions interface-name))
+    (check-has-method function-name class-name))
+  (values))
+
+(defun do-type-records-f (list fn)
+  (dolist (record list)
+    (when (symbolp record)
+      (let* ((maker-name (concatenate 'string "MAKE-"
+                                      (symbol-name record)))
+             (maker (find-symbol maker-name (symbol-package record))))
+        (setf record (list record maker))))
+    (destructuring-bind (name &rest makers) record
+      (funcall fn name makers))))
+
+(defmacro do-type-records (((type-name type-constructors) type-list
+                            &optional result)
+                           &body body)
+  `(block nil
+     (do-type-records-f ,type-list
+       (lambda (,type-name ,type-constructors) ,@body))
+     ,result))

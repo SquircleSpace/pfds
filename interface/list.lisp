@@ -17,7 +17,7 @@
   (:import-from :pfds.shcl.io/interface/common
    #:is-empty #:empty #:define-interface #:size)
   (:export
-   #:with-head #:head #:tail #:is-empty #:empty))
+   #:list #:with-head #:head #:tail #:is-empty #:empty))
 (in-package :pfds.shcl.io/interface/list)
 
 (define-interface list

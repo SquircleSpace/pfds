@@ -16,21 +16,27 @@
   (:use :common-lisp)
   (:import-from :pfds.shcl.io/interface/common
    #:to-list #:check-invariants #:iterator #:size #:for-each)
+  (:import-from :pfds.shcl.io/tests/common
+   #:check-interface-conformance #:do-type-records)
   (:import-from :pfds.shcl.io/utility/immutable-structure
    #:define-immutable-structure)
   (:import-from :pfds.shcl.io/utility/compare
    #:compare #:compare-objects)
   (:import-from :pfds.shcl.io/interface/map
-   #:is-empty #:empty #:lookup-entry #:with-entry #:without-entry)
+   #:is-empty #:empty #:lookup-entry #:with-entry #:without-entry
+   #:map)
   (:import-from :pfds.shcl.io/interface/set
    #:with-member #:without-member #:is-member)
   (:import-from :pfds.shcl.io/implementation/red-black-tree
-   #:make-red-black-map)
+   #:make-red-black-map
+   #:red-black-map)
   (:import-from :pfds.shcl.io/implementation/unbalanced-tree
-   #:make-unbalanced-map)
+   #:make-unbalanced-map
+   #:unbalanced-map)
   (:import-from :pfds.shcl.io/implementation/weight-balanced-tree
-   #:make-weight-balanced-map)
-  (:import-from :pfds.shcl.io/tests/set #:test-set)
+   #:make-weight-balanced-map
+   #:weight-balanced-map)
+  (:import-from :pfds.shcl.io/tests/set #:test-set-constructor)
   (:import-from :prove #:is #:subtest #:ok #:pass #:fail)
   (:export #:run-tests))
 (in-package :pfds.shcl.io/tests/map)
@@ -118,18 +124,20 @@
     (funcall maker 'compare :alist alist :plist plist)))
 
 (defun test-map (maker)
-  (let ((constructor (constructor maker)))
-    (subtest "set-like behavior"
-      (test-set (wrapped-set-constructor constructor)))
-    (subtest "shadowing of keys during making"
-      (test-maker-key-shadowing maker))))
+  (subtest (symbol-name maker)
+    (let ((constructor (constructor maker)))
+      (subtest "set-like behavior"
+        (test-set-constructor (wrapped-set-constructor constructor)))
+      (subtest "shadowing of keys during making"
+        (test-maker-key-shadowing maker)))))
 
-(defparameter *makers*
-  '(make-red-black-map
-    make-weight-balanced-map
-    make-unbalanced-map))
+(defparameter *maps*
+  '(red-black-map
+    weight-balanced-map
+    unbalanced-map))
 
-(defun run-tests (&optional (makers *makers*))
-  (dolist (maker makers)
-    (subtest (symbol-name maker)
+(defun run-tests (&optional (maps *maps*))
+  (do-type-records ((name makers) maps)
+    (check-interface-conformance 'map name)
+    (dolist (maker makers)
       (test-map maker))))

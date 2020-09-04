@@ -23,6 +23,7 @@
    #:is-empty
    #:empty)
   (:export
+   #:deque
    #:with-last
    #:with-first
    #:without-first

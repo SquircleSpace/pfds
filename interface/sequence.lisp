@@ -22,6 +22,7 @@
    #:make-impure-list-builder
    #:impure-list-builder-add #:impure-list-builder-extract)
   (:export
+   #:sequence
    #:is-empty
    #:empty
    #:with-entry
@@ -32,7 +33,7 @@
    #:subsequence))
 (in-package :pfds.shcl.io/interface/sequence)
 
-(define-interface seq
+(define-interface sequence
   is-empty
   empty
   with-entry
