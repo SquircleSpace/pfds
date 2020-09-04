@@ -114,12 +114,9 @@ This generic function is only valid for containers that support
 
 (defmacro do-sequence ((value collection &optional result) &body body)
   "Iterate over the values contained in the collection."
-  (let ((rest (gensym "REST")))
-    `(block nil
-       (for-each ,collection (lambda (,value)
-                               (declare (ignore ,rest))
-                               ,@body))
-       ,result)))
+  `(block nil
+     (for-each ,collection (lambda (,value) ,@body))
+     ,result))
 
 (defgeneric size (collection)
   (:documentation
