@@ -24,7 +24,7 @@
   (:import-from :pfds.shcl.io/utility/compare
    #:compare-objects #:compare)
   (:import-from :pfds.shcl.io/utility/immutable-structure
-   #:define-adt)
+   #:define-immutable-structure #:define-adt)
   (:import-from :pfds.shcl.io/interface/heap
    #:merge-heaps #:heap-top #:without-heap-top #:with-member #:is-empty #:empty)
   (:import-from :pfds.shcl.io/utility/impure-queue
@@ -75,22 +75,14 @@
       (format stream "ID~A -> ID~A~%" id child-id))
     id))
 
-(define-adt leftist-heap
-    ((comparator (error "comparator is required"))
-     (guts (guts-nil) :type guts)
-     (size 0 :type (integer 0)))
-  ((height-biased-leftist-heap (:constructor %make-height-biased-leftist-heap)))
-  ((weight-biased-leftist-heap (:constructor %make-weight-biased-leftist-heap))))
+(define-immutable-structure (leftist-heap (:constructor %make-leftist-heap))
+  (comparator (error "comparator is required"))
+  (guts (guts-nil) :type guts)
+  (size 0 :type (integer 0))
+  (bias +default-bias+ :type (member :height :weight)))
 
 (defmethod print-graphviz ((heap leftist-heap) stream id-vendor)
   (print-graphviz (leftist-heap-guts heap) stream id-vendor))
-
-(defun leftist-heap-bias (heap)
-  (etypecase heap
-    (height-biased-leftist-heap
-     :height)
-    (weight-biased-leftist-heap
-     :weight)))
 
 (defun do-guts-f (guts fn)
   (etypecase guts
@@ -202,24 +194,21 @@
 (defun make-leftist-heap (comparator &key (bias +default-bias+) items)
   (check-type bias (member :height :weight))
   (multiple-value-bind (guts size) (make-guts comparator bias items)
-    (ecase bias
-      (:height
-       (%make-height-biased-leftist-heap :comparator comparator
-                                         :guts guts
-                                         :size size))
-      (:weight
-       (%make-weight-biased-leftist-heap :comparator comparator
-                                         :guts guts
-                                         :size size)))))
+    (%make-leftist-heap :comparator comparator
+                        :guts guts
+                        :size size
+                        :bias bias)))
 
 (defun leftist-heap (comparator &rest items)
   (make-leftist-heap comparator :items items))
 
-(defun merge-heaps-common (first second constructor)
+(defun leftist-heap-merge (first second)
   (let ((comparator (leftist-heap-comparator first))
         (bias (leftist-heap-bias first)))
     (unless (eq comparator (leftist-heap-comparator second))
       (error "Heaps have different comparators"))
+    (unless (eq bias (leftist-heap-bias second))
+      (error "Heaps have different bias"))
     (assert (eq bias (leftist-heap-bias second)))
     (let* ((first-guts (leftist-heap-guts first))
            (second-guts (leftist-heap-guts second))
@@ -227,90 +216,71 @@
            (size (+ (leftist-heap-size first)
                     (leftist-heap-size second))))
       (when (eql result-guts first-guts)
-        (return-from merge-heaps-common first))
+        (return-from leftist-heap-merge first))
       (when (eql result-guts second-guts)
-        (return-from merge-heaps-common second))
+        (return-from leftist-heap-merge second))
 
-      (funcall constructor :comparator comparator :guts result-guts :size size))))
+      (%make-leftist-heap :comparator comparator :guts result-guts :size size :bias bias))))
 
-(defmethod merge-heaps ((first height-biased-leftist-heap) (second height-biased-leftist-heap))
-  (merge-heaps-common first second '%make-height-biased-leftist-heap))
+(defmethod merge-heaps ((first leftist-heap) (second leftist-heap))
+  (leftist-heap-merge first second))
 
-(defmethod merge-heaps ((first weight-biased-leftist-heap) (second weight-biased-leftist-heap))
-  (merge-heaps-common first second '%make-weight-biased-leftist-heap))
-
-(defun with-member-common (heap item constructor)
+(defun leftist-heap-with-member (heap item)
   (let ((comparator (leftist-heap-comparator heap))
         (bias (leftist-heap-bias heap)))
-    (funcall constructor
-             :comparator comparator
-             :guts (merge-guts comparator
-                               bias
-                               (leftist-heap-guts heap)
-                               (make-guts-node item (leftist-heap-bias heap)))
-             :size (1+ (leftist-heap-size heap)))))
+    (%make-leftist-heap
+     :comparator comparator
+     :guts (merge-guts comparator
+                       bias
+                       (leftist-heap-guts heap)
+                       (make-guts-node item bias))
+     :size (1+ (leftist-heap-size heap))
+     :bias bias)))
 
-(defmethod with-member ((heap height-biased-leftist-heap) item)
-  (with-member-common heap item '%make-height-biased-leftist-heap))
+(defmethod with-member ((heap leftist-heap) item)
+  (leftist-heap-with-member heap item))
 
-(defmethod with-member ((heap weight-biased-leftist-heap) item)
-  (with-member-common heap item '%make-weight-biased-leftist-heap))
-
-(defun heap-top-common (heap)
+(defun leftist-heap-top (heap)
   (let ((guts (leftist-heap-guts heap)))
     (if (guts-nil-p guts)
         (values nil nil)
         (values (guts-node-value guts) t))))
 
-(defmethod heap-top ((heap height-biased-leftist-heap))
-  (heap-top-common heap))
+(defmethod heap-top ((heap leftist-heap))
+  (leftist-heap-top heap))
 
-(defmethod heap-top ((heap weight-biased-leftist-heap))
-  (heap-top-common heap))
-
-(defun without-heap-top-common (heap constructor)
+(defun leftist-heap-without-top (heap)
   (let ((guts (leftist-heap-guts heap))
         (bias (leftist-heap-bias heap)))
     (when (guts-nil-p guts)
-      (return-from without-heap-top-common
+      (return-from leftist-heap-without-top
         (values heap nil nil)))
 
     (values
-     (funcall constructor
-              :comparator (leftist-heap-comparator heap)
-              :guts (merge-guts (leftist-heap-comparator heap)
-                                bias
-                                (guts-node-left guts)
-                                (guts-node-right guts))
-              :size (1- (leftist-heap-size heap)))
+     (%make-leftist-heap
+      :comparator (leftist-heap-comparator heap)
+      :guts (merge-guts (leftist-heap-comparator heap)
+                        bias
+                        (guts-node-left guts)
+                        (guts-node-right guts))
+      :size (1- (leftist-heap-size heap))
+      :bias bias)
      (guts-node-value guts)
      t)))
 
-(defmethod without-heap-top ((heap height-biased-leftist-heap))
-  (without-heap-top-common heap '%make-height-biased-leftist-heap))
+(defmethod without-heap-top ((heap leftist-heap))
+  (leftist-heap-without-top heap))
 
-(defmethod without-heap-top ((heap weight-biased-leftist-heap))
-  (without-heap-top-common heap '%make-weight-biased-leftist-heap))
+(defmethod empty ((heap leftist-heap))
+  (copy-leftist-heap heap :guts (guts-nil) :size 0))
 
-(defmethod empty ((heap height-biased-leftist-heap))
-  (copy-height-biased-leftist-heap heap :guts (guts-nil) :size 0))
-
-(defmethod empty ((heap weight-biased-leftist-heap))
-  (copy-weight-biased-leftist-heap heap :guts (guts-nil) :size 0))
-
-(defun is-empty-common (heap)
+(defun leftist-heap-is-empty (heap)
   (guts-nil-p (leftist-heap-guts heap)))
 
-(defmethod is-empty ((heap height-biased-leftist-heap))
-  (is-empty-common heap))
+(defmethod is-empty ((heap leftist-heap))
+  (leftist-heap-is-empty heap))
 
-(defmethod is-empty ((heap weight-biased-leftist-heap))
-  (is-empty-common heap))
-
-(defmethod size ((heap height-biased-leftist-heap))
-  (leftist-heap-size heap))
-
-(defmethod size ((heap weight-biased-leftist-heap))
+(defmethod size ((heap leftist-heap))
   (leftist-heap-size heap))
 
 (defmethod compare-objects ((left leftist-heap) (right leftist-heap))
