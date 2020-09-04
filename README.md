@@ -348,6 +348,27 @@ structures.  E.g. for structs using the `IMMUTABLE-STRUCTURE`
 metaclass, `:COPIER` functions accept keyword arguments for overriding
 slot values while creating the new object.
 
+### Avoid generic functions
+
+Generic functions are great for interfaces where you want to accept
+objects of different types.  Unfortunately, they impose a performance
+penalty that is completely unnecessary when you know the types of the
+arguments being passed into the function.  With [inlined generic
+functions](https://github.com/guicho271828/inlined-generic-function),
+you can avoid almost all of the cost in some cases.  Unfortunately,
+this is dependent on sophisticated compiler optimizations, and its all
+too easy to end up in a case where the compiler can't eliminate the
+type dispatch logic.  Since core data structures ought to be fast,
+this project avoids the use of generic functions to implement the
+internals of its data structures.
+
+You can argue that this is probably an instance of premature
+optimization.  You'd be right.  I didn't actually profile anything
+before I made this decision.  The performance concerns I outlined
+above seemed reasonable to me, but mostly I just thought it would be
+more interesting if I restricted myself to using generic functions
+sparingly.
+
 ## Impure data structures
 
 Some algorithms are best implemented with impure data structures.  The
