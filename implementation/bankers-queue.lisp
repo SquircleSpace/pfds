@@ -30,7 +30,7 @@
   (:import-from :pfds.shcl.io/implementation/lazy-list
    #:lazy-list-append
    #:lazy-list-reverse #:head #:tail #:lazy-cons
-   #:lazy-list-length #:lazy-list)
+   #:lazy-list-length #:lazy-list #:make-lazy-list)
   (:import-from :pfds.shcl.io/utility/immutable-structure
    #:define-immutable-structure)
   (:import-from :pfds.shcl.io/interface/queue
@@ -113,18 +113,9 @@
 (defmethod empty ((queue bankers-queue))
   *empty-bankers-queue*)
 
-(defun reverse-and-lazy (list)
-  (let ((result (lazy-list))
-        (count 0))
-    (dolist (value list)
-      (setf result (lazy-cons value result))
-      (incf count))
-    (values result count)))
-
 (defun make-bankers-queue (&key items)
   (if items
-      (multiple-value-bind (back-stack back-stack-size) (reverse-and-lazy items)
-        (balance-bankers-queue (lazy-list) 0 back-stack back-stack-size))
+      (balance-bankers-queue (make-lazy-list :items items) (length items) (lazy-list) 0)
       *empty-bankers-queue*))
 
 (defun bankers-queue (&rest items)
