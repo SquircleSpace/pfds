@@ -327,6 +327,27 @@ code.  Furthermore, it allows the compiler to keep us honest.  It is
 much more difficult to accidentally leak side effects when you can't
 have them!
 
+Unfortunately, `DEFSTRUCT` is a bit annoying to work with.
+- Uninitialized slot values are undefined.
+- For immutable structs, every slot needs to be declared read-only
+  individually.
+- Working with immutable structs is an exercise in frustration.  When
+  you want to clone a struct but with a change, you need to list out
+  all the slots of the strict!
+- There's not a meta-object protocol for structures.  If you want to
+  introspect a class struct (e.g. to simplify the above) you need to
+  parse the `DEFSTRUCT` form.  Unfortunately, correctly parsing a
+  `DEFSTRUCT` form is tricky!
+
+These aren't big problems on their own, but they become really
+annoying when you take a hard-line stance about using immutable
+structs.  Luckily, a little bit of metaprogramming goes a long way.
+This project defines a rudimentary MOP for structures, and then
+leverages that MOP to create convenient abstractions for immutable
+structures.  E.g. for structs using the `IMMUTABLE-STRUCTURE`
+metaclass, `:COPIER` functions accept keyword arguments for overriding
+slot values while creating the new object.
+
 ## Impure data structures
 
 Some algorithms are best implemented with impure data structures.  The
