@@ -334,8 +334,7 @@
 (deftype non-empty-wb-seq ()
   '(or wb-seq-node simple-array string))
 
-(define-immutable-structure (wb-seq-node (:constructor %make-wb-seq-node)
-                                         (:copier nil))
+(define-immutable-structure (wb-seq-node (:constructor %make-wb-seq-node))
   (left nil :type non-empty-wb-seq)
   (right nil :type non-empty-wb-seq)
   (size 1 :type (integer 1)))
@@ -670,6 +669,32 @@
            :do (funcall function index object)))
     (null)))
 
+(defun wb-seq-map-kv (tree function offset)
+  (etypecase tree
+    (wb-seq-node
+     (let* ((left (wb-seq-node-left tree))
+            (new-left (wb-seq-map-kv left function offset))
+            (right (wb-seq-node-right tree))
+            (new-right (wb-seq-map-kv right function (+ offset (wb-seq-size left)))))
+       (copy-wb-seq-node tree :left new-left :right new-right)))
+
+    (array
+     (let ((new-vector (make-array (length tree)))
+           (all-eql t))
+       (loop :for object :across tree
+             :for index :from offset
+             :for vector-index :from 0
+             :do (progn
+                   (let ((new-value (funcall function index object)))
+                     (unless (eql new-value object)
+                       (setf all-eql nil))
+                     (setf (aref new-vector vector-index) new-value))))
+       (if all-eql
+           tree
+           (maybe-stringify new-vector))))
+
+    (null)))
+
 (define-immutable-structure (weight-balanced-sequence (:constructor %make-weight-balanced-sequnce))
   (tree nil :type wb-seq))
 
@@ -686,7 +711,7 @@
   (wb-seq-for-each (weight-balanced-sequence-tree seq) function 0))
 
 (defmethod map-kv ((seq weight-balanced-sequence) function)
-  (copy-weight-balanced-sequence seq :tree (wb-seq-map-kv (weight-balanced-sequence-tree maseq) function)))
+  (copy-weight-balanced-sequence seq :tree (wb-seq-map-kv (weight-balanced-sequence-tree seq) function 0)))
 
 (defmethod size ((seq weight-balanced-sequence))
   (wb-seq-size (weight-balanced-sequence-tree seq)))
