@@ -326,7 +326,7 @@
 (defmethod print-graphviz ((map weight-balanced-map) stream id-vendor)
   (print-graphviz (weight-balanced-map-tree map) stream id-vendor))
 
-(defvar *max-array-length* 16)
+(defvar *max-array-length* 32)
 
 (deftype wb-seq ()
   '(or null wb-seq-node simple-array string))
