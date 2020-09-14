@@ -176,8 +176,12 @@ value."))
   ;; `DEFINE-INTERFACE'!
   (setf (get protocol-name 'interface-functions) new-value))
 
-(defun interface-functions (protocol-name)
-  (get protocol-name 'interface-functions))
+(defun interface-functions (protocol-name &key error-p)
+  (let* ((default (when error-p '#:default-value))
+         (result (get protocol-name 'interface-functions default)))
+    (when (and error-p (eq default result))
+      (error "~W doesn't seem to have an interface definition" protocol-name))
+    result))
 
 (defmacro define-interface (name &body functions)
   (let ((forms

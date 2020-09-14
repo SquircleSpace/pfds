@@ -115,11 +115,12 @@
       (let ((specializers (closer-mop:method-specializers method)))
         (when (find class specializers)
           (return-from check-has-method))))
-    (error "No method found on ~W for type ~W" function-name class-name)
+    (cassert nil nil "No method found on ~W for type ~W"
+             function-name class-name)
     (values)))
 
 (defun check-interface-conformance (interface-name class-name)
-  (dolist (function-name (interface-functions interface-name))
+  (dolist (function-name (interface-functions interface-name :error-p t))
     (check-has-method function-name class-name))
   (values))
 
