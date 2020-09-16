@@ -14,9 +14,7 @@
 
 (defpackage :pfds.shcl.io/implementation/leftist-heap
   (:use :common-lisp)
-  (:import-from :pfds.shcl.io/interface/common
-   #:to-list #:print-graphviz #:next-graphviz-id #:for-each
-   #:size #:iterator)
+  (:use :pfds.shcl.io/interface)
   (:import-from :pfds.shcl.io/utility/printer
    #:print-container)
   (:import-from :pfds.shcl.io/utility/iterator-tools
@@ -25,21 +23,14 @@
    #:compare-objects #:compare)
   (:import-from :pfds.shcl.io/utility/immutable-structure
    #:define-immutable-structure #:define-adt)
-  (:import-from :pfds.shcl.io/interface/heap
-   #:merge-heaps #:heap-top #:without-heap-top #:with-member #:is-empty #:empty)
   (:import-from :pfds.shcl.io/utility/impure-queue
    #:make-impure-queue #:enqueue #:dequeue #:impure-queue-count)
+  (:import-from :pfds.shcl.io/utility/misc
+   #:cassert)
   (:export
-   #:merge-heaps
-   #:heap-top
-   #:without-heap-top
-   #:with-member
-   #:is-empty
-   #:empty
    #:make-leftist-heap
    #:leftist-heap
-   #:leftist-heap-p
-   #:leftist-heap-comparator))
+   #:leftist-heap-p))
 (in-package :pfds.shcl.io/implementation/leftist-heap)
 
 ;; See "Purely Functional Data Structures" by Chris Okasaki
@@ -81,6 +72,8 @@
   (size 0 :type (integer 0))
   (bias +default-bias+ :type (member :height :weight)))
 
+(declare-interface-conformance leftist-heap priority-queue)
+
 (defmethod print-graphviz ((heap leftist-heap) stream id-vendor)
   (print-graphviz (leftist-heap-guts heap) stream id-vendor))
 
@@ -88,9 +81,9 @@
   (etypecase guts
     (guts-nil)
     (guts-node
+     (funcall fn (guts-node-value guts))
      (do-guts-f (guts-node-left guts) fn)
-     (do-guts-f (guts-node-right guts) fn)
-     (funcall fn (guts-node-value guts)))))
+     (do-guts-f (guts-node-right guts) fn))))
 
 (defmacro do-guts ((item guts &optional result) &body body)
   `(block nil
@@ -222,7 +215,7 @@
 
       (%make-leftist-heap :comparator comparator :guts result-guts :size size :bias bias))))
 
-(defmethod merge-heaps ((first leftist-heap) (second leftist-heap))
+(defmethod meld ((first leftist-heap) (second leftist-heap))
   (leftist-heap-merge first second))
 
 (defun leftist-heap-with-member (heap item)
@@ -246,7 +239,7 @@
         (values nil nil)
         (values (guts-node-value guts) t))))
 
-(defmethod heap-top ((heap leftist-heap))
+(defmethod peek-front ((heap leftist-heap))
   (leftist-heap-top heap))
 
 (defun leftist-heap-without-top (heap)
@@ -268,7 +261,10 @@
      (guts-node-value guts)
      t)))
 
-(defmethod without-heap-top ((heap leftist-heap))
+(defmethod without-front ((heap leftist-heap))
+  (leftist-heap-without-top heap))
+
+(defmethod decompose ((heap leftist-heap))
   (leftist-heap-without-top heap))
 
 (defmethod empty ((heap leftist-heap))
@@ -287,3 +283,50 @@
   (compare-heaps left (leftist-heap-comparator left)
                  right (leftist-heap-comparator right)
                  #'compare))
+
+(defmethod comparator ((heap leftist-heap))
+  (leftist-heap-comparator heap))
+
+(defmethod map-members ((heap leftist-heap) function)
+  (if (zerop (leftist-heap-size heap))
+      heap
+      (let (list)
+        (for-each heap (lambda (v) (push (funcall function v) list)))
+        (make-leftist-heap (leftist-heap-comparator heap) :items list))))
+
+(defun check-order (guts comparator)
+  (etypecase guts
+    (guts-nil)
+    (guts-node
+     (let ((value (guts-node-value guts)))
+       (labels
+           ((examine (other)
+              (when (guts-node-p other)
+                (cassert (not (eq :greater (funcall comparator value (guts-node-value other))))
+                         (guts) "The smaller value must always be higher up"))
+              (check-order other comparator)))
+         (examine (guts-node-left guts))
+         (examine (guts-node-right guts)))))))
+
+(defun check-rank (guts bias)
+  (etypecase guts
+    (guts-nil)
+    (guts-node
+     (let ((rank (guts-node-rank guts))
+           (expected-rank
+             (ecase bias
+               (:height (1+ (min (rank (guts-node-left guts))
+                                 (rank (guts-node-right guts)))))
+               (:weight (+ 1 (rank (guts-node-left guts))
+                           (rank (guts-node-right guts)))))))
+       (cassert (equal rank expected-rank)
+                (guts) "Rank must match expected value")
+       (cassert (>= (rank (guts-node-left guts))
+                    (rank (guts-node-right guts)))
+                (guts) "Left rank must not be less than right rank")
+       (check-rank (guts-node-left guts) bias)
+       (check-rank (guts-node-right guts) bias)))))
+
+(defmethod check-invariants ((heap leftist-heap))
+  (check-order (leftist-heap-guts heap) (leftist-heap-comparator heap))
+  (check-rank (leftist-heap-guts heap) (leftist-heap-bias heap)))

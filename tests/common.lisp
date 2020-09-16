@@ -14,130 +14,184 @@
 
 (defpackage :pfds.shcl.io/tests/common
   (:use :common-lisp)
-  (:import-from :pfds.shcl.io/interface/common
-   #:size #:for-each #:to-list #:empty #:is-empty
-   #:iterator #:interface-functions)
+  (:use :pfds.shcl.io/interface)
   (:import-from :pfds.shcl.io/utility/compare
-   #:compare)
+   #:compare #:compare-objects)
+  (:import-from :pfds.shcl.io/utility/immutable-structure
+   #:define-immutable-structure)
   (:import-from :pfds.shcl.io/utility/misc
    #:cassert)
   (:import-from :closer-mop)
+  (:import-from :alexandria)
+  (:import-from :prove
+   #:is #:subtest)
   (:export
    #:check-common-consistency
    #:check-interface-conformance
-   #:do-type-records))
+   #:do-type-records
+   #:token
+   #:make-token
+   #:token-p
+   #:token-value
+   #:compare-equal-p
+   #:compare-less-p
+   #:shuffle
+   #:cons-to-item
+   #:item-to-cons
+   #:encode
+   #:decode
+   #:build
+   #:build-from-list
+   #:make
+   #:make-test-environment
+   #:with-test-environment
+   #:named-subtests
+   #:subtest*
+   #:*name*
+   #:*comparator*
+   #:*maker*
+   #:*problem-size*
+   #:*sorted-numbers*
+   #:*even-numbers*
+   #:*odd-numbers*
+   #:*reverse-sorted-numbers*
+   #:*random-numbers*
+   #:*random-numbers-uniqued*
+   #:*unequal-objects*))
 (in-package :pfds.shcl.io/tests/common)
 
-(defun check-empty (object)
-  (let ((size (size object)))
-    (cassert (zerop size)
-             nil "A supposedly empty object had size ~A"
-             size))
+(defun eql-unique (items)
+  (let ((table (make-hash-table :test 'eql))
+        collected)
+    (loop :for item :in items :do
+      (unless (gethash item table)
+        (setf (gethash item table) t)
+        (push item collected)))
+    (nreverse collected)))
 
-  (let ((count 0))
-    (for-each object (lambda (&rest args)
-                       (declare (ignore args))
-                       (incf count)))
-    (cassert (zerop count)
-             nil "for-each says there are ~A objects in a supposedly empty collection"
-             count))
+(define-immutable-structure token
+  value)
 
-  (let ((list (to-list object)))
-    (cassert (null list)
-             nil "to-list produced a non-empty list on a supposedly empty collection:~A~%"
-             list))
+(defmethod compare-objects ((left token) (right token))
+  (when (eql left right)
+    (return-from compare-objects :equal))
+  (let ((result (compare (token-value left) (token-value right))))
+    (when (eq :equal result)
+      (setf result :unequal))
+    result))
 
-  (cassert (eq object (empty object))
-           nil "empty on an empty object should return itself")
+(defun item-to-cons (item)
+  (cons item (complex 0 (sxhash item))))
 
-  (multiple-value-bind (value valid-p) (funcall (iterator object))
-    (cassert (and (null value) (not valid-p))
-             nil "the iterator returned by an empty object should be empty")))
+(defun cons-to-item (cons)
+  (cassert (equal (cdr cons) (complex 0 (sxhash (car cons))))
+           (cons) "Cons must not be corrupted")
+  (car cons))
 
-(defun check-nonempty (object)
-  (let ((size (size object))
-        (count 0)
-        list
-        length)
-    (cassert (plusp size)
-             nil "A non-empty object had size ~A"
-             size)
+(defun shuffle (list)
+  (coerce (alexandria:shuffle (coerce list 'vector)) 'list))
 
-    (for-each object (lambda (&rest args)
-                       (declare (ignore args))
-                       (incf count)))
-    (cassert (equal count size)
-             nil "size and for-each must agree about the size: ~A vs ~A"
-             size count)
+(defun compare-equal-p (l r)
+  (eq :equal (compare l r)))
 
-    (setf list (to-list object))
-    (setf length (length list))
-    (cassert (equal (length list) size)
-             nil "to-list and size must agree about the size: ~A vs ~A"
-             size length)
+(defun compare-less-p (l r)
+  (eq :less (compare l r)))
 
-    (let ((iter (iterator object))
-          (count 0))
-      (loop
-        (multiple-value-bind (value valid-p) (funcall iter)
-          (declare (ignore value))
-          (if valid-p
-              (incf count)
-              (return))))
-      (cassert (equal count length)
-               nil "iterator should visit the same number of objects as to-list"))
+(defvar *problem-size* 1000)
 
-    (cassert (not (eq object (empty object)))
-             nil "empty on a non-empty object must return something different")
+(defparameter *sorted-numbers* (loop :for i :below *problem-size* :collect i))
+(defparameter *even-numbers* (loop :for i :below *problem-size* :collect (* 2 i)))
+(defparameter *odd-numbers* (mapcar '1+ *even-numbers*))
+(defparameter *reverse-sorted-numbers* (reverse *sorted-numbers*))
+(defparameter *random-numbers* (list* 666.0 666 666 (loop :for i :below *problem-size* :collect (random 1000))))
+(defparameter *random-numbers-uniqued* (eql-unique *random-numbers*))
+(defparameter *unequal-objects* (shuffle (loop :for i :below (/ *problem-size* 4) :nconc (loop :for j :below 4 :collect (make-token :value i)))))
 
-    (cassert (not (eq :equal (compare object (empty object))))
-             nil "empty and non-empty objects don't compare :equal")))
+(defvar *encode*)
+(defvar *decode*)
+(defvar *maker*)
+(defvar *maker-initargs* nil)
+(defvar *maker-positional-args*)
+(defvar *maker-items-initarg*)
+(defvar *name*)
+(defvar *comparator*)
 
-(defun check-write-read-roundtrip (object)
-  (let* ((string (with-output-to-string (s) (write object :readably t :stream s)))
-         (form (read (make-string-input-stream string)))
-         (new-object (eval form)))
-    (cassert (eq :equal (compare object new-object))
-             nil "Roundtripping through write/read/eval must work")))
+(defun encode (item)
+  (funcall *encode* item))
 
-(defun check-common-consistency (object)
-  (if (is-empty object)
-      (check-empty object)
-      (check-nonempty object))
+(defun decode (item)
+  (funcall *decode* item))
 
-  (check-write-read-roundtrip object))
+(defun make (&rest args &key &allow-other-keys)
+  (apply *maker* (concatenate 'list *maker-positional-args* *maker-initargs* args)))
 
-(defun check-has-method (function-name class-name)
-  (let* ((function (symbol-function function-name))
-         (class (find-class class-name))
-         (methods (closer-mop:generic-function-methods function)))
-    (dolist (method methods)
-      (let ((specializers (closer-mop:method-specializers method)))
-        (when (find class specializers)
-          (return-from check-has-method))))
-    (cassert nil nil "No method found on ~W for type ~W"
-             function-name class-name)
-    (values)))
+(defun build-from-list (items)
+  (make *maker-items-initarg* (mapcar #'encode items)))
 
-(defun check-interface-conformance (interface-name class-name)
-  (dolist (function-name (interface-functions interface-name :error-p t))
-    (check-has-method function-name class-name))
-  (values))
+(defun build (&rest items)
+  (build-from-list items))
 
-(defun do-type-records-f (list fn)
-  (dolist (record list)
-    (when (symbolp record)
-      (let* ((maker-name (concatenate 'string "MAKE-"
-                                      (symbol-name record)))
-             (maker (find-symbol maker-name (symbol-package record))))
-        (setf record (list record maker))))
-    (destructuring-bind (name &rest makers) record
-      (funcall fn name makers))))
+(defun make-list* (&key items)
+  items)
 
-(defmacro do-type-records (((type-name type-constructors) type-list
-                            &optional result)
-                           &body body)
-  `(block nil
-     (do-type-records-f ,type-list
-       (lambda (,type-name ,type-constructors) ,@body))
-     ,result))
+(defun find-maker (class-name)
+  (if (eq class-name 'list)
+      'make-list*
+      (multiple-value-bind (sym state) (find-symbol (format nil "MAKE-~A" class-name) (symbol-package class-name))
+        (when (eq :external state)
+          sym))))
+
+(defun other-compare (l r)
+  (compare l r))
+
+(defun make-test-environment (class-name &rest initargs)
+  (let* ((interfaces (interfaces-implemented class-name))
+         (map-p (find 'ordered-map interfaces))
+         (ordered-p (find 'ordered-collection interfaces)))
+    `((*encode* . ,(if map-p 'item-to-cons 'identity))
+      (*decode* . ,(if map-p 'cons-to-item 'identity))
+      (*maker* . ,(find-maker class-name))
+      (*maker-items-initarg* . ,(if map-p :alist :items))
+      (*maker-positional-args* . ,(when ordered-p '(other-compare)))
+      (*comparator* . ,(when ordered-p 'other-compare))
+      (*maker-initargs* . ,initargs)
+      (*name* . ,class-name))))
+
+(defmacro with-test-environment (environment &body body)
+  (let ((record-val (gensym "RECORD")))
+    `(let ((,record-val ,environment))
+       (progv (mapcar #'car ,record-val) (mapcar #'cdr ,record-val)
+         ,@body))))
+
+(defconstant +test-name-prefix+ (if (boundp '+test-name-prefix+)
+                                    (symbol-value '+test-name-prefix+)
+                                    "TEST-"))
+
+(defmacro subtest* (name &body body)
+  (let ((name-val (gensym "NAME"))
+        (done (gensym "DONE"))
+        (again (gensym "AGAIN"))
+        (stream (gensym "STREAM")))
+    `(let ((,name-val ,name))
+       (block ,done
+         (tagbody
+            ,again
+            (return-from ,done
+              (subtest ,name-val
+                (restart-case
+                    (progn ,@body)
+                  (restart-test ()
+                    :report (lambda (,stream) (format ,stream "Restart testing from ~A" ,name-val))
+                    (go ,again))))))))))
+
+(defmacro named-subtests (&body body)
+  (labels
+      ((test-name (form)
+         (and (consp form)
+              (symbolp (car form))
+              (nth-value 1 (alexandria:starts-with-subseq "TEST-" (symbol-name (car form)) :return-suffix t)))))
+    `(progn ,@(loop :for form :in body
+                    :collect (let ((name (test-name form)))
+                               (if name
+                                   `(subtest* ,name ,form)
+                                   form))))))

@@ -14,10 +14,7 @@
 
 (defpackage :pfds.shcl.io/utility/iterator-tools
   (:use :common-lisp)
-  (:import-from :pfds.shcl.io/interface/common
-   #:iterator #:size)
-  (:import-from :pfds.shcl.io/interface/heap
-   #:without-heap-top)
+  (:use :pfds.shcl.io/interface)
   (:import-from :pfds.shcl.io/utility/compare
    #:compare* #:compare-reals #:compare)
   (:import-from :pfds.shcl.io/utility/impure-list-builder
@@ -25,7 +22,7 @@
    #:impure-list-builder-extract)
   (:export
    #:iterator-flatten #:iterator-flatten*
-   #:iterator-to-list
+   #:iterator-to-list #:do-iterator
    #:compare-iterator-contents
    #:compare-containers #:compare-heaps #:compare-sets
    #:compare-maps))
@@ -89,7 +86,7 @@
 
 (defun heap-iterator (heap)
   (lambda ()
-    (multiple-value-bind (new-heap removed-value valid-p) (without-heap-top heap)
+    (multiple-value-bind (new-heap removed-value valid-p) (without-front heap)
       (setf heap new-heap)
       (values removed-value valid-p))))
 
@@ -125,3 +122,15 @@
                                                  (funcall value-comparator (cdr l-pair) (cdr r-pair))))
                                      (lambda (l-pair r-pair)
                                        (funcall value-comparator (cdr l-pair) (cdr r-pair))))))))
+
+(defun do-iterator-f (iterator fn)
+  (loop
+    (multiple-value-bind (value valid-p) (funcall iterator)
+      (unless valid-p
+        (return))
+      (funcall fn value))))
+
+(defmacro do-iterator ((value iterator &optional result) &body body)
+  `(block nil
+     (do-iterator-f ,iterator (lambda (,value) ,@body))
+     ,result))

@@ -19,13 +19,16 @@
   (:export
    #:list-map-with
    #:list-map-without
+   #:list-map-mutate
    #:list-map-lookup
-   #:list-map-map-kv
+   #:list-map-map-entries
    #:list-map
    #:list-set-with
    #:list-set-without
+   #:list-set-mutate
    #:list-set-is-member
-   #:list-set))
+   #:list-set
+   #:impure-destructive-mapcar))
 (in-package :pfds.shcl.io/utility/list)
 
 (defun list-remove-index (list index)
@@ -64,6 +67,40 @@
                (values (list-remove-index alist index) t))))
   (values alist nil))
 
+(defun list-map-mutate (comparator alist key action-function)
+  (loop :for pair :in alist
+        :for index :from 0
+        :do
+           (when (compare-equal-p comparator key (car pair))
+             (multiple-value-bind (action value) (funcall action-function (car pair) (cdr pair))
+               (ecase action
+                 (:insert
+                  (when (eql (cdr pair) value)
+                    (return-from list-map-mutate
+                      (values alist 0 nil)))
+
+                  (setf alist (list-remove-index alist index))
+                  (push (cons key value) alist)
+                  (return-from list-map-mutate
+                    (values alist 0 nil)))
+                 (:remove
+                  (setf alist (list-remove-index alist index))
+                  (return-from list-map-mutate
+                    (values alist -1 nil)))
+                 ((nil)
+                  (return-from list-map-mutate
+                    (values alist 0 nil)))))))
+
+  (multiple-value-bind (action value) (funcall action-function)
+    (ecase action
+      (:insert
+       (push (cons key value) alist)
+       (return-from list-map-mutate
+         (values alist 1 nil)))
+      ((:remove nil)
+       (return-from list-map-mutate
+         (values alist 0 nil))))))
+
 (defun list-map-lookup (comparator alist key)
   (loop :for pair :in alist
         :do
@@ -72,7 +109,7 @@
             (values (cdr pair) t))))
   (values nil nil))
 
-(defun list-map-map-kv (list function)
+(defun list-map-map-entries (list function)
   ;; list maps are really inefficient.  If a list map is long enough
   ;; that this recursive solution becomes a problem then we have much
   ;; more serious problems.
@@ -82,7 +119,7 @@
            (old-value (cdr head))
            (new-value (funcall function key old-value))
            (old-tail (cdr list))
-           (new-tail (list-map-map-kv (cdr list) function)))
+           (new-tail (list-map-map-entries (cdr list) function)))
       (if (and (eql new-value old-value)
                (eql new-tail old-tail))
           list
@@ -113,6 +150,31 @@
             (values (list-remove-index list index) t))))
   (values list nil))
 
+(defun list-set-mutate (comparator list key action-function)
+  (loop :for item :in list
+        :for index :from 0
+        :do
+           (when (compare-equal-p comparator key item)
+             (let ((action (funcall action-function item)))
+               (ecase action
+                 (:remove
+                  (setf list (list-remove-index list index))
+                  (return-from list-set-mutate
+                    (values list -1 nil)))
+                 ((nil)
+                  (return-from list-set-mutate
+                    (values list 0 nil)))))))
+
+  (let ((action (funcall action-function)))
+    (ecase action
+      (:insert
+       (push key list)
+       (return-from list-set-mutate
+         (values list 1 nil)))
+      ((:remove nil)
+       (return-from list-set-mutate
+         (values list 0 nil))))))
+
 (defun list-set-is-member (comparator list key)
   (loop :for item :in list
         :do
@@ -125,3 +187,6 @@
     (dolist (item items)
       (setf set (list-set-with comparator set item)))
     set))
+
+(defun impure-destructive-mapcar (function list)
+  (maplist (lambda (sublist) (setf (car sublist) (funcall function (car sublist)))) list))

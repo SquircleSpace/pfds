@@ -14,9 +14,7 @@
 
 (defpackage :pfds.shcl.io/utility/tree
   (:use :common-lisp)
-  (:import-from :pfds.shcl.io/interface/common
-   #:to-list #:print-graphviz #:next-graphviz-id #:for-each
-   #:iterator #:map-kv)
+  (:use :pfds.shcl.io/interface)
   (:import-from :pfds.shcl.io/utility/impure-list-builder
    #:make-impure-list-builder #:impure-list-builder-add
    #:impure-list-builder-extract)
@@ -26,8 +24,9 @@
    #:intern-conc #:cassert)
   (:import-from :pfds.shcl.io/utility/list
    #:list-set-with #:list-set-without #:list-set #:list-set-is-member
+   #:list-set-mutate
    #:list-map-with #:list-map-without #:list-map #:list-map-lookup
-   #:list-map-map-kv)
+   #:list-map-map-entries #:list-map-mutate)
   (:export
    #:define-tree #:print-tree-node-properties
    #:nil-tree-p #:node-left #:node-right #:node-values))
@@ -42,17 +41,57 @@
 
 (defmacro define-tree (base-name (&key
                                     (map-p t)
+
+                                    (define-mutate-p t)
+                                    (mutate (when define-mutate-p (intern-conc *package* base-name "-MUTATE")))
+                                    (define-mutate-less-p define-mutate-p)
+                                    (mutate-less (when define-mutate-less-p (intern-conc *package* base-name "-MUTATE-LESS")))
+                                    (define-mutate-greater-p define-mutate-p)
+                                    (mutate-greater (when define-mutate-greater-p (intern-conc *package* base-name "-MUTATE-GREATER")))
+                                    (define-mutate-equal-p define-mutate-p)
+                                    (mutate-equal (when define-mutate-equal-p (intern-conc *package* base-name "-MUTATE-EQUAL")))
+                                    (define-mutate-unequal-p define-mutate-p)
+                                    (mutate-unequal (when define-mutate-unequal-p (intern-conc *package* base-name "-MUTATE-UNEQUAL")))
+                                    (define-mutate-missing-p define-mutate-p)
+                                    (mutate-missing (when define-mutate-missing-p (intern-conc *package* base-name "-MUTATE-MISSING")))
+
                                     (define-lookup-p t)
-                                    (define-insert-p t)
-                                    (define-remove-p t)
-                                    (define-maker-p t)
-                                    (define-representative-p t)
+                                    (lookup (when define-lookup-p (intern-conc *package* base-name "-LOOKUP")))
+
+                                    (define-emplace-p (and map-p mutate))
+                                    (emplace (when define-emplace-p (intern-conc *package* base-name "-EMPLACE")))
+                                    (define-insert-p mutate)
+                                    (insert (when define-insert-p (intern-conc *package* base-name "-INSERT")))
+                                    (define-remove-p mutate)
+                                    (remove (when define-remove-p (intern-conc *package* base-name "-REMOVE")))
+                                    (define-decompose-p mutate)
+                                    (decompose (when define-decompose-p (intern-conc *package* base-name "-DECOMPOSE")))
+
+                                    (define-maker-p (if map-p emplace insert))
+                                    (maker (when define-maker-p (intern-conc *package* "MAKE-" base-name)))
+
                                     (define-checker-p t)
+                                    (checker (when define-checker-p (intern-conc *package* "CHECK-" base-name)))
+
+                                    (define-map-members-p maker)
+                                    (map-members (when define-map-members-p (intern-conc *package* base-name "-MAP-MEMBERS")))
+
+                                    (define-map-entries-p map-p)
+                                    (map-entries (when define-map-entries-p (intern-conc *package* base-name "-MAP-ENTRIES")))
+
+                                    (define-iterator-p t)
+                                    (iterator (when define-iterator-p (intern-conc *package* base-name "-ITERATOR")))
+
+                                    (define-append-children-p t)
+                                    (append-children (when define-append-children-p (intern-conc *package* base-name "-APPEND-TREES")))
+
+                                    (define-do-tree-f t)
+                                    (do-tree-f (when define-do-tree-f (intern-conc *package* "DO-" base-name "-F")))
+
                                     insert-left-balancer insert-right-balancer
                                     remove-left-balancer remove-right-balancer)
                        &body extra-node-slots)
-  (let* ((maker (intern-conc *package* "MAKE-" base-name))
-         (nil-type (intern-conc *package* base-name "-NIL"))
+  (let* ((nil-type (intern-conc *package* base-name "-NIL"))
          (nil-type-p (intern-conc *package* nil-type "-P"))
          (nil-var (intern-conc *package* "*" nil-type "*"))
          (node-base-type (intern-conc *package* base-name "-NODE"))
@@ -69,40 +108,30 @@
          (node-right (intern-conc *package* node-base-type "-RIGHT"))
          (to-list (intern-conc *package* base-name "-TO-LIST"))
          (node-copy (intern-conc *package* "COPY-" node-base-type))
-         (do-tree (intern-conc *package* "DO-" base-name))
-         (do-tree-f (intern-conc *package* do-tree "-F"))
-         (insert (when define-insert-p (intern-conc *package* base-name "-INSERT")))
-         (lookup (when define-lookup-p (intern-conc *package* base-name "-LOOKUP")))
-         (remove (when define-remove-p (intern-conc *package* base-name "-REMOVE")))
-         (representative-key (if define-representative-p
-                                 ;; We need this function whether they want it or not
-                                 (intern-conc *package* node-base-type "-REPRESENTATIVE")
-                                 (gensym "NODE-REPRESENTATIVE")))
-         (checker (when define-checker-p (intern-conc *package* "CHECK-" base-name)))
-         (tree-map-kv (when map-p (intern-conc *package* base-name "-MAP-KV")))
-         (with-key (intern-conc *package* node-base-type "-WITH-KEY"))
-         (without-key (intern-conc *package* node-base-type "-WITHOUT-KEY"))
-         (with-equal (gensym "NODE-WITH-EQUAL"))
-         (without-equal (gensym "NODE-WITHOUT-EQUAL"))
-         (with-unequal (gensym "NODE-WITH-UNEQUAL"))
-         (without-unequal (gensym "NODE-WITHOUT-UNEQUAL"))
-         (remove-min (gensym "REMOVE-MIN"))
-         (append-children (gensym "APPEND-CHILD-TREES"))
+         (do-tree (when do-tree-f (intern-conc *package* "DO-" base-name)))
+         (representative-key (intern-conc *package* node-base-type "-REPRESENTATIVE"))
+         (remove-min-node (gensym "REMOVE-MIN-NODE"))
          (balance-needed-p (gensym "BALANCE-NEEDED-P"))
          (values (gensym "VALUES"))
          (result (gensym "RESULT"))
          (comparator (gensym "COMPARATOR"))
          (comparison (gensym "COMPARISON"))
          (tree (gensym "TREE"))
+         (new-tree (gensym "NEW-TREE"))
          (stream (gensym "STREAM"))
          (other (gensym "OTHER"))
-         (check (gensym "CHECK"))
          (sublist (gensym "SUBLIST"))
          (key (gensym "KEY"))
          (value (gensym "VALUE"))
+         (value-p (gensym "VALUE-P"))
+         (copy-n-type-with-values (gensym "COPY-N-TYPE-WITH-VALUES"))
+         (count-change (gensym "COUNT-CHANGE"))
+         (extracted-key (gensym "EXTRACTED-KEY"))
+         (extracted-value (gensym "EXTRACTED-VALUE"))
+         (action (gensym "ACTION"))
+         (action-function (gensym "ACTION-FUNCTION"))
          (value-list (when map-p `(,value)))
-         (emplace-p (when map-p (gensym "EMPLACE-P")))
-         (emplace-p-list (when emplace-p `(,emplace-p)))
+         (impl (gensym "IMPL"))
          (min (gensym "MIN"))
          (without-min (gensym "WITHOUT-MIN"))
          (function (gensym "FUNCTION"))
@@ -113,7 +142,6 @@
          (plist (make-symbol "PLIST"))
          (items (make-symbol "ITEMS"))
          (id-vendor (gensym "ID-VENDOR"))
-         (count-changed-p (gensym "COUNT-CHANGED-P"))
          (count (gensym "COUNT"))
          (node-value-iterator (gensym "NODE-VALUE-ITERATOR"))
          (stack (gensym "STACK"))
@@ -160,90 +188,6 @@
 
        (defvar ,nil-var (,make-nil-type))
 
-       (defun ,with-unequal (,comparator ,tree ,key ,@value-list)
-         (etypecase ,tree
-           (,node-n-type
-            (multiple-value-bind
-                  (,values ,count-changed-p)
-                (,(if map-p 'list-map-with 'list-set-with)
-                 ,comparator
-                 (,n-type-values ,tree)
-                 ,key
-                 ,@value-list)
-              (values (,copy-n-type ,tree :values ,values)
-                      ,count-changed-p)))
-           (,node-1-type
-            (let ((,result (structure-convert (,node-n-type ,node-1-type)
-                                              ,tree
-                                              :values ,(if map-p
-                                                           `(list-map
-                                                             ,comparator
-                                                             (,1-type-key ,tree)
-                                                             (,1-type-value ,tree)
-                                                             ,key
-                                                             ,value)
-                                                           `(list-set
-                                                             ,comparator
-                                                             (,1-type-key ,tree)
-                                                             ,key)))))
-              (assert (cdr (,n-type-values ,result)))
-              (values ,result t)))))
-
-       (defun ,without-unequal (,comparator ,tree ,key)
-         (etypecase ,tree
-           (,node-n-type
-            (multiple-value-bind
-                  (,values ,count-changed-p)
-                (,(if map-p 'list-map-without 'list-set-without)
-                 ,comparator
-                 (,n-type-values ,tree)
-                 ,key)
-              (values (if (cdr ,values)
-                          (,copy-n-type ,tree :values ,values)
-                          (structure-convert (,node-1-type ,node-n-type)
-                                             ,tree
-                                             ,@(if map-p
-                                                   `(:key (car (car ,values)) :value (cdr (car ,values)))
-                                                   `(:key (car ,values)))))
-                      ,count-changed-p)))
-           (,node-1-type
-            (values ,tree nil))))
-
-       (declaim (inline ,with-equal))
-       (defun ,with-equal (,comparator ,tree ,key ,@value-list)
-         ,@(if map-p
-               `((etypecase ,tree
-                   (,node-n-type
-                    (,with-unequal ,comparator ,tree ,key ,@value-list))
-                   (,node-1-type
-                    (values (,copy-1-type ,tree :value ,value) nil))))
-               `((declare (ignore ,comparator ,key ,@value-list))
-                 (values ,tree nil))))
-
-       (declaim (inline ,without-equal))
-       (defun ,without-equal (,comparator ,tree ,key)
-         (etypecase ,tree
-           (,node-n-type
-            (,without-unequal ,comparator ,tree ,key))
-           (,node-1-type
-            (values (,nil-type) t))))
-
-       (declaim (inline ,with-key))
-       (defun ,with-key (,comparator ,tree ,comparison ,key ,@value-list)
-         (ecase ,comparison
-           (:equal
-            (,with-equal ,comparator ,tree ,key ,@value-list))
-           (:unequal
-            (,with-unequal ,comparator ,tree ,key ,@value-list))))
-
-       (declaim (inline ,without-key))
-       (defun ,without-key (,comparator ,tree ,comparison ,key)
-         (ecase ,comparison
-           (:equal
-            (,without-equal ,comparator ,tree ,key))
-           (:unequal
-            (,without-unequal ,comparator ,tree ,key))))
-
        (declaim (inline ,representative-key))
        (defun ,representative-key (,tree)
          (etypecase ,tree
@@ -265,57 +209,224 @@
            (,node-n-type
             (apply #',copy-n-type ,tree ,values))))
 
-       ,@(when define-insert-p
-           `((defun ,insert (,comparator ,tree ,key ,@value-list ,@(when map-p `(&optional ,emplace-p)))
+       ,@(when define-append-children-p
+           `((defun ,append-children (,tree)
+               (when (,nil-type-p (,node-left ,tree))
+                 (return-from ,append-children (,node-right ,tree)))
+               (when (,nil-type-p (,node-right ,tree))
+                 (return-from ,append-children (,node-left ,tree)))
+
+               (multiple-value-bind (,min ,without-min) (,remove-min-node (,node-right ,tree))
+                 ;; Now we make a version of tree that has all the
+                 ;; same metadata but the value(s) of min.  We're
+                 ;; just migrating the min values up to the position
+                 ;; of tree.  Afterwards, we'll run the balancer to
+                 ;; update the metadata.
+                 (setf ,tree (etypecase ,tree
+                               (,node-1-type
+                                (etypecase ,min
+                                  (,node-1-type
+                                   (,copy-1-type ,tree :key (,1-type-key ,min) ,@(when map-p `(:value (,1-type-value ,min)))))
+                                  (,node-n-type
+                                   (structure-convert (,node-n-type ,node-1-type) ,tree :values (,n-type-values ,min)))))
+                               (,node-n-type
+                                (etypecase ,min
+                                  (,node-1-type
+                                   (structure-convert (,node-1-type ,node-n-type) ,tree :key (,1-type-key ,min)
+                                                      ,@(when map-p `(:value (,1-type-value ,min)))))
+                                  (,node-n-type
+                                   (,copy-n-type ,tree :values (,n-type-values ,min)))))))
+                 (,remove-right-balancer ,tree :right ,without-min)))
+
+             (defun ,remove-min-node (,tree)
                (etypecase ,tree
                  (,nil-type
-                  (values (,make-1-type :key ,key ,@(when map-p `(:value ,value)))
-                          t
-                          t))
+                  (error "nil tree has no min"))
                  ((or ,node-1-type ,node-n-type)
-                  (ecase (funcall ,comparator ,key (,representative-key ,tree))
-                    (:less
-                     (multiple-value-bind
-                           (,result ,balance-needed-p ,count-changed-p)
-                         (,insert ,comparator (,node-left ,tree) ,key ,@value-list ,@emplace-p-list)
-                       (if ,balance-needed-p
-                           (values (,insert-left-balancer ,tree :left ,result) t ,count-changed-p)
-                           (values (,node-copy ,tree :left ,result) nil ,count-changed-p))))
-                    (:greater
-                     (multiple-value-bind
-                           (,result ,balance-needed-p ,count-changed-p)
-                         (,insert ,comparator (,node-right ,tree) ,key ,@value-list ,@emplace-p-list)
-                       (if ,balance-needed-p
-                           (values (,insert-right-balancer ,tree :right ,result) t ,count-changed-p)
-                           (values (,node-copy ,tree :right ,result) nil ,count-changed-p))))
-                    (:equal
-                     ,(if map-p
-                          `(if ,emplace-p
-                               (values ,tree nil nil)
-                               (multiple-value-bind
-                                     (,result ,count-changed-p)
-                                   (,with-equal ,comparator ,tree ,key ,value)
-                                 (values ,result nil ,count-changed-p)))
-                          `(multiple-value-bind
-                                 (,result ,count-changed-p)
-                               (,with-equal ,comparator ,tree ,key)
-                             (values ,result nil ,count-changed-p))))
-                    (:unequal
-                     ,(if map-p
-                          `(if (and ,emplace-p
-                                    (typep ,tree ',node-n-type)
-                                    (nth-value 1 (list-map-lookup ,comparator (,n-type-values ,tree) ,key)))
-                               (values ,tree nil nil)
-                               (multiple-value-bind
-                                     (,result ,count-changed-p)
-                                   (,with-unequal ,comparator ,tree ,key ,value)
-                                 (values ,result nil ,count-changed-p)))
-                          `(multiple-value-bind
-                                 (,result ,count-changed-p)
-                               (,with-unequal ,comparator ,tree ,key)
-                             (values ,result nil ,count-changed-p))))))))))
+                  (if (,nil-type-p (,node-left ,tree))
+                      (values ,tree (,node-right ,tree))
+                      (multiple-value-bind (,result ,value) (,remove-min-node (,node-left ,tree))
+                        (values ,result (,remove-left-balancer ,tree :left ,value)))))))))
 
-       ,@(when (and define-insert-p define-maker-p)
+       ,@(when define-mutate-missing-p
+           `((defun ,mutate-missing (,tree ,key ,action-function)
+               (multiple-value-bind (,action ,@value-list) (funcall ,action-function)
+                 (ecase ,action
+                   (:insert
+                    (etypecase ,tree
+                      (,nil-type
+                       (values (,make-1-type :key ,key ,@(when map-p `(:value ,value)))
+                               1
+                               t))
+                      (,node-1-type
+                       (values (structure-convert (,node-n-type ,node-1-type)
+                                                  ,tree
+                                                  :values ,(if map-p
+                                                               `(list
+                                                                 (cons (,1-type-key ,tree) (,1-type-value ,tree))
+                                                                 (cons ,key ,value))
+                                                               `(list
+                                                                 (,1-type-key ,tree)
+                                                                 ,key)))
+                               1
+                               nil))
+                      (,node-n-type
+                       (values (,copy-n-type ,tree :values (cons ,(if map-p
+                                                                      `(cons ,key ,value)
+                                                                      key)
+                                                                 (,n-type-values ,tree)))
+                               1
+                               nil))))
+
+                   ((:remove nil)
+                    (values ,tree 0 nil)))))))
+
+       ,@(when define-mutate-equal-p
+           `((defun ,copy-n-type-with-values (,tree ,values)
+               (check-type ,tree ,node-n-type)
+               (if (cdr ,values)
+                   (,copy-n-type ,tree :values ,values)
+                   (structure-convert (,node-1-type ,node-n-type) ,tree
+                                      :key ,(if map-p
+                                                `(car (car ,values))
+                                                `(car ,values))
+                                      ,@(when map-p
+                                          `(:value (cdr (car ,values)))))))
+
+             (defun ,mutate-equal (,tree ,extracted-key ,@(when map-p `(,extracted-value)) ,action-function)
+               (multiple-value-bind
+                     (,action ,@value-list)
+                   (funcall ,action-function ,extracted-key ,@(when map-p `(,extracted-value)))
+                 (ecase ,action
+                   ((nil)
+                    (values ,tree 0 nil))
+                   (:remove
+                    (etypecase ,tree
+                      (,node-1-type
+                       (values (,append-children ,tree)
+                               -1
+                               t))
+                      (,node-n-type
+                       (values (,copy-n-type-with-values ,tree (cdr (,n-type-values ,tree)))
+                               -1
+                               nil))))
+                   ,@(when map-p
+                       `((:insert
+                          (etypecase ,tree
+                            (,node-1-type
+                             (values (,copy-1-type ,tree :value ,value)
+                                     0
+                                     nil))
+                            (,node-n-type
+                             (values (,copy-n-type ,tree :values (cons (cons ,extracted-key ,value)
+                                                                       (cdr (,n-type-values ,tree))))
+                                     0
+                                     nil)))))))))))
+
+       ,@(when define-mutate-unequal-p
+           (unless mutate-missing (error "Cannot define mutate-unequal without mutate-missing"))
+           `((defun ,mutate-unequal (,comparator ,tree ,key ,action-function)
+               (etypecase ,tree
+                 (,node-1-type
+                  (,mutate-missing ,tree ,key ,action-function))
+                 (,node-n-type
+                  (multiple-value-bind
+                        (,result ,count-change ,balance-needed-p)
+                      (,(if map-p 'list-map-mutate 'list-set-mutate)
+                       ,comparator
+                       ;; We don't need to check the first node -- we already know its unequal
+                       (cdr (,n-type-values ,tree))
+                       ,key
+                       ,action-function)
+                    (cassert (null ,balance-needed-p))
+
+                    (when (eql ,result (cdr (,n-type-values ,tree)))
+                      (cassert (equal ,count-change 0))
+                      (return-from ,mutate-unequal
+                        (values ,tree ,count-change ,balance-needed-p)))
+
+                    (values
+                     (,copy-n-type-with-values ,tree (cons (car (,n-type-values ,tree))
+                                                           ,result))
+                     ,count-change
+                     ,balance-needed-p)))))))
+
+       ,@(when define-mutate-less-p
+           (unless mutate (error "Cannot define mutate-less without mutate"))
+           `((defun ,mutate-less (,comparator ,tree ,key ,action-function)
+               (multiple-value-bind
+                     (,result ,count-change ,balance-needed-p)
+                   (,mutate ,comparator (,node-left ,tree) ,key ,action-function)
+                 (values
+                  (if ,balance-needed-p
+                      (if (plusp ,count-change)
+                          (,insert-left-balancer ,tree :left ,result)
+                          (,remove-left-balancer ,tree :left ,result))
+                      (,node-copy ,tree :left ,result))
+                  ,count-change
+                  ,balance-needed-p)))))
+
+       ,@(when define-mutate-greater-p
+           (unless mutate (error "Cannot define mutate-less without mutate"))
+           `((defun ,mutate-greater (,comparator ,tree ,key ,action-function)
+               (multiple-value-bind
+                     (,result ,count-change ,balance-needed-p)
+                   (,mutate ,comparator (,node-right ,tree) ,key ,action-function)
+                 (values
+                  (if ,balance-needed-p
+                      (if (plusp ,count-change)
+                          (,insert-right-balancer ,tree :right ,result)
+                          (,remove-right-balancer ,tree :right ,result))
+                      (,node-copy ,tree :right ,result))
+                  ,count-change
+                  ,balance-needed-p)))))
+
+       ,@(when define-mutate-p
+           (unless append-children (error "Must have an append-children in order to define mutate"))
+           (unless (and mutate-missing mutate-equal mutate-greater mutate-less mutate-unequal)
+             (error "Must have all the other mutate functions in order to define mutate"))
+           `((defun ,mutate (,comparator ,tree ,key ,action-function)
+               (etypecase ,tree
+                 (,nil-type
+                  (,mutate-missing ,tree ,key ,action-function))
+
+                 ((or ,node-1-type ,node-n-type)
+                  (multiple-value-bind (,extracted-key ,@value-list) (,representative-key ,tree)
+                    (let ((,comparison (funcall ,comparator ,key ,extracted-key)))
+                      (ecase ,comparison
+                        (:less
+                         (,mutate-less ,comparator ,tree ,key ,action-function))
+                        (:greater
+                         (,mutate-greater ,comparator ,tree ,key ,action-function))
+                        (:unequal
+                         (,mutate-unequal ,comparator ,tree ,key ,action-function))
+                        (:equal
+                         (,mutate-equal ,tree ,extracted-key ,@value-list ,action-function))))))))))
+
+       ,@(when define-insert-p
+           (unless mutate (error "must have a mutate function to define insert"))
+           (if map-p
+               `((defun ,insert (,comparator ,tree ,key ,value)
+                   (,mutate ,comparator ,tree ,key (lambda (&optional ,extracted-key ,extracted-value)
+                                                     (declare (ignore ,extracted-key ,extracted-value))
+                                                     (values :insert ,value)))))
+               `((defun ,insert (,comparator ,tree ,key)
+                   (,mutate ,comparator ,tree ,key (lambda (&optional (,value nil ,value-p))
+                                                     (declare (ignore ,value))
+                                                     (unless ,value-p
+                                                       :insert)))))))
+
+       ,@(when define-emplace-p
+           (unless map-p (error "Must be a map to define emplace"))
+           (unless mutate (error "Must have mutate function to define emplace"))
+           `((defun ,emplace (,comparator ,tree ,key ,value)
+               (,mutate ,comparator ,tree ,key (lambda (&optional (,extracted-key nil ,value-p)
+                                                          ,extracted-value)
+                                                 (declare (ignore ,extracted-key ,extracted-value))
+                                                 (unless ,value-p
+                                                   (values :insert ,value)))))))
+
+       ,@(when define-maker-p
            (if map-p
                `((defun ,maker (,comparator &key ,alist ,plist)
                    (let ((,tree (,nil-type))
@@ -324,35 +435,39 @@
                            :for ,key = (pop ,plist)
                            :for ,value = (if ,plist (pop ,plist) (error "Odd number of items in plist"))
                            :do (multiple-value-bind
-                                     (,result ,balance-needed-p ,count-changed-p)
-                                   (,insert ,comparator ,tree ,key ,value t)
+                                     (,result ,count-change ,balance-needed-p)
+                                   (,emplace ,comparator ,tree ,key ,value)
                                  (declare (ignore ,balance-needed-p))
                                  (setf ,tree ,result)
-                                 (when ,count-changed-p
-                                   (incf ,count))))
+                                 (incf ,count ,count-change)))
                      (dolist (,value ,alist)
                        (multiple-value-bind
-                             (,result ,balance-needed-p ,count-changed-p)
-                           (,insert ,comparator ,tree (car ,value) (cdr ,value) t)
+                             (,result ,count-change ,balance-needed-p)
+                           (,emplace ,comparator ,tree (car ,value) (cdr ,value))
                          (declare (ignore ,balance-needed-p))
                          (setf ,tree ,result)
-                         (when ,count-changed-p
-                           (incf ,count))))
+                         (incf ,count ,count-change)))
                      (values ,tree ,count))))
                `((defun ,maker (,comparator &key ,items)
                    (let ((,tree (,nil-type))
                          (,count 0))
                      (dolist (,value ,items)
                        (multiple-value-bind
-                             (,result ,balance-needed-p ,count-changed-p)
+                             (,result ,count-change ,balance-needed-p)
                            (,insert ,comparator ,tree ,value)
                          (declare (ignore ,balance-needed-p))
                          (setf ,tree ,result)
-                         (when ,count-changed-p
-                           (incf ,count))))
+                         (incf ,count ,count-change)))
                      (values ,tree ,count))))))
 
        ,@(when define-lookup-p
+           ;; Is it actually faster to have a redundant copy of the
+           ;; traversal logic that can't mutate rather than using the
+           ;; mutator function w/ a mutator action that does a
+           ;; non-local return to quickly unwind the stack?  Maaaaybe.
+           ;; Hypothetically, the less and greater paths below could
+           ;; be TCO'd out and we could avoid introducing stack frames
+           ;; as we traverse.
            `((defun ,lookup (,comparator ,tree ,key)
                (etypecase ,tree
                  (,nil-type
@@ -377,191 +492,190 @@
                                   (values ,result ,result)))))))))))))
 
        ,@(when define-remove-p
-           `((defun ,remove-min (,tree)
+           (unless mutate (error "remove requires a mutate function"))
+           `((defun ,remove (,comparator ,tree ,key)
+               (let (,value
+                     ,value-p)
+                 (multiple-value-bind
+                       (,new-tree ,count-change)
+                     (,mutate ,comparator ,tree ,key
+                              (lambda (&optional (,extracted-key nil ,valid-p) (,extracted-value ,(if map-p nil t)))
+                                (declare (ignore ,extracted-key))
+                                (setf ,value ,extracted-value)
+                                (setf ,value-p ,valid-p)
+                                :remove))
+                   (cassert (or (and (zerop ,count-change) (null ,value-p))
+                                (and (equal -1 ,count-change) (not (null ,value-p)))))
+                   (values ,new-tree ,value ,value-p ,count-change))))))
+
+       ,@(when define-decompose-p
+           (unless mutate (error "Cannot define decompose without mutate"))
+           `((defun ,decompose (,tree)
+               (when (,nil-type-p ,tree)
+                 (return-from ,decompose (values ,tree nil nil)))
+
+               (labels
+                   ((,impl (,tree)
+                      (unless (,nil-type-p (,node-left ,tree))
+                        (multiple-value-bind (,new-tree ,value ,valid-p ,balance-needed-p) (,impl (,node-left ,tree))
+                          (return-from ,impl
+                            (values (if ,balance-needed-p
+                                        (,remove-left-balancer ,tree :left ,new-tree)
+                                        (,node-copy ,tree :left ,new-tree))
+                                    ,value
+                                    ,valid-p
+                                    ,balance-needed-p))))
+
+                      (let (,extracted-key
+                            ,@(when map-p `(,extracted-value)))
+                        (multiple-value-bind
+                              (,new-tree ,count-change ,balance-needed-p)
+                            (,mutate (constantly :equal) ,tree nil
+                                     (lambda (,key ,@value-list)
+                                       (setf ,extracted-key ,key)
+                                       ,@(when map-p `((setf ,extracted-value ,value)))
+                                       :remove))
+                          (assert (equal -1 ,count-change))
+                          (values ,new-tree ,(if map-p `(cons ,extracted-key ,extracted-value) extracted-key) t ,balance-needed-p)))))
+                 (,impl ,tree)))))
+
+       ,@(when define-do-tree-f
+           `((defun ,do-tree-f (,tree ,fn)
+               (when (,nil-type-p ,tree)
+                 (return-from ,do-tree-f))
+
+               (,do-tree-f (,node-left ,tree) ,fn)
                (etypecase ,tree
-                 (,nil-type
-                  (error "nil tree has no min"))
-                 ((or ,node-1-type ,node-n-type)
-                  (if (,nil-type-p (,node-left ,tree))
-                      (values ,tree (,node-right ,tree))
-                      (multiple-value-bind (,result ,value) (,remove-min (,node-left ,tree))
-                        (values ,result (,remove-left-balancer ,tree :left ,value)))))))
+                 (,node-1-type
+                  (funcall ,fn (,1-type-key ,tree) ,@(when map-p `((,1-type-value ,tree)))))
+                 (,node-n-type
+                  (dolist (,value (,n-type-values ,tree))
+                    ,(if map-p
+                         `(funcall ,fn (car ,value) (cdr ,value))
+                         `(funcall ,fn ,value)))))
+               (,do-tree-f (,node-right ,tree) ,fn))))
 
-             (defun ,append-children (,tree)
-               (multiple-value-bind (,min ,without-min) (,remove-min (,node-right ,tree))
-                 ;; Now we make a version of tree that has all the
-                 ;; same metadata but the value(s) of min.  We're
-                 ;; just migrating the min values up to the position
-                 ;; of tree.  Afterwards, we'll run the balancer to
-                 ;; update the metadata.
-                 (setf ,tree (etypecase ,tree
-                               (,node-1-type
-                                (etypecase ,min
-                                  (,node-1-type
-                                   (,node-copy ,tree :key (,1-type-key ,min) ,@(when map-p `(:value (,1-type-value ,min)))))
-                                  (,node-n-type
-                                   (structure-convert (,node-n-type ,node-1-type) ,tree :values (,n-type-values ,min)))))
-                               (,node-n-type
-                                (etypecase ,min
-                                  (,node-1-type
-                                   (structure-convert (,node-1-type ,node-n-type) ,tree :key (,1-type-key ,min)
-                                                      ,@(when map-p `(:value (,1-type-value ,min)))))
-                                  (,node-n-type
-                                   (,node-copy ,tree :values (,n-type-values ,min)))))))
-                 (,remove-right-balancer ,tree :right ,without-min)))
+       ,@(when do-tree-f
+           `((defmacro ,do-tree ((,key ,@value-list ,tree &optional ,result) &body ,body)
+               `(block nil
+                  (,',do-tree-f ,,tree (lambda (,,key ,,@value-list) ,@,body))
+                  ,,result))
 
-             (defun ,remove (,comparator ,tree ,key)
-               (etypecase ,tree
-                 (,nil-type
-                  (values ,tree nil nil))
+             (defun ,to-list (,tree)
+               (let ((,builder (make-impure-list-builder)))
+                 (,do-tree (,key ,@value-list ,tree)
+                   (impure-list-builder-add
+                    ,builder
+                    ,(if map-p
+                         `(cons ,key ,value)
+                         key)))
+                 (impure-list-builder-extract ,builder)))
 
-                 ((or ,node-1-type ,node-n-type)
-                  (ecase (funcall ,comparator ,key (,representative-key ,tree))
-                    (:less
-                     (multiple-value-bind (,result ,balance-needed-p ,count-changed-p) (,remove ,comparator (,node-left ,tree) ,key)
-                       (if ,balance-needed-p
-                           (values (,remove-left-balancer ,tree :left ,result) t ,count-changed-p)
-                           (values (,node-copy ,tree :left ,result) nil ,count-changed-p))))
-                    (:greater
-                     (multiple-value-bind (,result ,balance-needed-p ,count-changed-p) (,remove ,comparator (,node-right ,tree) ,key)
-                       (if ,balance-needed-p
-                           (values (,remove-right-balancer ,tree :right ,result) t ,count-changed-p)
-                           (values (,node-copy ,tree :right ,result) nil ,count-changed-p))))
-                    (:equal
-                     (multiple-value-bind (,result ,count-changed-p) (,without-equal ,comparator ,tree ,key)
-                       (if (,nil-type-p ,result)
-                           (values (cond
-                                     ((,nil-type-p (,node-left ,tree))
-                                      (,node-right ,tree))
-                                     ((,nil-type-p (,node-right ,tree))
-                                      (,node-left ,tree))
-                                     (t
-                                      (,append-children ,tree)))
-                                   t
-                                   ,count-changed-p)
-                           (values ,result nil ,count-changed-p))))
-                    (:unequal
-                     (multiple-value-bind (,result ,count-changed-p) (,without-unequal ,comparator ,tree ,key)
-                       (values ,result nil ,count-changed-p)))))))))
+             (defmethod to-list ((,tree ,base-name))
+               (,to-list ,tree))
 
-       (defun ,do-tree-f (,tree ,fn)
-         (when (,nil-type-p ,tree)
-           (return-from ,do-tree-f))
+             (defmethod for-each ((,tree ,base-name) ,function)
+               (,do-tree (,key ,@value-list ,tree)
+                 (funcall ,function ,key ,@value-list)))))
 
-         (,do-tree-f (,node-left ,tree) ,fn)
-         (etypecase ,tree
-           (,node-1-type
-            (funcall ,fn (,1-type-key ,tree) ,@(when map-p `((,1-type-value ,tree)))))
-           (,node-n-type
-            (dolist (,value (,n-type-values ,tree))
-              ,(if map-p
-                   `(funcall ,fn (car ,value) (cdr ,value))
-                   `(funcall ,fn ,value)))))
-         (,do-tree-f (,node-right ,tree) ,fn))
+       ,@(when define-map-members-p
+           (unless maker (error "Cannot define map-members without a maker function"))
+           (unless do-tree (error "Cannot define map-members without a do-tree-f"))
+           (if map-p
+               `((defun ,map-members (,comparator ,tree ,function)
+                   (let ((,builder (make-impure-list-builder)))
+                     (,do-tree (,key ,value ,tree)
+                       (impure-list-builder-add ,builder (funcall ,function (cons ,key ,value))))
+                     (,maker ,comparator :alist (impure-list-builder-extract ,builder)))))
+               `((defun ,map-members (,comparator ,tree ,function)
+                   (let ((,builder (make-impure-list-builder)))
+                     (,do-tree (,key ,tree)
+                       (impure-list-builder-add ,builder (funcall ,function ,key)))
+                     (,maker ,comparator :items (impure-list-builder-extract ,builder)))))))
 
-       (defmacro ,do-tree ((,key ,@value-list ,tree &optional ,result) &body ,body)
-         `(block nil
-            (,',do-tree-f ,,tree (lambda (,,key ,,@value-list) ,@,body))
-            ,,result))
-
-       (defun ,to-list (,tree)
-         (let ((,builder (make-impure-list-builder)))
-           (,do-tree (,key ,@value-list ,tree)
-             (impure-list-builder-add
-              ,builder
-              ,(if map-p
-                   `(cons ,key ,value)
-                   key)))
-           (impure-list-builder-extract ,builder)))
-
-       (defmethod to-list ((,tree ,base-name))
-         (,to-list ,tree))
-
-       (defmethod for-each ((,tree ,base-name) ,function)
-         (,do-tree (,key ,@value-list ,tree)
-           (funcall ,function ,key ,@value-list)))
-
-       ,@(when map-p
-           `((defun ,tree-map-kv (,tree ,function)
+       ,@(when define-map-entries-p
+           (unless map-p (error "Cannot define map-entries for non-maps"))
+           `((defun ,map-entries (,tree ,function)
                (etypecase ,tree
                  (,nil-type
                   ,tree)
                  (,node-1-type
                   (,copy-1-type ,tree
-                                :left (,tree-map-kv (,node-left ,tree) ,function)
-                                :right (,tree-map-kv (,node-right ,tree) ,function)
+                                :left (,map-entries (,node-left ,tree) ,function)
+                                :right (,map-entries (,node-right ,tree) ,function)
                                 :value (funcall ,function (,1-type-key ,tree) (,1-type-value ,tree))))
                  (,node-n-type
                   (,copy-n-type ,tree
-                                :left (,tree-map-kv (,node-left ,tree) ,function)
-                                :right (,tree-map-kv (,node-right ,tree) ,function)
-                                :values (list-map-map-kv (,n-type-values ,tree) ,function)))))
+                                :left (,map-entries (,node-left ,tree) ,function)
+                                :right (,map-entries (,node-right ,tree) ,function)
+                                :values (list-map-map-entries (,n-type-values ,tree) ,function)))))))
 
-             (defmethod map-kv ((,tree ,base-name) ,function)
-               (,tree-map-kv ,tree ,function))))
+       ,@(when define-iterator-p
+           `((defun ,node-value-iterator (,tree)
+               (etypecase ,tree
+                 (,node-1-type
+                  (lambda ()
+                    (if ,tree
+                        (multiple-value-prog1
+                            (values ,(if map-p
+                                         `(cons (,1-type-key ,tree) (,1-type-value ,tree))
+                                         `(,1-type-key ,tree))
+                                    t)
+                          (setf ,tree nil))
+                        (values nil nil))))
+                 (,node-n-type
+                  (let ((,value (,n-type-values ,tree)))
+                    (lambda ()
+                      (if ,value
+                          (values (pop ,value) t)
+                          (values nil nil)))))))
 
-       (defun ,node-value-iterator (,tree)
-         (etypecase ,tree
-           (,node-1-type
-            (lambda ()
-              (if ,tree
-                  (multiple-value-prog1
-                      (values ,(if map-p
-                                   `(cons (,1-type-key ,tree) (,1-type-value ,tree))
-                                   `(,1-type-key ,tree))
-                              t)
-                    (setf ,tree nil))
-                  (values nil nil))))
-           (,node-n-type
-            (let ((,value (,n-type-values ,tree)))
-              (lambda ()
-                (if ,value
-                    (values (pop ,value) t)
-                    (values nil nil)))))))
+             (defun ,iterator (,tree)
+               (when (,nil-type-p ,tree)
+                 (return-from ,iterator
+                   (lambda ()
+                     (values nil nil))))
 
-       (defmethod iterator ((,tree ,base-name))
-         (when (,nil-type-p ,tree)
-           (return-from iterator
-             (lambda ()
-               (values nil nil))))
+               (let ((,stack (list (list (,node-left ,tree)
+                                         (,node-value-iterator ,tree)
+                                         (,node-right ,tree)))))
 
-         (let ((,stack (list (list (,node-left ,tree)
-                                   (,node-value-iterator ,tree)
-                                   (,node-right ,tree)))))
+                 (lambda ()
+                   (loop
+                     (unless ,stack
+                       (return (values nil nil)))
 
-           (lambda ()
-             (loop
-               (unless ,stack
-                 (return (values nil nil)))
+                     (let ((,tip (car ,stack)))
+                       (destructuring-bind (,tip-left ,tip-node-iter ,tip-right) ,tip
+                         (cond
+                           (,tip-left
+                            (setf (first ,tip) nil)
+                            (unless (,nil-type-p ,tip-left)
+                              (push (list (,node-left ,tip-left)
+                                          (,node-value-iterator ,tip-left)
+                                          (,node-right ,tip-left))
+                                    ,stack)))
 
-               (let ((,tip (car ,stack)))
-                 (destructuring-bind (,tip-left ,tip-node-iter ,tip-right) ,tip
-                   (cond
-                     (,tip-left
-                      (setf (first ,tip) nil)
-                      (unless (,nil-type-p ,tip-left)
-                        (push (list (,node-left ,tip-left)
-                                    (,node-value-iterator ,tip-left)
-                                    (,node-right ,tip-left))
-                              ,stack)))
+                           (,tip-node-iter
+                            (multiple-value-bind (,value ,valid-p) (funcall ,tip-node-iter)
+                              (if ,valid-p
+                                  (return (values ,value ,valid-p))
+                                  (setf (second ,tip) nil))))
 
-                     (,tip-node-iter
-                      (multiple-value-bind (,value ,valid-p) (funcall ,tip-node-iter)
-                        (if ,valid-p
-                            (return (values ,value ,valid-p))
-                            (setf (second ,tip) nil))))
+                           (t
+                            (assert ,tip-right)
+                            ;; Instead of setting this element to nil, let's
+                            ;; just drop the whole frame.  We don't need it
+                            ;; any more!
+                            (pop ,stack)
+                            (unless (,nil-type-p ,tip-right)
+                              (push (list (,node-left ,tip-right)
+                                          (,node-value-iterator ,tip-right)
+                                          (,node-right ,tip-right))
+                                    ,stack))))))))))
 
-                     (t
-                      (assert ,tip-right)
-                      ;; Instead of setting this element to nil, let's
-                      ;; just drop the whole frame.  We don't need it
-                      ;; any more!
-                      (pop ,stack)
-                      (unless (,nil-type-p ,tip-right)
-                        (push (list (,node-left ,tip-right)
-                                    (,node-value-iterator ,tip-right)
-                                    (,node-right ,tip-right))
-                              ,stack))))))))))
+             (defmethod iterator ((,tree ,base-name))
+               (,iterator ,tree))))
 
        (defmethod print-tree-node-properties ((,tree ,base-name) ,stream)
          (format ,stream "label=\"~A\" shape=box"
@@ -609,33 +723,31 @@
 
        ,@(when define-checker-p
            `((defun ,checker (,tree ,comparator)
-               (unless (,nil-type-p ,tree)
-                 (labels
-                     ((,check (,key)
-                        (,do-tree (,other ,@value-list (,node-left ,tree))
-                          (declare (ignore ,@value-list))
-                          (cassert (eq :less (funcall ,comparator ,other ,key))
-                                   nil "All left children must be less than all their parents"))
-                        (,do-tree (,other ,@value-list (,node-right ,tree))
-                          (declare (ignore ,@value-list))
-                          (cassert (eq :greater (funcall ,comparator ,other ,key))
-                                   nil "All right children must be greater than all their parents"))))
-                   (declare (dynamic-extent #',check))
+               (when (,nil-type-p ,tree)
+                 (return-from ,checker 0))
 
-                   (etypecase ,tree
-                     (,node-1-type
-                      (,check (,1-type-key ,tree)))
-                     (,node-n-type
-                      (cassert (cdr (,n-type-values ,tree))
-                               nil "n-type nodes must have multiple values")
-                      (dolist (,value (,n-type-values ,tree))
-                        (,check ,(if map-p `(car ,value) value)))
-                      (loop :for ,sublist :on (,n-type-values ,tree)
-                            :for ,key = ,(if map-p `(car (car ,sublist)) `(car ,sublist)) :do
-                              (loop :for ,other :in (cdr ,sublist) :do
-                                (cassert (eq :unequal (funcall ,comparator ,key ,(if map-p `(car ,other) other)))
-                                         nil "Peer values in n-type must be mutually :unequal")))))
-                   (,checker (,node-left ,tree) ,comparator)
-                   (,checker (,node-right ,tree) ,comparator))))))
+               (unless (,nil-type-p (,node-left ,tree))
+                 (cassert (eq :less (funcall ,comparator (,representative-key (,node-left ,tree)) (,representative-key ,tree)))
+                          nil "Left child must be less than its parent"))
+
+               (unless (,nil-type-p (,node-right ,tree))
+                 (cassert (eq :greater (funcall ,comparator (,representative-key (,node-right ,tree)) (,representative-key ,tree)))
+                          nil "Right child must be greater than its parent"))
+
+               (let ((,count 0))
+                 (incf ,count (,checker (,node-left ,tree) ,comparator))
+                 (incf ,count (,checker (,node-right ,tree) ,comparator))
+                 (etypecase ,tree
+                   (,node-1-type
+                    (+ ,count 1))
+                   (,node-n-type
+                    (cassert (cdr (,n-type-values ,tree))
+                             nil "n-type nodes must have multiple values")
+                    (loop :for ,sublist :on (,n-type-values ,tree)
+                          :for ,key = ,(if map-p `(car (car ,sublist)) `(car ,sublist)) :do
+                            (loop :for ,other :in (cdr ,sublist) :do
+                              (cassert (eq :unequal (funcall ,comparator ,key ,(if map-p `(car ,other) other)))
+                                       nil "Peer values in n-type must be mutually :unequal")))
+                    (+ ,count (length (,n-type-values ,tree)))))))))
 
        ',base-name)))

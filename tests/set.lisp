@@ -14,26 +14,12 @@
 
 (defpackage :pfds.shcl.io/tests/set
   (:use :common-lisp)
-  (:import-from :pfds.shcl.io/interface/common
-   #:to-list #:check-invariants)
-  (:import-from :pfds.shcl.io/tests/common
-   #:check-common-consistency #:do-type-records
-   #:check-interface-conformance)
-  (:import-from :pfds.shcl.io/utility/immutable-structure
-   #:define-immutable-structure)
+  (:use :pfds.shcl.io/interface)
+  (:use :pfds.shcl.io/tests/common)
   (:import-from :pfds.shcl.io/utility/compare
-   #:compare #:compare-objects)
-  (:import-from :pfds.shcl.io/interface/set
-   #:is-empty #:empty #:is-member #:with-member #:without-member
-   #:set)
-  (:import-from :pfds.shcl.io/implementation/red-black-tree
-   #:make-red-black-set #:red-black-set)
-  (:import-from :pfds.shcl.io/implementation/unbalanced-tree
-   #:make-unbalanced-set #:unbalanced-set)
-  (:import-from :pfds.shcl.io/implementation/weight-balanced-tree
-   #:make-weight-balanced-set #:weight-balanced-set)
-  (:import-from :prove #:is #:subtest #:ok #:pass #:fail)
-  (:export #:run-tests #:test-set-constructor))
+   #:compare)
+  (:import-from :prove #:is #:ok #:pass #:fail)
+  (:export #:test-set))
 (in-package :pfds.shcl.io/tests/set)
 
 (defun checked (thing)
@@ -46,33 +32,6 @@
 (defun without (set item)
   (checked (without-member set item)))
 
-(defun eql-unique (items)
-  (let ((table (make-hash-table :test 'eql))
-        collected)
-    (loop :for item :in items :do
-      (unless (gethash item table)
-        (setf (gethash item table) t)
-        (push item collected)))
-    (nreverse collected)))
-
-(define-immutable-structure token
-  value)
-
-(defmethod compare-objects ((left token) (right token))
-  (when (eql left right)
-    (return-from compare-objects :equal))
-  (let ((result (compare (token-value left) (token-value right))))
-    (when (eq :equal result)
-      (setf result :unequal))
-    result))
-
-(defparameter *sorted-numbers* (loop :for i :below 1000 :collect i))
-(defparameter *even-numbers* (loop :for i :below 1000 :collect (* 2 i)))
-(defparameter *odd-numbers* (mapcar '1+ *even-numbers*))
-(defparameter *reverse-sorted-numbers* (reverse *sorted-numbers*))
-(defparameter *random-numbers* (list* 666.0 666 666 (loop :for i :below 1000 :collect (random 1000))))
-(defparameter *random-numbers-uniqued* (eql-unique *random-numbers*))
-
 (defparameter *sets*
   '(red-black-set
     weight-balanced-set
@@ -81,17 +40,17 @@
 (defun compare-< (left right)
   (eq :less (compare left right)))
 
-(defun test-construction (constructor)
-  (is (to-list (funcall constructor))
+(defun test-construction ()
+  (is (to-list (build))
       nil
       "Empty list produces an empty-set")
   
-  (ok (is-empty (funcall constructor))
+  (ok (is-empty (build))
       "Empty set is empty")
 
   (labels
       ((check (input &optional (expected input))
-         (let* ((set (funcall constructor input))
+         (let* ((set (build-from-list input))
                 (as-list (sort (to-list set) #'compare-<))
                 (expected (sort (copy-list expected) #'compare-<)))
            (is as-list expected
@@ -102,8 +61,8 @@
 
   (values))
 
-(defun test-unnecessary-removal (constructor)
-  (let ((set (funcall constructor *even-numbers*)))
+(defun test-unnecessary-removal ()
+  (let ((set (build-from-list *even-numbers*)))
     (dolist (odd *odd-numbers*)
       (let ((new-set (without set odd)))
         (unless (eq new-set set)
@@ -112,8 +71,8 @@
   (pass "Removal of non-members doesn't change the set")
   (values))
 
-(defun test-unnecessary-insert (constructor)
-  (let ((set (funcall constructor *sorted-numbers*)))
+(defun test-unnecessary-insert ()
+  (let ((set (build-from-list *sorted-numbers*)))
     (dolist (number *sorted-numbers*)
       (let ((new-set (with set number)))
         (unless (eq new-set set)
@@ -122,10 +81,10 @@
   (pass "Insert of already-members doesn't change the set")
   (values))
 
-(defun test-unequal-members (constructor)
+(defun test-unequal-members ()
   (let* ((tokens (loop :for i :below 100 :collect (make-token :value (floor (/ i 5)))))
          (even-numbers (loop :for i :below 50 :collect (* i 2)))
-         (set (funcall constructor (nconc even-numbers tokens))))
+         (set (build-from-list (nconc even-numbers tokens))))
     (ok (not (is-member set (make-token)))
         "Unable to find a fresh token in the set")
 
@@ -143,50 +102,29 @@
         (setf set new-set))))
   (values))
 
-(defun test-buildup-and-teardown (constructor)
-  (let* ((set (funcall constructor))
-         (numbers *random-numbers*)
-         (tokens (loop :for i :below 100 :collect (make-token :value i)))
-         (items (nconc tokens numbers)))
+(defun test-build-up-and-tear-down ()
+  (let* ((set (build))
+         (items (concatenate 'list *unequal-objects* *random-numbers*)))
     (dolist (item items)
       (setf set (with set item))
       (unless (is-member set item)
         (fail "A just-inserted item couldn't be found")
-        (return-from test-buildup-and-teardown)))
+        (return-from test-build-up-and-tear-down)))
 
     (dolist (item items)
       (setf set (without set item))
       (when (is-member set item)
         (fail "A just-removed item couldn't be found")
-        (return-from test-buildup-and-teardown)))
+        (return-from test-build-up-and-tear-down)))
 
-    (let ((list (to-list set)))
-      (is list nil
-          "The set should be empty after removing everything"))))
+    (ok (is-empty set)
+        "The set should be empty after removing everything"))
+  (values))
 
-(defun test-basics (constructor)
-  (check-common-consistency (funcall constructor))
-  (check-common-consistency (funcall constructor *random-numbers*))
-  (check-common-consistency (funcall constructor *sorted-numbers*)))
-
-(defun test-set-constructor (constructor)
-  (test-basics constructor)
-  (test-construction constructor)
-  (test-unnecessary-removal constructor)
-  (test-unnecessary-insert constructor)
-  (test-unequal-members constructor)
-  (test-buildup-and-teardown constructor))
-
-(defun test-set (maker)
-  (subtest (symbol-name maker)
-    (test-set-constructor (constructor maker))))
-
-(defun constructor (maker)
-  (lambda (&optional items)
-    (funcall maker 'compare :items items)))
-
-(defun run-tests (&optional (sets *sets*))
-  (do-type-records ((name makers) sets)
-    (check-interface-conformance 'set name)
-    (dolist (maker makers)
-      (test-set maker))))
+(defun test-set ()
+  (named-subtests
+    (test-construction)
+    (test-unnecessary-removal)
+    (test-unnecessary-insert)
+    (test-unequal-members)
+    (test-build-up-and-tear-down)))

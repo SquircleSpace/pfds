@@ -14,13 +14,7 @@
 
 (uiop:define-package :pfds.shcl.io
   (:use :common-lisp)
-  (:use-reexport
-   :pfds.shcl.io/interface/common
-   :pfds.shcl.io/interface/heap
-   :pfds.shcl.io/interface/map
-   :pfds.shcl.io/interface/set
-   :pfds.shcl.io/interface/list
-   :pfds.shcl.io/interface/sequence)
+  (:use-reexport :pfds.shcl.io/interface)
   (:import-from :pfds.shcl.io/implementation/red-black-tree
    #:make-red-black-map
    #:make-red-black-set)
@@ -30,6 +24,8 @@
    #:make-persistent-vector)
   (:import-from :pfds.shcl.io/implementation/weight-balanced-tree
    #:make-weight-balanced-sequence)
+  (:import-from :pfds.shcl.io/implementation/bankers-queue
+   #:make-bankers-queue)
   (:import-from :pfds.shcl.io/utility/compare
    #:compare)
   (:import-from :named-readtables
@@ -38,7 +34,9 @@
    #:make-map
    #:make-set
    #:make-seq
-   #:make-min-heap #:make-max-heap #:make-heap
+   #:make-priority-queue
+   #:make-queue
+   #:make-stack
    #:syntax
    #:compare))
 (in-package :pfds.shcl.io)
@@ -57,31 +55,25 @@ unspecified which value will be contained in the map."
   "Make an ordered set."
   (make-red-black-set comparator :items items))
 
-(declaim (inline make-min-heap))
-(defun make-min-heap (&key items (comparator #'compare))
-  "Make a min heap."
+(declaim (inline make-priority-queue))
+(defun make-priority-queue (&key items (comparator #'compare))
+  "Make a priority queue."
   (make-leftist-heap comparator :items items))
 
-(declaim (inline make-max-heap))
-(defun make-max-heap (&key items (comparator #'compare))
-  "Make a max heap."
-  (make-leftist-heap (lambda (l r) (funcall comparator r l)) :items items))
+(declaim (inline make-queue))
+(defun make-queue (&key items)
+  "Make a queue."
+  (make-bankers-queue :items items))
 
-(declaim (inline make-heap))
-(defun make-heap (&key (priority :min) items (comparator #'compare))
-  "Make a heap."
-  (check-type priority (member :min :max))
-  (make-leftist-heap (if (eq priority :max)
-                         (lambda (l r) (funcall comparator r l))
-                         comparator)
-                     :items items))
+(declaim (inline make-stack))
+(defun make-stack (&key items)
+  "Make a stack."
+  ;; Sssshh.  Don't tell anyone.
+  (copy-list items))
 
-(declaim (inline make-vector))
-(defun make-vector (&key items)
-  (make-persistent-vector :items items))
-
-(declaim (inline make-seq))
-(defun make-seq (&key items)
+(declaim (inline make-sequence))
+(defun make-sequence (&key items)
+  "Make a general-purpose sequence."
   (make-weight-balanced-sequence :items items))
 
 (defun read-seq (stream char)

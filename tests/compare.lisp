@@ -17,8 +17,8 @@
   (:import-from :pfds.shcl.io/utility/compare
    #:compare #:compare-objects #:compare-objects-using-slots
    #:compare*)
-  (:import-from :prove #:is #:subtest #:ok)
-  (:export #:run-tests))
+  (:import-from :prove #:is #:ok)
+  (:export #:test-compare))
 (in-package :pfds.shcl.io/tests/compare)
 
 (defvar *constructors* (make-hash-table :test 'eq))
@@ -239,6 +239,6 @@
     (validate-ordering comparator objects))
   t)
 
-(defun run-tests (&optional (comparator 'compare))
+(defun test-compare (&optional (comparator 'compare))
   (ok (test-ordering comparator)
       "compare seems to produce well ordered results"))

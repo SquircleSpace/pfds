@@ -185,23 +185,6 @@ cheap.  Operating on the middle of the vector is expensive.
 
 Note: the logarithmic base for the bounds given above is very large.
 
-#### `PURE-LIST`
-
-- `HEAD`: `O(1)`
-- `WITH-HEAD`: `O(1)`
-- `TAIL`: `O(1)`
-- `LOOKUP-ENTRY`: `O(n)`
-- `WITH-ENTRY`: `O(n)`
-- `WITHOUT-ENTRY`: `O(n)`
-- `CONCATENATE-SEQUENCES`: `O(n)`
-- `SEQUENCE-INSERT`: `O(n)`
-- `SUBSEQUENCE`: `O(n)`
-- `IS-EMPTY`: `O(1)`
-- `SIZE`: `O(n)`
-
-This is just like a Common Lisp list, except you can sleep soundly
-knowing that it is fully immutable.
-
 #### `WEIGHT-BALANCED-SEQUENCE`
 
 - `HEAD`: `O(log(n))`

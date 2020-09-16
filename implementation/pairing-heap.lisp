@@ -14,9 +14,7 @@
 
 (defpackage :pfds.shcl.io/implementation/pairing-heap
   (:use :common-lisp)
-  (:import-from :pfds.shcl.io/interface/common
-   #:to-list #:print-graphviz #:next-graphviz-id #:for-each
-   #:size #:iterator)
+  (:use :pfds.shcl.io/interface)
   (:import-from :pfds.shcl.io/utility/printer
    #:print-container)
   (:import-from :pfds.shcl.io/utility/iterator-tools
@@ -25,24 +23,17 @@
    #:compare-objects #:compare)
   (:import-from :pfds.shcl.io/utility/immutable-structure
    #:define-adt #:define-immutable-structure)
-  (:import-from :pfds.shcl.io/interface/heap
-   #:merge-heaps #:heap-top #:without-heap-top #:with-member #:is-empty #:empty)
   (:import-from :pfds.shcl.io/utility/impure-queue
    #:make-impure-queue #:enqueue #:dequeue #:impure-queue-count)
   (:import-from :pfds.shcl.io/utility/impure-list-builder
    #:make-impure-list-builder #:impure-list-builder-add
    #:impure-list-builder-extract)
+  (:import-from :pfds.shcl.io/utility/misc
+   #:cassert)
   (:export
-   #:merge-heaps
-   #:heap-top
-   #:without-heap-top
-   #:with-member
-   #:is-empty
-   #:empty
    #:pairing-heap
    #:make-pairing-heap
-   #:pairing-heap-p
-   #:pairing-heap-comparator))
+   #:pairing-heap-p))
 (in-package :pfds.shcl.io/implementation/pairing-heap)
 
 (define-adt p-heap
@@ -94,7 +85,12 @@
               (p-heap-node-value heap)
               t)))
 
-(defmethod print-graphviz ((heap p-heap) stream id-vendor)
+(defmethod print-graphviz ((heap p-heap-nil) stream id-vendor)
+  (let ((id (next-graphviz-id id-vendor)))
+    (format stream "ID~A [shape=box, label=\"(nil)\"]~%" id)
+    id))
+
+(defmethod print-graphviz ((heap p-heap-node) stream id-vendor)
   (let ((id (next-graphviz-id id-vendor)))
     (format stream "ID~A [label=\"~A\"]~%" id (p-heap-node-value heap))
     (dolist (child (p-heap-node-children heap))
@@ -172,6 +168,8 @@
   (comparator (error "comparator is required"))
   (size 0 :type (integer 0)))
 
+(declare-interface-conformance pairing-heap priority-queue)
+
 (defun make-pairing-heap (comparator &key items)
   (multiple-value-bind (tree size) (make-p-heap comparator items)
     (%make-pairing-heap :comparator comparator
@@ -181,7 +179,7 @@
 (defun pairing-heap (comparator &rest items)
   (make-pairing-heap comparator :items items))
 
-(defmethod merge-heaps ((first pairing-heap) (second pairing-heap))
+(defmethod meld ((first pairing-heap) (second pairing-heap))
   (unless (eq (pairing-heap-comparator first)
               (pairing-heap-comparator second))
     (error "Attempting to merge heaps with non-eq comparators"))
@@ -193,12 +191,12 @@
                      :size (+ (pairing-heap-size first)
                               (pairing-heap-size second))))
 
-(defmethod heap-top ((heap pairing-heap))
+(defmethod peek-front ((heap pairing-heap))
   (p-heap-find-min (pairing-heap-tree heap)))
 
-(defmethod without-heap-top ((heap pairing-heap))
+(defun pairing-heap-without-front (heap)
   (when (p-heap-nil-p (pairing-heap-tree heap))
-    (return-from without-heap-top
+    (return-from pairing-heap-without-front
       (values heap nil nil)))
 
   (multiple-value-bind
@@ -209,6 +207,12 @@
                                :size (1- (pairing-heap-size heap)))
             value
             found-p)))
+
+(defmethod without-front ((heap pairing-heap))
+  (pairing-heap-without-front heap))
+
+(defmethod decompose ((heap pairing-heap))
+  (pairing-heap-without-front heap))
 
 (defmethod with-member ((heap pairing-heap) item)
   (copy-pairing-heap heap
@@ -244,3 +248,27 @@
   (compare-heaps left (pairing-heap-comparator left)
                  right (pairing-heap-comparator right)
                  #'compare))
+
+(defmethod comparator ((heap pairing-heap))
+  (pairing-heap-comparator heap))
+
+(defmethod map-members ((heap pairing-heap) function)
+  (if (zerop (pairing-heap-size heap))
+      heap
+      (let (list)
+        (for-each heap (lambda (v) (push (funcall function v) list)))
+        (make-pairing-heap (pairing-heap-comparator heap) :items list))))
+
+(defun check-order (tree comparator)
+  (etypecase tree
+    (p-heap-nil)
+    (p-heap-node
+     (dolist (child (p-heap-node-children tree))
+       (cassert (not (eq :greater (funcall comparator
+                                           (p-heap-node-value tree)
+                                           (p-heap-node-value child))))
+                (tree) "The smaller value must be higher in the tree")
+       (check-order child comparator)))))
+
+(defmethod check-invariants ((heap pairing-heap))
+  (check-order (pairing-heap-tree heap) (pairing-heap-comparator heap)))

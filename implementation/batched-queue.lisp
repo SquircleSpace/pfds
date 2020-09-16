@@ -14,9 +14,7 @@
 
 (defpackage :pfds.shcl.io/implementation/batched-queue
   (:use :common-lisp)
-  (:import-from :pfds.shcl.io/interface/common
-   #:to-list #:check-invariants #:for-each #:size
-   #:iterator)
+  (:use :pfds.shcl.io/interface)
   (:import-from :pfds.shcl.io/utility/printer
    #:print-container)
   (:import-from :pfds.shcl.io/utility/iterator-tools
@@ -27,14 +25,10 @@
    #:cassert)
   (:import-from :pfds.shcl.io/utility/immutable-structure
    #:define-immutable-structure)
-  (:import-from :pfds.shcl.io/interface/queue
-   #:with-last #:without-first #:peek-first #:is-empty #:empty)
+  (:import-from :pfds.shcl.io/utility/impure-list-builder
+   #:make-impure-list-builder #:impure-list-builder-add
+   #:impure-list-builder-extract)
   (:export
-   #:with-last
-   #:without-first
-   #:peek-first
-   #:is-empty
-   #:empty
    #:batched-queue
    #:batched-queue-p
    #:make-batched-queue))
@@ -46,6 +40,8 @@
   (front-stack nil :type list)
   (back-stack nil :type list)
   (count 0 :type (integer 0)))
+
+(declare-interface-conformance batched-queue queue)
 
 (defmethod check-invariants ((queue batched-queue))
   (with-accessors ((front batched-queue-front-stack)
@@ -60,6 +56,27 @@
                        (length back)))
              nil "Count must be accurate")))
 
+(defmethod print-graphviz ((queue batched-queue) stream id-vendor)
+  (let ((id (next-graphviz-id id-vendor))
+        last-id)
+    (labels
+        ((link (this-id)
+           (when last-id
+             (format stream "ID~A -> ID~A~%" last-id this-id))
+           (setf last-id this-id))
+
+         (link-list (list)
+           (do-each (value list)
+             (let ((node-id (next-graphviz-id id-vendor)))
+               (format stream "ID~A [label=\"~A\"]~%" node-id value)
+               (link node-id)))))
+
+      (format stream "ID~A [label=\"(middle)\" color=gray]~%" id)
+      (link-list (batched-queue-front-stack queue))
+      (link id)
+      (link-list (reverse (batched-queue-front-stack queue)))
+      id)))
+
 (defmethod to-list ((queue batched-queue))
   (append (batched-queue-front-stack queue)
           (reverse (batched-queue-back-stack queue))))
@@ -71,6 +88,20 @@
 (defmethod for-each ((queue batched-queue) function)
   (for-each (batched-queue-front-stack queue) function)
   (for-each (reverse (batched-queue-back-stack queue)) function))
+
+(defmethod map-members ((queue batched-queue) function)
+  (cond
+    ((null (batched-queue-back-stack queue))
+     (copy-batched-queue queue :front-stack (map-members (batched-queue-front-stack queue) function)))
+
+    (t
+     (let ((builder (make-impure-list-builder)))
+       (for-each queue (lambda (value)
+                         (impure-list-builder-add builder (funcall function value))))
+       (copy-batched-queue queue
+                          :front-stack (impure-list-builder-extract builder)
+                          :count (batched-queue-count queue)
+                          :back-stack nil)))))
 
 (defmethod print-object ((queue batched-queue) stream)
   (if *print-readably*
@@ -89,7 +120,7 @@
 (defun batched-queue (&rest items)
   (make-batched-queue :items items))
 
-(defmethod with-last ((queue batched-queue) item)
+(defun batched-queue-with-back (queue item)
   (if (batched-queue-front-stack queue)
       (copy-batched-queue
        queue
@@ -100,10 +131,13 @@
        :front-stack (cons item nil)
        :count (1+ (batched-queue-count queue)))))
 
-(defmethod without-first ((queue batched-queue))
+(defmethod with-back ((queue batched-queue) item)
+  (batched-queue-with-back queue item))
+
+(defun batched-queue-without-front (queue)
   (let ((front-stack (batched-queue-front-stack queue)))
     (unless front-stack
-      (return-from without-first
+      (return-from batched-queue-without-front
         (values queue nil nil)))
 
     (let ((new-front-stack (cdr front-stack))
@@ -123,7 +157,10 @@
        value
        t))))
 
-(defmethod peek-first ((queue batched-queue))
+(defmethod without-front ((queue batched-queue))
+  (batched-queue-without-front queue))
+
+(defmethod peek-front ((queue batched-queue))
   (if (batched-queue-front-stack queue)
       (values (car (batched-queue-front-stack queue))
               t)
@@ -140,3 +177,9 @@
 
 (defmethod compare-objects ((left batched-queue) (right batched-queue))
   (compare-containers left right #'compare))
+
+(defmethod with-member ((queue batched-queue) object)
+  (batched-queue-with-back queue object))
+
+(defmethod decompose ((queue batched-queue))
+  (batched-queue-without-front queue))

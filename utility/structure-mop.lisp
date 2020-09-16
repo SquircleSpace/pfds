@@ -14,12 +14,13 @@
 
 (defpackage :pfds.shcl.io/utility/structure-mop
   (:use :common-lisp)
-  (:import-from :pfds.shcl.io/utility/misc #:intern-conc)
+  (:import-from :pfds.shcl.io/utility/misc #:intern-conc #:cassert)
   (:export
    #:find-struct-class
    #:struct-class
    #:struct-class-name
    #:struct-class-superclass
+   #:struct-class-subclasses
    #:struct-class-slot-overrides
    #:struct-class-slot-overrides-table
    #:struct-class-conc-name
@@ -62,6 +63,9 @@
     :initarg :superclass
     :reader struct-class-superclass
     :initform nil)
+   (subclasses
+    :reader struct-class-subclasses
+    :initform nil)
    (slot-overrides
     :initarg :slot-overrides
     :reader struct-class-slot-overrides
@@ -98,6 +102,10 @@
     :reader struct-class-effective-slots)
    (effective-slots-table
     :reader struct-class-effective-slots-table)))
+
+(defmethod print-object ((object struct-class) stream)
+  (print-unreadable-object (object stream :type t)
+    (write (struct-class-name object) :stream stream)))
 
 (defmethod make-load-form ((struct struct-class) &optional environment)
   (make-load-form-saving-slots struct :environment environment))
@@ -304,16 +312,30 @@
       (setf effective-slots (compute-effective-slots struct-class))
       (setf effective-slots-table (make-slot-table 'effective-slot-name effective-slots)))))
 
-(defvar *struct-classes* (make-hash-table :test 'eq))
+(eval-when (:compile-toplevel :load-toplevel :execute)
+  (defun forget-subclass (superclass subclass)
+    (when superclass
+      (setf (slot-value superclass 'subclasses)
+            (remove subclass (slot-value superclass 'subclasses)))))
 
-(defun find-struct-class (name &key error-p)
-  (or (nth-value 0 (gethash name *struct-classes*))
-      (when error-p
-        (error "No structure metaobject for name ~A" name))))
+  (defun register-subclass (superclass subclass)
+    (when superclass
+      (pushnew subclass (slot-value superclass 'subclasses))))
 
-(defun (setf find-struct-class) (value name &key error-p)
-  (declare (ignore error-p))
-  (setf (gethash name *struct-classes*) value))
+  (defvar *struct-classes* (make-hash-table :test 'eq))
+
+  (defun find-struct-class (name &key error-p)
+    (or (nth-value 0 (gethash name *struct-classes*))
+        (when error-p
+          (error "No structure metaobject for name ~A" name))))
+
+  (defun (setf find-struct-class) (value name &key error-p)
+    (declare (ignore error-p))
+    (let ((old-class (find-struct-class name)))
+      (when old-class
+        (forget-subclass (struct-class-superclass old-class) old-class))
+      (register-subclass (struct-class-superclass value) value))
+    (setf (gethash name *struct-classes*) value)))
 
 (defun initargs-remove (initargs keys)
   (loop :while initargs
@@ -397,16 +419,20 @@
     (when (cdr input-metaclass)
       (error ":metaclass should only have one value"))
     (setf input-metaclass (car input-metaclass)))
-  (let* ((superclass (when superclass-name
-                       (find-struct-class superclass-name :error-p t)))
+  (let* ((superclass (typecase superclass-name
+                       (null)
+                       (symbol
+                        (find-struct-class superclass-name :error-p t))
+                       (struct-class
+                        superclass-name)))
          (resolved-metaclass
            (cond
              ((and input-metaclass superclass)
               (unless (subtypep input-metaclass (class-of superclass))
                 (error "The given metaclass isn't a subclass of the :include'd struct's metaclass"))
-              input-metaclass)
+              (find-class input-metaclass))
              (input-metaclass
-              input-metaclass)
+              (find-class input-metaclass))
              (superclass
               (class-of superclass))
              (t

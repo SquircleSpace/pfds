@@ -14,8 +14,7 @@
 
 (defpackage :pfds.shcl.io/utility/printer
   (:use :common-lisp)
-  (:import-from :pfds.shcl.io/interface/common
-   #:for-each #:is-empty #:to-list)
+  (:use :pfds.shcl.io/interface)
   (:export
    #:print-set #:print-map #:print-sequence
    #:print-container))

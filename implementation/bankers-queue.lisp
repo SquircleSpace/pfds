@@ -14,11 +14,9 @@
 
 (defpackage :pfds.shcl.io/implementation/bankers-queue
   (:use :common-lisp)
+  (:use :pfds.shcl.io/interface)
   (:import-from :pfds.shcl.io/utility/lazy
    #:force #:lazy)
-  (:import-from :pfds.shcl.io/interface/common
-   #:to-list #:check-invariants #:for-each
-   #:size #:iterator)
   (:import-from :pfds.shcl.io/utility/printer
    #:print-container)
   (:import-from :pfds.shcl.io/utility/iterator-tools
@@ -33,14 +31,10 @@
    #:lazy-list-length #:lazy-list #:make-lazy-list)
   (:import-from :pfds.shcl.io/utility/immutable-structure
    #:define-immutable-structure)
-  (:import-from :pfds.shcl.io/interface/queue
-   #:with-last #:without-first #:peek-first #:is-empty #:empty)
+  (:import-from :pfds.shcl.io/utility/impure-list-builder
+   #:make-impure-list-builder #:impure-list-builder-add
+   #:impure-list-builder-extract)
   (:export
-   #:with-last
-   #:without-first
-   #:peek-first
-   #:is-empty
-   #:empty
    #:bankers-queue
    #:bankers-queue-p
    #:make-bankers-queue))
@@ -54,6 +48,8 @@
   (back-stack (lazy-list))
   (back-stack-size 0 :type (integer 0)))
 
+(declare-interface-conformance bankers-queue queue)
+
 (defvar *empty-bankers-queue*
   (%make-bankers-queue))
 
@@ -65,7 +61,7 @@
     (setf front-stack (lazy-list-append front-stack (lazy-list-reverse back-stack)))
     ;; force the first element of the new front stack so its always
     ;; ready to go
-    (head front-stack)
+    (peek-top front-stack)
     (setf front-stack-size (+ front-stack-size back-stack-size))
     (setf back-stack (lazy-list))
     (setf back-stack-size 0))
@@ -79,21 +75,24 @@
                        :back-stack back-stack
                        :back-stack-size back-stack-size))
 
-(defmethod with-last ((queue bankers-queue) item)
+(defun bankers-queue-with-back (queue item)
   (balance-bankers-queue
    (bankers-queue-front-stack queue)
    (bankers-queue-front-stack-size queue)
    (lazy-cons item (bankers-queue-back-stack queue))
    (1+ (bankers-queue-back-stack-size queue))))
 
-(defmethod without-first ((queue bankers-queue))
+(defmethod with-back ((queue bankers-queue) item)
+  (bankers-queue-with-back queue item))
+
+(defun bankers-queue-without-front (queue)
   (when (zerop (bankers-queue-front-stack-size queue))
-    (return-from without-first
+    (return-from bankers-queue-without-front
       (values queue nil nil)))
 
   (multiple-value-bind
         (new-front-stack head-value valid-p)
-      (tail (bankers-queue-front-stack queue))
+      (without-top (bankers-queue-front-stack queue))
     (assert valid-p nil "If the front stack is non-empty, it should report as such when calling tail")
     (values
      (balance-bankers-queue
@@ -104,8 +103,11 @@
      head-value
      valid-p)))
 
-(defmethod peek-first ((queue bankers-queue))
-  (head (bankers-queue-front-stack queue)))
+(defmethod without-front ((queue bankers-queue))
+  (bankers-queue-without-front queue))
+
+(defmethod peek-front ((queue bankers-queue))
+  (peek-top (bankers-queue-front-stack queue)))
 
 (defmethod is-empty ((queue bankers-queue))
   (zerop (bankers-queue-front-stack-size queue)))
@@ -129,6 +131,24 @@
   (for-each (bankers-queue-front-stack queue) function)
   (for-each (nreverse (to-list (bankers-queue-back-stack queue))) function))
 
+(defmethod map-members ((queue bankers-queue) function)
+  (let ((size (+ (bankers-queue-front-stack-size queue)
+                 (bankers-queue-back-stack-size queue))))
+    (when (zerop size)
+      (return-from map-members queue))
+
+    (let ((builder (make-impure-list-builder))
+          (return-input t))
+      (for-each queue (lambda (v)
+                        (let ((new-item (funcall function v)))
+                          (impure-list-builder-add builder new-item)
+                          (unless (eql new-item v)
+                            (setf return-input nil)))))
+      (if return-input
+          queue
+          (balance-bankers-queue (make-lazy-list :items (impure-list-builder-extract builder)) size
+                                 (lazy-list) 0)))))
+
 (defmethod iterator ((queue bankers-queue))
   (let ((front-iterator (iterator (bankers-queue-front-stack queue)))
         (back-iterator (iterator (lazy-list-reverse (bankers-queue-back-stack queue)))))
@@ -147,9 +167,36 @@
   (cassert (equal (bankers-queue-back-stack-size queue)
                   (lazy-list-length (bankers-queue-back-stack queue)))))
 
+(defmethod print-graphviz ((queue bankers-queue) stream id-vendor)
+  (let ((id (next-graphviz-id id-vendor))
+        last-id)
+    (labels
+        ((link (this-id)
+           (when last-id
+             (format stream "ID~A -> ID~A~%" last-id this-id))
+           (setf last-id this-id))
+
+         (link-list (list)
+           (do-each (value list)
+             (let ((node-id (next-graphviz-id id-vendor)))
+               (format stream "ID~A [label=\"~A\"]~%" node-id value)
+               (link node-id)))))
+
+      (format stream "ID~A [label=\"(middle)\" color=gray]~%" id)
+      (link-list (bankers-queue-front-stack queue))
+      (link id)
+      (link-list (lazy-list-reverse (bankers-queue-back-stack queue)))
+      id)))
+
 (defmethod size ((queue bankers-queue))
   (+ (bankers-queue-front-stack-size queue)
      (bankers-queue-back-stack-size queue)))
 
 (defmethod compare-objects ((left bankers-queue) (right bankers-queue))
   (compare-containers left right #'compare))
+
+(defmethod with-member ((queue bankers-queue) object)
+  (bankers-queue-with-back queue object))
+
+(defmethod decompose ((queue bankers-queue))
+  (bankers-queue-without-front queue))

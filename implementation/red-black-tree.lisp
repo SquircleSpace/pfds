@@ -14,10 +14,7 @@
 
 (defpackage :pfds.shcl.io/implementation/red-black-tree
   (:use :common-lisp)
-  (:import-from :pfds.shcl.io/interface/common
-   #:to-list #:is-empty #:empty #:check-invariants
-   #:print-graphviz #:for-each #:size #:iterator
-   #:for-each-kv #:map-kv)
+  (:use :pfds.shcl.io/interface)
   (:import-from :pfds.shcl.io/utility/iterator-tools
    #:compare-sets #:compare-maps)
   (:import-from :pfds.shcl.io/utility/printer
@@ -28,29 +25,15 @@
    #:define-immutable-structure)
   (:import-from :pfds.shcl.io/utility/misc
    #:intern-conc #:cassert)
-  (:import-from :pfds.shcl.io/interface/set
-   #:with-member #:without-member #:is-member)
-  (:import-from :pfds.shcl.io/interface/map
-   #:with-entry #:without-entry #:lookup-entry)
   (:import-from :pfds.shcl.io/utility/tree
    #:define-tree #:print-tree-node-properties
    #:node-left #:node-right #:nil-tree-p)
   (:export
-   #:is-empty
-   #:empty
-   #:with-member
-   #:without-member
-   #:is-member
-   #:with-entry
-   #:without-entry
-   #:lookup-entry
    #:red-black-set
    #:red-black-set-p
-   #:red-black-set-comparator
    #:make-red-black-set
    #:red-black-map
    #:red-black-map-p
-   #:red-black-map-comparator
    #:make-red-black-map))
 (in-package :pfds.shcl.io/implementation/red-black-tree)
 
@@ -300,71 +283,86 @@
              (t
               (assert nil nil "This should be impossible"))))))))
 
-(define-tree rb-set (:map-p nil
-                     :define-maker-p nil
-                     :insert-left-balancer rb-set-insert-balance-left
-                     :insert-right-balancer rb-set-insert-balance-right
-                     :remove-left-balancer rb-set-remove-balance-left
-                     :remove-right-balancer rb-set-remove-balance-right)
-  (color :red :type color))
+(defmacro define-red-black-tree (base-name (&key map-p))
+  (let* ((package (symbol-package base-name))
+         (maker (intern-conc package "MAKE-" base-name))
+         (insert-left (intern-conc package base-name "-INSERT-BALANCE-LEFT"))
+         (insert-right (intern-conc package base-name "-INSERT-BALANCE-RIGHT"))
+         (remove-left (intern-conc package base-name "-REMOVE-BALANCE-LEFT"))
+         (remove-right (intern-conc package base-name "-REMOVE-BALANCE-RIGHT")))
+    `(progn
+       (define-tree ,base-name (:map-p ,map-p
+                                :define-maker-p nil
+                                :maker ,maker
+                                :insert-left-balancer ,insert-left
+                                :insert-right-balancer ,insert-right
+                                :remove-left-balancer ,remove-left
+                                :remove-right-balancer ,remove-right)
+         (color :red :type color))
+       (define-balancers ,base-name))))
 
-(define-balancers rb-set)
+(define-red-black-tree rb-set (:map-p nil))
+
+(declaim (inline rb-set-blacken))
+(defun rb-set-blacken (tree)
+  (if (rb-set-node-p tree)
+      (copy-rb-set-node tree :color :black)
+      tree))
 
 (defun rb-set-insert-from-root (comparator tree key)
   (multiple-value-bind
-        (tree balance-needed-p count-changed-p)
+        (tree count-change)
       (rb-set-insert comparator tree key)
-    (declare (ignore balance-needed-p))
-    (values (copy-rb-set-node tree :color :black) count-changed-p)))
+    (values (rb-set-blacken tree) count-change)))
 
 (defun rb-set-remove-from-root (comparator tree key)
   (multiple-value-bind
-        (tree balance-needed-p count-changed-p)
+        (tree value valid-p count-change)
       (rb-set-remove comparator tree key)
-    (declare (ignore balance-needed-p))
     (values
-     (if (rb-set-node-p tree)
-         (copy-rb-set-node tree :color :black)
-         tree)
-     count-changed-p)))
+     (rb-set-blacken tree)
+     value
+     valid-p
+     count-change)))
 
 (defun make-rb-set (comparator &key items)
   (let ((tree (rb-set-nil))
         (count 0))
     (dolist (item items)
-      (multiple-value-bind (new-tree count-changed-p) (rb-set-insert-from-root comparator tree item)
+      (multiple-value-bind (new-tree count-change) (rb-set-insert-from-root comparator tree item)
         (setf tree new-tree)
-        (when count-changed-p
-          (incf count))))
+        (incf count count-change)))
     (values tree count)))
 
-(define-tree rb-map (:map-p t
-                     :define-maker-p nil
-                     :insert-left-balancer rb-map-insert-balance-left
-                     :insert-right-balancer rb-map-insert-balance-right
-                     :remove-left-balancer rb-map-remove-balance-left
-                     :remove-right-balancer rb-map-remove-balance-right)
-  (color :red :type color))
+(define-red-black-tree rb-map (:map-p t))
 
-(define-balancers rb-map)
+(declaim (inline rb-map-blacken))
+(defun rb-map-blacken (tree)
+  (if (rb-map-node-p tree)
+      (copy-rb-map-node tree :color :black)
+      tree))
 
-(defun rb-map-insert-from-root (comparator tree key value emplace-p)
+(defun rb-map-insert-from-root (comparator tree key value)
   (multiple-value-bind
-        (tree balance-needed-p count-changed-p)
-      (rb-map-insert comparator tree key value emplace-p)
-    (declare (ignore balance-needed-p))
-    (values (copy-rb-map-node tree :color :black) count-changed-p)))
+        (tree count-change)
+      (rb-map-insert comparator tree key value)
+    (values (rb-map-blacken tree) count-change)))
+
+(defun rb-map-emplace-from-root (comparator tree key value)
+  (multiple-value-bind
+        (tree count-change)
+      (rb-map-emplace comparator tree key value)
+    (values (rb-map-blacken tree) count-change)))
 
 (defun rb-map-remove-from-root (comparator tree key)
   (multiple-value-bind
-        (tree balance-needed-p count-changed-p)
+        (tree value valid-p count-change)
       (rb-map-remove comparator tree key)
-    (declare (ignore balance-needed-p))
     (values
-     (if (rb-map-node-p tree)
-         (copy-rb-map-node tree :color :black)
-         tree)
-     count-changed-p)))
+     (rb-map-blacken tree)
+     value
+     valid-p
+     count-change)))
 
 (defun make-rb-map (comparator &key alist plist)
   (let ((tree (rb-map-nil))
@@ -373,18 +371,16 @@
           :for key = (pop plist)
           :for value = (if plist (pop plist) (error "Odd number of items in plist"))
           :do (multiple-value-bind
-                    (new-tree count-changed-p)
-                  (rb-map-insert-from-root comparator tree key value t)
+                    (new-tree count-change)
+                  (rb-map-emplace-from-root comparator tree key value)
                 (setf tree new-tree)
-                (when count-changed-p
-                  (incf count))))
+                (incf count count-change)))
     (dolist (pair alist)
       (multiple-value-bind
-            (new-tree count-changed-p)
-          (rb-map-insert-from-root comparator tree (car pair) (cdr pair) t)
+            (new-tree count-change)
+          (rb-map-emplace-from-root comparator tree (car pair) (cdr pair))
         (setf tree new-tree)
-        (when count-changed-p
-          (incf count))))
+        (incf count count-change)))
     (values tree count)))
 
 (defgeneric node-color (tree))
@@ -442,8 +438,14 @@
   (size 0 :type (integer 0))
   (comparator (error "required")))
 
+(declare-interface-conformance red-black-set ordered-set)
+
+(defmethod comparator ((set red-black-set))
+  (red-black-set-comparator set))
+
 (defmethod check-invariants ((set red-black-set))
-  (check-rb-set (red-black-set-tree set) (red-black-set-comparator set))
+  (cassert (equal (red-black-set-size set)
+                  (check-rb-set (red-black-set-tree set) (red-black-set-comparator set))))
   (check-balance (red-black-set-tree set)))
 
 (defmethod to-list ((set red-black-set))
@@ -452,6 +454,12 @@
 (defmethod for-each ((set red-black-set) function)
   (do-rb-set (key (red-black-set-tree set))
     (funcall function key)))
+
+(defmethod map-members ((set red-black-set) function)
+  (multiple-value-bind (new-tree count) (rb-set-map-members (red-black-set-comparator set)
+                                                            (red-black-set-tree set)
+                                                            function)
+    (copy-red-black-set set :size count :tree new-tree)))
 
 (defmethod iterator ((set red-black-set))
   (iterator (red-black-set-tree set)))
@@ -480,41 +488,34 @@
 
 (defmethod with-member ((set red-black-set) item)
   (multiple-value-bind
-        (new-tree count-changed-p)
+        (new-tree count-change)
       (rb-set-insert-from-root
        (red-black-set-comparator set)
        (red-black-set-tree set)
        item)
 
-    (cond
-      ((eq new-tree (red-black-set-tree set))
-       (assert (not count-changed-p))
-       set)
-      (t
-       (assert count-changed-p)
-       (%make-red-black-set
-        :tree new-tree
-        :size (1+ (red-black-set-size set))
-        :comparator (red-black-set-comparator set))))))
+    (copy-red-black-set set :tree new-tree :size (+ count-change (red-black-set-size set)))))
+
+(defmethod decompose ((set red-black-set))
+  (multiple-value-bind
+        (new-tree value valid-p)
+      (rb-set-decompose (red-black-set-tree set))
+    (values (copy-red-black-set set :tree (rb-set-blacken new-tree)
+                                    :size (+ (if valid-p -1 0) (red-black-set-size set)))
+            value
+            valid-p)))
 
 (defmethod without-member ((set red-black-set) item)
   (multiple-value-bind
-        (new-tree count-changed-p)
+        (new-tree value valid-p count-change)
       (rb-set-remove-from-root
        (red-black-set-comparator set)
        (red-black-set-tree set)
        item)
+    (declare (ignore value))
 
-    (cond
-      ((eq new-tree (red-black-set-tree set))
-       (assert (not count-changed-p))
-       set)
-      (t
-       (assert count-changed-p)
-       (%make-red-black-set
-        :tree new-tree
-        :size (1- (red-black-set-size set))
-        :comparator (red-black-set-comparator set))))))
+    (values (copy-red-black-set set :tree new-tree :size (+ count-change (red-black-set-size set)))
+            valid-p)))
 
 (defmethod is-member ((set red-black-set) item)
   (nth-value 1 (rb-set-lookup (red-black-set-comparator set)
@@ -536,20 +537,48 @@
   (size 0 :type (integer 0))
   (comparator (error "required")))
 
+(declare-interface-conformance red-black-map ordered-map)
+
+(defmethod comparator ((map red-black-map))
+  (red-black-map-comparator map))
+
+(defmethod with-member ((map red-black-map) pair)
+  (check-type pair cons)
+  (red-black-map-with-entry map (car pair) (cdr pair)))
+
+(defmethod member-type ((map red-black-map))
+  '(cons t t))
+
+(defmethod decompose ((map red-black-map))
+  (multiple-value-bind
+        (new-tree value valid-p)
+      (rb-map-decompose (red-black-map-tree map))
+    (values (copy-red-black-map map :tree (rb-map-blacken new-tree)
+                                    :size (+ (if valid-p -1 0) (red-black-map-size map)))
+            value
+            valid-p)))
+
 (defmethod check-invariants ((map red-black-map))
-  (check-rb-map (red-black-map-tree map) (red-black-map-comparator map))
+  (cassert (equal (red-black-map-size map)
+                  (check-rb-map (red-black-map-tree map) (red-black-map-comparator map))))
   (check-balance (red-black-map-tree map)))
 
 (defmethod for-each ((map red-black-map) function)
   (do-rb-map (key value (red-black-map-tree map))
     (funcall function (cons key value))))
 
-(defmethod for-each-kv ((map red-black-map) function)
+(defmethod for-each-entry ((map red-black-map) function)
   (do-rb-map (key value (red-black-map-tree map))
     (funcall function key value)))
 
-(defmethod map-kv ((map red-black-map) function)
-  (copy-red-black-map map :tree (rb-map-map-kv (red-black-map-tree map) function)))
+(defmethod map-entries ((map red-black-map) function)
+  (copy-red-black-map map :tree (rb-map-map-entries (red-black-map-tree map) function)))
+
+(defmethod map-members ((map red-black-map) function)
+  (multiple-value-bind (new-tree count) (rb-map-map-members (red-black-map-comparator map)
+                                                            (red-black-map-tree map)
+                                                            function)
+    (copy-red-black-map map :size count :tree new-tree)))
 
 (defmethod iterator ((map red-black-map))
   (iterator (red-black-map-tree map)))
@@ -579,44 +608,32 @@
 (defmethod size ((map red-black-map))
   (red-black-map-size map))
 
-(defmethod with-entry ((map red-black-map) key value)
+(defun red-black-map-with-entry (map key value)
   (multiple-value-bind
-        (new-tree count-changed-p)
+        (new-tree count-change)
       (rb-map-insert-from-root
        (red-black-map-comparator map)
        (red-black-map-tree map)
        key
-       value
-       nil)
-    (cond
-      ((eq new-tree (red-black-map-tree map))
-       (assert (not count-changed-p))
-       map)
-      (t
-       (%make-red-black-map
-        :tree new-tree
-        :size (if count-changed-p
-                  (1+ (red-black-map-size map))
-                  (red-black-map-size map))
-        :comparator (red-black-map-comparator map))))))
+       value)
+    (copy-red-black-map map :size (+ (red-black-map-size map) count-change)
+                        :tree new-tree)))
+
+(defmethod with-entry ((map red-black-map) key value)
+  (red-black-map-with-entry map key value))
 
 (defmethod without-entry ((map red-black-map) key)
   (multiple-value-bind
-        (new-tree count-changed-p)
+        (new-tree value valid-p count-change)
       (rb-map-remove-from-root
        (red-black-map-comparator map)
        (red-black-map-tree map)
        key)
-    (cond
-      ((eq new-tree (red-black-map-tree map))
-       (assert (not count-changed-p))
-       map)
-      (t
-       (assert count-changed-p)
-       (%make-red-black-map
-        :tree new-tree
-        :size (1- (red-black-map-size map))
-        :comparator (red-black-map-comparator map))))))
+    (values
+     (copy-red-black-map map :size (+ count-change (red-black-map-size map))
+                         :tree new-tree)
+     value
+     valid-p)))
 
 (defmethod lookup-entry ((tree red-black-map) key)
   (rb-map-lookup (red-black-map-comparator tree)
