@@ -449,10 +449,10 @@
 
 (defun wb-seq-rotate-double-left (left right)
   (let* ((right-left (wb-seq-node-left right))
-         (right-left-left (if (wb-seq-node-p right-left)
-                              (wb-seq-node-left right-left)
-                              (return-from wb-seq-rotate-double-left
-                                (wb-seq-rotate-left left right))))
+         (right-left (if (arrayp right-left)
+                         (make-wb-seq-node-splitting-arrays right-left #())
+                         right-left))
+         (right-left-left (wb-seq-node-left right-left))
          (right-left-right (wb-seq-node-right right-left)))
     (make-wb-seq-node :left (make-wb-seq left right-left-left)
                       :right (make-wb-seq right-left-right (wb-seq-node-right right)))))
@@ -463,10 +463,10 @@
 
 (defun wb-seq-rotate-double-right (left right)
   (let* ((left-right (wb-seq-node-right left))
-         (left-right-right (if (wb-seq-node-p left-right)
-                               (wb-seq-node-right left-right)
-                               (return-from wb-seq-rotate-double-right
-                                 (wb-seq-rotate-right left right))))
+         (left-right (if (arrayp left-right)
+                         (make-wb-seq-node-splitting-arrays left-right #())
+                         left-right))
+         (left-right-right (wb-seq-node-right left-right))
          (left-right-left (wb-seq-node-left left-right)))
     (make-wb-seq-node :left (make-wb-seq (wb-seq-node-left left) left-right-left)
                       :right (make-wb-seq left-right-right right))))
