@@ -41,10 +41,20 @@
    #:weight-balanced-sequence-p))
 (in-package :pfds.shcl.io/implementation/weight-balanced-tree)
 
-;; See "Implementing Sets Efficiently in a Functional Language" by
-;; Stephen Adams
+;; See...
+;; - "Implementing Sets Efficiently in a Functional Language" by
+;;   Stephen Adams
+;; - FSet https://common-lisp.net/project/fset/Site/
+;; - Data.Set https://hackage.haskell.org/package/containers-0.6.4.1/docs/src/Data.Set.Internal.html
+;; - "Adams' Trees Revisited" by Milan Straka
 
-(defvar *balance-factor* 4)
+(declaim (inline omega-balance))
+(defun omega-balance ()
+  3)
+
+(declaim (inline alpha-balance))
+(defun alpha-balance ()
+  2)
 
 (defgeneric tree-size (tree))
 
@@ -57,8 +67,8 @@
          (right (node-right tree))
          (right-size (tree-size right)))
     (when (<= 2 (+ left-size right-size))
-      (cassert (<= right-size (* *balance-factor* left-size)))
-      (cassert (<= left-size (* *balance-factor* right-size))))
+      (cassert (<= right-size (* (omega-balance) left-size)))
+      (cassert (<= left-size (* (omega-balance) right-size))))
     (cassert (equal (tree-size tree)
                     (+ 1 left-size right-size)))
     (check-wb-invariants left)
@@ -120,17 +130,17 @@
              ((< (+ left-size right-size) 2)
               (,copy-node+ tree :left left :right right))
 
-             ((> right-size (* *balance-factor* left-size))
+             ((> right-size (* (omega-balance) left-size))
               (let ((right-left-size (,size (,node-type-left right)))
                     (right-right-size (,size (,node-type-right right))))
-                (if (<= right-left-size right-right-size)
+                (if (< right-left-size (* (alpha-balance) right-right-size))
                     (,rotate-left tree left right)
                     (,rotate-double-left tree left right))))
 
-             ((> left-size (* *balance-factor* right-size))
+             ((> left-size (* (omega-balance) right-size))
               (let ((left-left-size (,size (,node-type-left left)))
                     (left-right-size (,size (,node-type-right left))))
-                (if (<= left-right-size left-left-size)
+                (if (< left-right-size (* (alpha-balance) left-left-size))
                     (,rotate-right tree left right)
                     (,rotate-double-right tree left right))))
 
@@ -485,23 +495,23 @@
        (cond
          ((<= total-items *max-array-length*)
           (wb-seq-concat-arrays left right))
-         ((or (> right-size (* *balance-factor* left-size))
-              (> left-size (* *balance-factor* right-size)))
+         ((or (> right-size (* (omega-balance) left-size))
+              (> left-size (* (omega-balance) right-size)))
           (make-wb-seq-node-splitting-arrays left right))
          (t
           (%make-wb-seq-node :left left :right right :size total-items))))
 
-      ((> right-size (* *balance-factor* left-size))
+      ((> right-size (* (omega-balance) left-size))
        (let ((right-left-size (wb-seq-size (wb-seq-node-left right)))
              (right-right-size (wb-seq-size (wb-seq-node-right right))))
-         (if (<= right-left-size right-right-size)
+         (if (< right-left-size (* (alpha-balance) right-right-size))
              (wb-seq-rotate-left left right)
              (wb-seq-rotate-double-left left right))))
 
-      ((> left-size (* *balance-factor* right-size))
+      ((> left-size (* (omega-balance) right-size))
        (let ((left-left-size (wb-seq-size (wb-seq-node-left left)))
              (left-right-size (wb-seq-size (wb-seq-node-right left))))
-         (if (<= left-right-size left-left-size)
+         (if (< left-right-size (* (alpha-balance) left-left-size))
              (wb-seq-rotate-right left right)
              (wb-seq-rotate-double-right left right))))
 
@@ -556,12 +566,12 @@
      left)
 
     ((and (wb-seq-node-p left)
-          (> (wb-seq-size left) (* *balance-factor* (wb-seq-size right))))
+          (> (wb-seq-size left) (* (omega-balance) (wb-seq-size right))))
      (make-wb-seq (wb-seq-node-left left)
                   (wb-seq-concatenate (wb-seq-node-right left) right)))
 
     ((and (wb-seq-node-p right)
-          (> (wb-seq-size right) (* *balance-factor* (wb-seq-size left))))
+          (> (wb-seq-size right) (* (omega-balance) (wb-seq-size left))))
      (make-wb-seq (wb-seq-concatenate left (wb-seq-node-left right))
                   (wb-seq-node-right right)))
 
@@ -1017,8 +1027,8 @@
             (left-size (wb-seq-size left))
             (right (wb-seq-node-right tree))
             (right-size (wb-seq-size right)))
-       (cassert (<= right-size (* *balance-factor* left-size)))
-       (cassert (<= left-size (* *balance-factor* right-size)))
+       (cassert (<= right-size (* (omega-balance) left-size)))
+       (cassert (<= left-size (* (omega-balance) right-size)))
        (cassert (equal (wb-seq-size tree)
                        (+ left-size right-size)))
        (check-wb-seq-invariants left)
