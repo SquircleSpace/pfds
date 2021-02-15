@@ -12,15 +12,18 @@
 ;; See the License for the specific language governing permissions and
 ;; limitations under the License.
 
-(defpackage :pfds.shcl.io/implementation/batched-deque
+(uiop:define-package :pfds.shcl.io/implementation/batched-deque
   (:use :common-lisp)
-  (:use :pfds.shcl.io/interface)
+  (:use :pfds.shcl.io/utility/interface)
+  (:use :pfds.shcl.io/implementation/interface)
+  (:import-from :pfds.shcl.io/implementation/list
+   #:<list>)
   (:import-from :pfds.shcl.io/utility/list
    #:impure-destructive-mapcar)
   (:import-from :pfds.shcl.io/utility/printer
    #:print-container)
   (:import-from :pfds.shcl.io/utility/iterator-tools
-   #:compare-containers #:iterator-flatten*)
+   #:compare-collection-contents #:iterator-flatten*)
   (:import-from :pfds.shcl.io/utility/compare
    #:compare-objects #:compare)
   (:import-from :pfds.shcl.io/utility/immutable-structure
@@ -31,9 +34,9 @@
   (:import-from :pfds.shcl.io/utility/misc
    #:cassert)
   (:export
+   #:<batched-deque>
    #:batched-deque
-   #:batched-deque-p
-   #:make-batched-deque))
+   #:batched-deque-p))
 (in-package :pfds.shcl.io/implementation/batched-deque)
 
 ;; See "Purely Functional Data Structures" by Chris Okasaki
@@ -44,9 +47,11 @@
   (back-stack nil :type list)
   (back-count 0 :type (integer 0)))
 
-(declare-interface-conformance batched-deque deque)
+(define-simple-interface-instance <batched-deque> <<deque>> batched-deque-
+  'make-queue 'make-batched-deque
+  'make-deque 'make-batched-deque)
 
-(defmethod check-invariants ((deque batched-deque))
+(defun batched-deque-check-invariants (deque)
   (with-accessors ((front batched-deque-front-stack)
                    (front-count batched-deque-front-count)
                    (back batched-deque-back-stack)
@@ -60,7 +65,7 @@
     (cassert (equal back-count (length back))
              nil "back count has the correct value")))
 
-(defmethod print-graphviz ((deque batched-deque) stream id-vendor)
+(defun batched-deque-print-graphviz (deque stream id-vendor)
   (let ((id (next-graphviz-id id-vendor))
         last-id)
     (labels
@@ -70,7 +75,7 @@
            (setf last-id this-id))
 
          (link-list (list)
-           (do-each (value list)
+           (dolist (value list)
              (let ((node-id (next-graphviz-id id-vendor)))
                (format stream "ID~A [label=\"~A\"]~%" node-id value)
                (link node-id)))))
@@ -81,28 +86,33 @@
       (link-list (reverse (batched-deque-back-stack deque)))
       id)))
 
-(defmethod to-list ((deque batched-deque))
+(declaim (inline batched-deque-to-list))
+(defun batched-deque-to-list (deque)
   (append (batched-deque-front-stack deque)
           (reverse (batched-deque-back-stack deque))))
 
-(defmethod iterator ((deque batched-deque))
-  (let ((front-iterator (iterator (batched-deque-front-stack deque)))
-        (back-iterator (iterator (reverse (batched-deque-back-stack deque)))))
+(declaim (inline batched-deque-iterator))
+(defun batched-deque-iterator (deque)
+  (let ((front-iterator (i-iterator <list> (batched-deque-front-stack deque)))
+        (back-iterator (i-iterator <list> (reverse (batched-deque-back-stack deque)))))
     (iterator-flatten* front-iterator back-iterator)))
 
-(defmethod for-each ((deque batched-deque) function)
-  (for-each (batched-deque-front-stack deque) function)
-  (for-each (reverse (batched-deque-back-stack deque)) function))
+(declaim (inline batched-deque-for-each))
+(defun batched-deque-for-each (deque function)
+  (i-for-each <list> (batched-deque-front-stack deque) function)
+  (i-for-each <list> (reverse (batched-deque-back-stack deque)) function))
 
-(defmethod map-members ((deque batched-deque) function)
-  (copy-batched-deque deque
-                      :front-stack (map-members (batched-deque-front-stack deque) function)
-                      :back-stack (nreverse (impure-destructive-mapcar function (reverse (batched-deque-back-stack deque))))))
+(declaim (inline batched-deque-map-members))
+(defun batched-deque-map-members (deque function)
+  (copy-batched-deque
+   deque
+   :front-stack (i-map-members <list> (batched-deque-front-stack deque) function)
+   :back-stack (nreverse (impure-destructive-mapcar function (reverse (batched-deque-back-stack deque))))))
 
 (defmethod print-object ((deque batched-deque) stream)
   (if *print-readably*
       (call-next-method)
-      (print-container deque stream)))
+      (print-container <batched-deque> deque stream)))
 
 (defvar *empty-batched-deque* (%make-batched-deque))
 
@@ -140,6 +150,7 @@
      new-back
      new-back-count)))
 
+(declaim (inline make-batched-deque))
 (defun make-batched-deque (&key items)
   (unless items
     (return-from make-batched-deque
@@ -154,33 +165,34 @@
      :back-stack back-stack
      :back-count back-count)))
 
+(declaim (inline batched-deque))
 (defun batched-deque (&rest items)
   (make-batched-deque :items items))
 
+(declaim (inline add-last))
 (defun add-last (deque item)
   (copy-batched-deque
    deque
    :back-stack (cons item (batched-deque-back-stack deque))
    :back-count (1+ (batched-deque-back-count deque))))
 
+(declaim (inline add-first))
 (defun add-first (deque item)
   (copy-batched-deque
    deque
    :front-stack (cons item (batched-deque-front-stack deque))
    :front-count (1+ (batched-deque-front-count deque))))
 
+(declaim (inline batched-deque-with-back))
 (defun batched-deque-with-back (deque item)
   (if (batched-deque-front-stack deque)
       (add-last deque item)
       (add-first deque item)))
 
-(defmethod with-back ((deque batched-deque) item)
-  (batched-deque-with-back deque item))
-
-(defmethod with-front ((deque batched-deque) item)
+(defun batched-deque-with-front (deque item)
   (cond
-    ((null (batched-deque-back-stack deque))
-     (assert (equal 1 (batched-deque-front-count deque)))
+    ((and (equal 0 (batched-deque-back-count deque))
+          (equal 1 (batched-deque-front-count deque)))
      (copy-batched-deque
       deque
       :front-stack (cons item nil)
@@ -189,7 +201,6 @@
       :back-count 1))
 
     (t
-     (assert (batched-deque-front-stack deque))
      (add-first deque item))))
 
 (defun batched-deque-without-front (deque)
@@ -227,9 +238,6 @@
       :back-count new-back-count)
      value
      t)))
-
-(defmethod without-front ((deque batched-deque))
-  (batched-deque-without-front deque))
 
 (defun batched-deque-without-back (deque)
   (when (null (batched-deque-back-stack deque))
@@ -270,15 +278,14 @@
      value
      t)))
 
-(defmethod without-back ((deque batched-deque))
-  (batched-deque-without-back deque))
-
-(defmethod peek-front ((deque batched-deque))
+(declaim (inline batched-deque-peek-front))
+(defun batched-deque-peek-front (deque)
   (if (batched-deque-front-stack deque)
       (values (car (batched-deque-front-stack deque))
               t)
       (values nil nil)))
 
+(declaim (inline batched-deque-peek-back))
 (defun batched-deque-peek-back (deque)
   (cond
     ((batched-deque-back-stack deque)
@@ -291,33 +298,50 @@
     (t
      (values nil nil))))
 
-(defmethod peek-back ((deque batched-deque))
-  (batched-deque-peek-back deque))
-
-(defmethod is-empty ((deque batched-deque))
+(declaim (inline batched-deque-is-empty))
+(defun batched-deque-is-empty (deque)
   (null (batched-deque-front-stack deque)))
 
-(defmethod empty ((deque batched-deque))
+(declaim (inline batched-deque-empty))
+(defun batched-deque-empty (deque)
+  (declare (ignore deque))
   *empty-batched-deque*)
 
-(defmethod size ((deque batched-deque))
+(declaim (inline batched-deque-size))
+(defun batched-deque-size (deque)
   (+ (batched-deque-front-count deque)
      (batched-deque-back-count deque)))
 
-(defmethod compare-objects ((left batched-deque) (right batched-deque))
-  (compare-containers left right #'compare))
+(declaim (inline batched-deque-compare))
+(defun batched-deque-compare (left right)
+  (compare-collection-contents <batched-deque> left right #'compare))
 
-(defmethod with-member ((deque batched-deque) object)
+(declaim (inline batched-deque-with-member))
+(defun batched-deque-with-member (deque object)
   (batched-deque-with-back deque object))
 
-(defmethod decompose ((deque batched-deque))
+(declaim (inline batched-deque-decompose))
+(defun batched-deque-decompose (deque)
   (batched-deque-without-front deque))
 
-(defmethod with-top ((deque batched-deque) object)
+(declaim (inline batched-deque-with-top))
+(defun batched-deque-with-top (deque object)
   (batched-deque-with-back deque object))
 
-(defmethod without-top ((deque batched-deque))
+(declaim (inline batched-deque-without-top))
+(defun batched-deque-without-top (deque)
   (batched-deque-without-back deque))
 
-(defmethod peek-top ((deque batched-deque))
+(declaim (inline batched-deque-peek-top))
+(defun batched-deque-peek-top (deque)
   (batched-deque-peek-back deque))
+
+(declaim (inline batched-deque-make-stack))
+(defun batched-deque-make-stack (&key items)
+  (make-batched-deque :items (reverse items)))
+
+(declaim (inline batched-deque-representative-empty))
+(defun batched-deque-representative-empty ()
+  *empty-batched-deque*)
+
+(define-interface-methods <batched-deque> batched-deque)

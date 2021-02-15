@@ -12,9 +12,12 @@
 ;; See the License for the specific language governing permissions and
 ;; limitations under the License.
 
-(defpackage :pfds.shcl.io/utility/printer
+(uiop:define-package :pfds.shcl.io/utility/printer
   (:use :common-lisp)
-  (:use :pfds.shcl.io/interface)
+  (:use :pfds.shcl.io/utility/interface)
+  (:use :pfds.shcl.io/implementation/interface)
+  (:import-from :pfds.shcl.io/utility/specialization
+   #:define-specializable-function)
   (:export
    #:print-set #:print-map #:print-sequence
    #:print-container))
@@ -31,38 +34,47 @@
     (t
      object)))
 
-(defun print-set (set stream)
-  (if (is-empty set)
+(define-specializable-function print-set (<interface>) (set stream)
+  (if (i-is-empty <interface> set)
       (write-string "{{}}" stream)
       (pprint-logical-block (stream nil :prefix "{{ " :suffix "}}")
-        (for-each set (lambda (obj)
-                        (write (quote-for-printing obj) :stream stream)
-                        (write-string " " stream)
-                        (pprint-newline :fill stream))))))
+        (i-for-each
+         <interface>
+         set
+         (lambda (obj)
+           (write (quote-for-printing obj) :stream stream)
+           (write-string " " stream)
+           (pprint-newline :fill stream))))))
 
-(defun print-map (map stream)
-  (if (is-empty map)
+(define-specializable-function print-map (<interface>) (map stream)
+  (if (i-is-empty <interface> map)
       (write-string "{}" stream)
       (pprint-logical-block (stream nil :prefix "{ " :suffix "}")
-        (for-each map (lambda (pair)
-                        (write `(,(quote-for-printing (car pair))
-                                 ,(quote-for-printing (cdr pair)))
-                               :stream stream)
-                        (write-string " " stream)
-                        (pprint-newline :fill stream))))))
+        (i-for-each
+         <interface>
+         map
+         (lambda (pair)
+           (write `(,(quote-for-printing (car pair))
+                    ,(quote-for-printing (cdr pair)))
+                  :stream stream)
+           (write-string " " stream)
+           (pprint-newline :fill stream))))))
 
-(defun print-sequence (sequence stream)
-  (if (is-empty sequence)
+(define-specializable-function print-sequence (<interface>) (sequence stream)
+  (if (i-is-empty <interface> sequence)
       (write-string "[]" stream)
       (pprint-logical-block (stream nil :prefix "[ " :suffix "]")
-        (for-each sequence (lambda (obj)
-                           (write (quote-for-printing obj) :stream stream)
-                           (write-string " " stream)
-                           (pprint-newline :fill stream))))))
+        (i-for-each
+         <interface>
+         sequence
+         (lambda (obj)
+           (write (quote-for-printing obj) :stream stream)
+           (write-string " " stream)
+           (pprint-newline :fill stream))))))
 
-(defun print-container (container stream)
+(define-specializable-function print-container (<interface>) (container stream)
   (print-unreadable-object (container stream :type t)
-    (let ((items (to-list container)))
+    (let ((items (i-to-list <interface> container)))
       (pprint-logical-block (stream items)
         (dolist (item items)
           (write item :stream stream)

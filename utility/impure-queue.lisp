@@ -12,7 +12,7 @@
 ;; See the License for the specific language governing permissions and
 ;; limitations under the License.
 
-(defpackage :pfds.shcl.io/utility/impure-queue
+(uiop:define-package :pfds.shcl.io/utility/impure-queue
   (:use :common-lisp)
   (:export #:make-impure-queue #:enqueue #:dequeue #:impure-queue-count))
 (in-package :pfds.shcl.io/utility/impure-queue)

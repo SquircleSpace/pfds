@@ -12,9 +12,12 @@
 ;; See the License for the specific language governing permissions and
 ;; limitations under the License.
 
-(defpackage :pfds.shcl.io/implementation/leftist-heap
+(uiop:define-package :pfds.shcl.io/implementation/leftist-heap
   (:use :common-lisp)
-  (:use :pfds.shcl.io/interface)
+  (:use :pfds.shcl.io/utility/interface)
+  (:use :pfds.shcl.io/implementation/interface)
+  (:import-from :pfds.shcl.io/utility/specialization
+   #:specialize)
   (:import-from :pfds.shcl.io/utility/printer
    #:print-container)
   (:import-from :pfds.shcl.io/utility/iterator-tools
@@ -28,7 +31,9 @@
   (:import-from :pfds.shcl.io/utility/misc
    #:cassert)
   (:export
-   #:make-leftist-heap
+   #:<leftist-heap>
+   #:<height-biased-leftist-heap>
+   #:<weight-biased-leftist-heap>
    #:leftist-heap
    #:leftist-heap-p))
 (in-package :pfds.shcl.io/implementation/leftist-heap)
@@ -36,6 +41,11 @@
 ;; See "Purely Functional Data Structures" by Chris Okasaki
 
 (defconstant +default-bias+ :height)
+
+(defvar *guts-nil*)
+
+(defun guts-nil ()
+  *guts-nil*)
 
 (define-adt guts
     ()
@@ -49,22 +59,25 @@
 (defvar *guts-nil*
   (%make-guts-nil))
 
-(defun guts-nil ()
-  *guts-nil*)
-
-(defmethod print-graphviz ((guts guts-nil) stream id-vendor)
+(defun guts-nil-print-graphviz (guts stream id-vendor)
+  (declare (ignore guts))
   (let ((id (next-graphviz-id id-vendor)))
     (format stream "ID~A [label=\"nil\"]~%" id)
     id))
 
-(defmethod print-graphviz ((guts guts) stream id-vendor)
+(defun guts-node-print-graphviz (guts stream id-vendor)
   (let ((id (next-graphviz-id id-vendor)))
     (format stream "ID~A [label=\"~A, ~A\" shape=box]~%" id (guts-node-rank guts) (guts-node-value guts))
-    (let ((child-id (print-graphviz (guts-node-left guts) stream id-vendor)))
+    (let ((child-id (guts-print-graphviz (guts-node-left guts) stream id-vendor)))
       (format stream "ID~A -> ID~A~%" id child-id))
-    (let ((child-id (print-graphviz (guts-node-right guts) stream id-vendor)))
+    (let ((child-id (guts-print-graphviz (guts-node-right guts) stream id-vendor)))
       (format stream "ID~A -> ID~A~%" id child-id))
     id))
+
+(defun guts-print-graphviz (guts stream id-vendor)
+  (if (guts-nil-p guts)
+      (guts-nil-print-graphviz guts stream id-vendor)
+      (guts-node-print-graphviz guts stream id-vendor)))
 
 (define-immutable-structure (leftist-heap (:constructor %make-leftist-heap))
   (comparator (error "comparator is required"))
@@ -72,10 +85,17 @@
   (size 0 :type (integer 0))
   (bias +default-bias+ :type (member :height :weight)))
 
-(declare-interface-conformance leftist-heap priority-queue)
+(define-simple-interface-instance <weight-biased-leftist-heap> <<priority-queue>> leftist-heap-
+  'make-priority-queue 'make-weight-biased-leftist-heap)
 
-(defmethod print-graphviz ((heap leftist-heap) stream id-vendor)
-  (print-graphviz (leftist-heap-guts heap) stream id-vendor))
+(define-simple-interface-instance <height-biased-leftist-heap> <<priority-queue>> leftist-heap-
+  'make-priority-queue 'make-height-biased-leftist-heap)
+
+(define-symbol-macro <leftist-heap> <height-biased-leftist-heap>)
+
+(declaim (inline leftist-heap-print-graphviz))
+(defun leftist-heap-print-graphviz (heap stream id-vendor)
+  (guts-print-graphviz (leftist-heap-guts heap) stream id-vendor))
 
 (defun do-guts-f (guts fn)
   (etypecase guts
@@ -90,9 +110,16 @@
      (do-guts-f ,guts (lambda (,item) ,@body))
      ,result))
 
-(defmethod for-each ((heap leftist-heap) function)
+(declaim (inline leftist-heap-for-each))
+(defun leftist-heap-for-each (heap function)
   (do-guts (item (leftist-heap-guts heap))
     (funcall function item)))
+
+(specialize collection-to-list <leftist-heap>)
+
+(declaim (inline leftist-heap-to-list))
+(defun leftist-heap-to-list (heap)
+  (collection-to-list <leftist-heap> heap))
 
 (defun make-tree-iterator (tree)
   (when (guts-nil-p tree)
@@ -122,14 +149,16 @@
             (t
              (pop stack))))))))
 
-(defmethod iterator ((heap leftist-heap))
+(declaim (inline leftist-heap-iterator))
+(defun leftist-heap-iterator (heap)
   (make-tree-iterator (leftist-heap-guts heap)))
 
 (defmethod print-object ((heap leftist-heap) stream)
   (if *print-readably*
       (call-next-method)
-      (print-container heap stream)))
+      (print-container <leftist-heap> heap stream)))
 
+(declaim (inline rank))
 (defun rank (guts)
   (etypecase guts
     (guts-nil
@@ -184,7 +213,8 @@
 
     (values (dequeue queue) size)))
 
-(defun make-leftist-heap (comparator &key (bias +default-bias+) items)
+(declaim (inline make-leftist-heap))
+(defun make-leftist-heap (&key (comparator 'compare) (bias +default-bias+) items)
   (check-type bias (member :height :weight))
   (multiple-value-bind (guts size) (make-guts comparator bias items)
     (%make-leftist-heap :comparator comparator
@@ -192,10 +222,19 @@
                         :size size
                         :bias bias)))
 
-(defun leftist-heap (comparator &rest items)
-  (make-leftist-heap comparator :items items))
+(declaim (inline make-weight-biased-leftist-heap))
+(defun make-weight-biased-leftist-heap (&key (comparator 'compare) items)
+  (make-leftist-heap :bias :weight :comparator comparator :items items))
 
-(defun leftist-heap-merge (first second)
+(declaim (inline make-height-biased-leftist-heap))
+(defun make-height-biased-leftist-heap (&key (comparator 'compare) items)
+  (make-leftist-heap :bias :height :comparator comparator :items items))
+
+(declaim (inline leftist-heap))
+(defun leftist-heap (&rest items)
+  (make-leftist-heap :items items))
+
+(defun leftist-heap-meld (first second)
   (let ((comparator (leftist-heap-comparator first))
         (bias (leftist-heap-bias first)))
     (unless (eq comparator (leftist-heap-comparator second))
@@ -209,14 +248,11 @@
            (size (+ (leftist-heap-size first)
                     (leftist-heap-size second))))
       (when (eql result-guts first-guts)
-        (return-from leftist-heap-merge first))
+        (return-from leftist-heap-meld first))
       (when (eql result-guts second-guts)
-        (return-from leftist-heap-merge second))
+        (return-from leftist-heap-meld second))
 
       (%make-leftist-heap :comparator comparator :guts result-guts :size size :bias bias))))
-
-(defmethod meld ((first leftist-heap) (second leftist-heap))
-  (leftist-heap-merge first second))
 
 (defun leftist-heap-with-member (heap item)
   (let ((comparator (leftist-heap-comparator heap))
@@ -230,23 +266,17 @@
      :size (1+ (leftist-heap-size heap))
      :bias bias)))
 
-(defmethod with-member ((heap leftist-heap) item)
-  (leftist-heap-with-member heap item))
-
-(defun leftist-heap-top (heap)
+(defun leftist-heap-peek-front (heap)
   (let ((guts (leftist-heap-guts heap)))
     (if (guts-nil-p guts)
         (values nil nil)
         (values (guts-node-value guts) t))))
 
-(defmethod peek-front ((heap leftist-heap))
-  (leftist-heap-top heap))
-
-(defun leftist-heap-without-top (heap)
+(defun leftist-heap-without-front (heap)
   (let ((guts (leftist-heap-guts heap))
         (bias (leftist-heap-bias heap)))
     (when (guts-nil-p guts)
-      (return-from leftist-heap-without-top
+      (return-from leftist-heap-without-front
         (values heap nil nil)))
 
     (values
@@ -261,38 +291,36 @@
      (guts-node-value guts)
      t)))
 
-(defmethod without-front ((heap leftist-heap))
-  (leftist-heap-without-top heap))
+(declaim (inline leftist-heap-decompose))
+(defun leftist-heap-decompose (heap)
+  (leftist-heap-without-front heap))
 
-(defmethod decompose ((heap leftist-heap))
-  (leftist-heap-without-top heap))
-
-(defmethod empty ((heap leftist-heap))
+(declaim (inline leftist-heap-empty))
+(defun leftist-heap-empty (heap)
   (copy-leftist-heap heap :guts (guts-nil) :size 0))
 
+(declaim (inline leftist-heap-representative-empty))
+(defun leftist-heap-representative-empty ()
+  (make-leftist-heap))
+
+(declaim (inline leftist-heap-is-empty))
 (defun leftist-heap-is-empty (heap)
   (guts-nil-p (leftist-heap-guts heap)))
 
-(defmethod is-empty ((heap leftist-heap))
-  (leftist-heap-is-empty heap))
+(declaim (inline leftist-heap-compare))
+(defun leftist-heap-compare (left right)
+  (compare-heaps <leftist-heap> left right))
 
-(defmethod size ((heap leftist-heap))
-  (leftist-heap-size heap))
-
-(defmethod compare-objects ((left leftist-heap) (right leftist-heap))
-  (compare-heaps left (leftist-heap-comparator left)
-                 right (leftist-heap-comparator right)
-                 #'compare))
-
-(defmethod comparator ((heap leftist-heap))
-  (leftist-heap-comparator heap))
-
-(defmethod map-members ((heap leftist-heap) function)
+(declaim (inline leftist-heap-map-members))
+(defun leftist-heap-map-members (heap function)
   (if (zerop (leftist-heap-size heap))
       heap
       (let (list)
-        (for-each heap (lambda (v) (push (funcall function v) list)))
-        (make-leftist-heap (leftist-heap-comparator heap) :items list))))
+        (leftist-heap-for-each heap (lambda (v) (push (funcall function v) list)))
+        (make-leftist-heap
+         :comparator (leftist-heap-comparator heap)
+         :items list
+         :bias (leftist-heap-bias heap)))))
 
 (defun check-order (guts comparator)
   (etypecase guts
@@ -327,6 +355,9 @@
        (check-rank (guts-node-left guts) bias)
        (check-rank (guts-node-right guts) bias)))))
 
-(defmethod check-invariants ((heap leftist-heap))
+(declaim (inline leftist-heap-check-invariants))
+(defun leftist-heap-check-invariants (heap)
   (check-order (leftist-heap-guts heap) (leftist-heap-comparator heap))
   (check-rank (leftist-heap-guts heap) (leftist-heap-bias heap)))
+
+(define-interface-methods <leftist-heap> leftist-heap)

@@ -12,11 +12,14 @@
 ;; See the License for the specific language governing permissions and
 ;; limitations under the License.
 
-(defpackage :pfds.shcl.io/implementation/persistent-vector
+(uiop:define-package :pfds.shcl.io/implementation/persistent-vector
   (:use :common-lisp)
-  (:use :pfds.shcl.io/interface)
+  (:use :pfds.shcl.io/utility/interface)
+  (:use :pfds.shcl.io/implementation/interface)
+  (:import-from :pfds.shcl.io/utility/specialization
+   #:specialize)
   (:import-from :pfds.shcl.io/utility/iterator-tools
-   #:compare-containers)
+   #:compare-collection-contents)
   (:import-from :pfds.shcl.io/utility/compare
    #:compare-objects #:compare)
   (:import-from :pfds.shcl.io/utility/immutable-structure
@@ -24,12 +27,12 @@
   (:import-from :pfds.shcl.io/utility/printer
    #:print-sequence)
   (:import-from :pfds.shcl.io/utility/misc
-   #:intern-conc #:cassert)
+   #:cassert)
   (:import-from :pfds.shcl.io/utility/impure-list-builder
    #:make-impure-list-builder #:impure-list-builder-add
    #:impure-list-builder-extract)
   (:export
-   #:make-persistent-vector
+   #:<persistent-vector>
    #:persistent-vector
    #:persistent-vector-p))
 (in-package :pfds.shcl.io/implementation/persistent-vector)
@@ -87,7 +90,10 @@
   (count 0 :type (integer 0))
   (tree *empty-array* :type vector))
 
-(declare-interface-conformance persistent-vector sequence)
+(define-simple-interface-instance <persistent-vector> <<seq>> persistent-vector-
+  'make-queue 'make-persistent-vector
+  'make-deque 'make-persistent-vector
+  'make-seq 'make-persistent-vector)
 
 (defvar *empty-persistent-vector* (%make-persistent-vector))
 
@@ -206,78 +212,31 @@
         p-vec
         (copy-persistent-vector p-vec :tree new-tree))))
 
-(defmethod with-top ((p-vec persistent-vector) object)
+(defun persistent-vector-with-top (p-vec object)
   (persistent-vector-push p-vec object))
 
-(defmethod peek-top ((p-vec persistent-vector))
+(defun persistent-vector-peek-top (p-vec)
   (if (zerop (persistent-vector-count p-vec))
       (values nil nil)
       (values (persistent-vector-lookup p-vec (1- (persistent-vector-count p-vec))) t)))
 
-(defmethod without-top ((p-vec persistent-vector))
+(defun persistent-vector-without-top (p-vec)
   (persistent-vector-pop p-vec))
 
-(defmethod is-empty ((p-vec persistent-vector))
+(defun persistent-vector-is-empty (p-vec)
   (zerop (persistent-vector-count p-vec)))
 
-(defmethod empty ((p-vec persistent-vector))
+(defun persistent-vector-empty (p-vec)
+  (declare (ignore p-vec))
+  *empty-persistent-vector*)
+
+(defun persistent-vector-representative-empty ()
   *empty-persistent-vector*)
 
 (defun persistent-vector-pour (recipient donor donor-start-index donor-end-index)
   (loop :for i :from donor-start-index :below donor-end-index :do
     (setf recipient (persistent-vector-push recipient (persistent-vector-lookup donor i))))
   recipient)
-
-(defmethod without-entry ((p-vec persistent-vector) index)
-  (check-type index (integer 0))
-  (let ((count (persistent-vector-count p-vec)))
-    (when (or (>= index count)
-              (< index 0))
-      (return-from without-entry
-        (values p-vec nil nil)))
-
-    (cond
-      ((zerop index)
-       (values (subsequence p-vec 1 count)
-               (persistent-vector-lookup p-vec 0)
-               t))
-
-      ((equal index (1- (persistent-vector-count p-vec)))
-       (persistent-vector-pop p-vec))
-
-      (t
-       (values (persistent-vector-pour (subsequence p-vec 0 index) p-vec (1+ index) count)
-               (persistent-vector-lookup p-vec index)
-               t)))))
-
-(defun persistent-vector-insert (p-vec before-index object)
-  (check-type before-index (integer 0))
-  (cond
-    ((>= before-index (persistent-vector-count p-vec))
-     (dotimes (i (- before-index (persistent-vector-count p-vec)))
-       (setf p-vec (persistent-vector-push p-vec nil)))
-     (persistent-vector-push p-vec object))
-
-    (t
-     (let ((result (subsequence p-vec 0 before-index)))
-       (setf result (persistent-vector-push result object))
-       (persistent-vector-pour result p-vec before-index (persistent-vector-count p-vec))))))
-
-(defmethod insert ((p-vec persistent-vector) before-index object)
-  (persistent-vector-insert p-vec before-index object))
-
-(defmethod join ((p-vec persistent-vector) other)
-  (when (and (zerop (persistent-vector-count p-vec))
-             (persistent-vector-p other))
-    (return-from join other))
-
-  (loop :with iter = (iterator other) :do
-    (multiple-value-bind (value valid-p) (funcall iter)
-      (if valid-p
-          (setf p-vec (persistent-vector-push p-vec value))
-          (return))))
-
-  p-vec)
 
 (defun persistent-vector-subsequence (p-vec min max)
   (check-type min (integer 0))
@@ -311,10 +270,68 @@
       (t
        (persistent-vector-pour *empty-persistent-vector* p-vec min max)))))
 
-(defmethod subsequence ((p-vec persistent-vector) min max)
-  (persistent-vector-subsequence p-vec min max))
+(defun persistent-vector-without-entry (p-vec index)
+  (check-type index (integer 0))
+  (let ((count (persistent-vector-count p-vec)))
+    (when (or (>= index count)
+              (< index 0))
+      (return-from persistent-vector-without-entry
+        (values p-vec nil nil)))
 
-(defmethod with-entry ((p-vec persistent-vector) key value)
+    (cond
+      ((zerop index)
+       (values (persistent-vector-subsequence p-vec 1 count)
+               (persistent-vector-lookup p-vec 0)
+               t))
+
+      ((equal index (1- (persistent-vector-count p-vec)))
+       (persistent-vector-pop p-vec))
+
+      (t
+       (values (persistent-vector-pour (persistent-vector-subsequence p-vec 0 index) p-vec (1+ index) count)
+               (persistent-vector-lookup p-vec index)
+               t)))))
+
+(defun persistent-vector-insert (p-vec before-index object)
+  (check-type before-index (integer 0))
+  (cond
+    ((>= before-index (persistent-vector-count p-vec))
+     (dotimes (i (- before-index (persistent-vector-count p-vec)))
+       (setf p-vec (persistent-vector-push p-vec nil)))
+     (persistent-vector-push p-vec object))
+
+    (t
+     (let ((result (persistent-vector-subsequence p-vec 0 before-index)))
+       (setf result (persistent-vector-push result object))
+       (persistent-vector-pour result p-vec before-index (persistent-vector-count p-vec))))))
+
+(defun persistent-vector-iterator (p-vec)
+  (let ((offset 0))
+    (lambda ()
+      ;; This won't be O(1) amortized, but its MUCH easier to write!
+      (cond
+        ((>= offset (persistent-vector-count p-vec))
+         (values nil nil))
+
+        (t
+         (let ((object (persistent-vector-lookup p-vec offset)))
+           (incf offset)
+           (values object t)))))))
+
+(defun persistent-vector-join (p-vec other)
+  (when (and (zerop (persistent-vector-count p-vec))
+             (persistent-vector-p other))
+    (return-from persistent-vector-join other))
+
+  (loop :with iter = (persistent-vector-iterator other) :do
+    (multiple-value-bind (value valid-p) (funcall iter)
+      (if valid-p
+          (setf p-vec (persistent-vector-push p-vec value))
+          (return))))
+
+  p-vec)
+
+(defun persistent-vector-with-entry (p-vec key value)
   (check-type key (integer 0))
   (cond
     ((< key (persistent-vector-count p-vec))
@@ -324,7 +341,7 @@
        (setf p-vec (persistent-vector-push p-vec nil)))
      (persistent-vector-push p-vec value))))
 
-(defmethod lookup-entry ((p-vec persistent-vector) key)
+(defun persistent-vector-lookup-entry (p-vec key)
   (check-type key (integer 0))
   (if (>= key (persistent-vector-count p-vec))
       (values nil nil)
@@ -377,38 +394,24 @@
         (height (persistent-vector-height p-vec)))
     (do-vector-tree-f tree height function 0)))
 
-(defmethod for-each ((p-vec persistent-vector) function)
-  (persistent-vector-for-each-entry p-vec
-                                    (lambda (k v)
-                                      (declare (ignore k))
-                                      (funcall function v))))
+(defun persistent-vector-for-each (p-vec function)
+  (persistent-vector-for-each-entry
+   p-vec
+   (lambda (k v)
+     (declare (ignore k))
+     (funcall function v))))
 
-(defmethod for-each-entry ((p-vec persistent-vector) function)
-  (persistent-vector-for-each-entry p-vec function))
+(specialize collection-to-list <persistent-vector>)
 
-(defmethod map-entries ((p-vec persistent-vector) function)
-  (persistent-vector-map-entries p-vec function))
+(defun persistent-vector-to-list (p-vec)
+  (collection-to-list <persistent-vector> p-vec))
 
-(defmethod map-members ((p-vec persistent-vector) function)
-  (persistent-vector-map-entries p-vec (lambda (k v)
-                                         (declare (ignore k))
-                                         (funcall function v))))
-
-(defun make-persistent-vector-iterator (p-vec)
-  (let ((offset 0))
-    (lambda ()
-      ;; This won't be O(1) amortized, but its MUCH easier to write!
-      (cond
-        ((>= offset (persistent-vector-count p-vec))
-         (values nil nil))
-
-        (t
-         (let ((object (persistent-vector-lookup p-vec offset)))
-           (incf offset)
-           (values object t)))))))
-
-(defmethod iterator ((p-vec persistent-vector))
-  (make-persistent-vector-iterator p-vec))
+(defun persistent-vector-map-members (p-vec function)
+  (persistent-vector-map-entries
+   p-vec
+   (lambda (k v)
+     (declare (ignore k))
+     (funcall function v))))
 
 (defmethod print-object ((p-vec persistent-vector) stream)
   (if *print-readably*
@@ -421,19 +424,22 @@
       (setf result (persistent-vector-push result item)))
     result))
 
+(defun persistent-vector-make-stack (&key items)
+  (make-persistent-vector :items (reverse items)))
+
 (defun persistent-vector (&rest items)
   (make-persistent-vector :items items))
 
-(defmethod size ((p-vec persistent-vector))
+(defun persistent-vector-size (p-vec)
   (persistent-vector-count p-vec))
 
-(defmethod compare-objects ((left persistent-vector) (right persistent-vector))
-  (compare-containers left right #'compare))
+(defun persistent-vector-compare (left right)
+  (compare-collection-contents <persistent-vector> left right #'compare))
 
-(defmethod with-member ((p-vec persistent-vector) object)
+(defun persistent-vector-with-member (p-vec object)
   (persistent-vector-push p-vec object))
 
-(defmethod decompose ((p-vec persistent-vector))
+(defun persistent-vector-decompose (p-vec)
   (persistent-vector-pop p-vec))
 
 (defun persistent-vector-with-back (p-vec object)
@@ -458,51 +464,6 @@
 (defun persistent-vector-peek-front (p-vec)
   (persistent-vector-lookup p-vec 0))
 
-(defmethod with-back ((p-vec persistent-vector) object)
-  (persistent-vector-with-back p-vec object))
-
-(defmethod without-back ((p-vec persistent-vector))
-  (persistent-vector-without-back p-vec))
-
-(defmethod peek-back ((p-vec persistent-vector))
-  (persistent-vector-peek-back p-vec))
-
-(defmethod with-front ((p-vec persistent-vector) object)
-  (persistent-vector-with-front p-vec object))
-
-(defmethod without-front ((p-vec persistent-vector))
-  (persistent-vector-without-front p-vec))
-
-(defmethod peek-front ((p-vec persistent-vector))
-  (persistent-vector-peek-front p-vec))
-
-(defmethod with-first ((p-vec persistent-vector) object)
-  (persistent-vector-with-front p-vec object))
-
-(defmethod without-first ((p-vec persistent-vector))
-  (persistent-vector-without-front p-vec))
-
-(defmethod peek-first ((p-vec persistent-vector))
-  (persistent-vector-peek-front p-vec))
-
-(defmethod with-last ((p-vec persistent-vector) object)
-  (persistent-vector-with-back p-vec object))
-
-(defmethod without-last ((p-vec persistent-vector))
-  (persistent-vector-without-back p-vec))
-
-(defmethod peek-last ((p-vec persistent-vector))
-  (persistent-vector-peek-back p-vec))
-
-(defmethod with-top ((p-vec persistent-vector) object)
-  (persistent-vector-with-back p-vec object))
-
-(defmethod without-top ((p-vec persistent-vector))
-  (persistent-vector-without-back p-vec))
-
-(defmethod peek-top ((p-vec persistent-vector))
-  (persistent-vector-peek-back p-vec))
-
 (defun vector-tree-print-graphviz (thing height stream id-vendor)
   (let ((id (next-graphviz-id id-vendor)))
     (when (zerop height)
@@ -517,7 +478,7 @@
 
     id))
 
-(defmethod print-graphviz ((p-vec persistent-vector) stream id-vendor)
+(defun persistent-vector-print-graphviz (p-vec stream id-vendor)
   (vector-tree-print-graphviz (persistent-vector-tree p-vec) (persistent-vector-height p-vec)
                               stream id-vendor))
 
@@ -542,10 +503,12 @@
 
     count))
 
-(defmethod check-invariants ((p-vec persistent-vector))
+(defun persistent-vector-check-invariants (p-vec)
   (let ((count (check-vector-tree
                 (persistent-vector-tree p-vec)
                 (persistent-vector-height p-vec)
                 t)))
     (cassert (equal count (persistent-vector-count p-vec)) (p-vec count)
              "The persistent vector's count must be accurate.")))
+
+(define-interface-methods <persistent-vector> persistent-vector)

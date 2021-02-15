@@ -12,7 +12,7 @@
 ;; See the License for the specific language governing permissions and
 ;; limitations under the License.
 
-(defpackage :pfds.shcl.io/utility/compare
+(uiop:define-package :pfds.shcl.io/utility/compare
   (:use :common-lisp)
   (:export
    #:comparison
@@ -347,7 +347,7 @@ the following assertion should never fail
         (assert (eq a (compare x z)))))
 
 The ordering provided by this function also obeys what we'll call the
-\"sustainability\" property for equality and unequality.  Suppose X
+\"substitutability\" property for equality and unequality.  Suppose X
 and Y are `:EQUAL' or `:UNEQUAL'.  For any object Z, X and Z will
 always have the same result as Y and Z.  In code, this means the
 following assertion should never fail.

@@ -12,44 +12,45 @@
 ;; See the License for the specific language governing permissions and
 ;; limitations under the License.
 
-(defpackage :pfds.shcl.io/tests/ordered-collection
+(uiop:define-package :pfds.shcl.io/tests/ordered-collection
   (:use :common-lisp)
-  (:use :pfds.shcl.io/interface)
+  (:use :pfds.shcl.io/utility/interface)
+  (:use :pfds.shcl.io/tests/test-interface)
   (:use :pfds.shcl.io/tests/common)
   (:import-from :pfds.shcl.io/utility/misc #:cassert)
   (:import-from :pfds.shcl.io/utility/compare #:compare)
   (:import-from :pfds.shcl.io/utility/impure-list-builder
    #:make-impure-list-builder #:impure-list-builder-add #:impure-list-builder-extract)
-  (:import-from :prove #:is)
+  (:import-from :prove #:is #:ok)
   (:export #:test-ordered-collection))
 (in-package :pfds.shcl.io/tests/ordered-collection)
 
+(defun compare-less-p (l r)
+  (eq :less (compare l r)))
+
+(defun compare-equal-ish (l r)
+  (let ((result (compare l r)))
+    (when (eq :unequal result)
+      (setf result :equal))
+    result))
+
 (defun list-using-decompose (collection)
   (let ((builder (make-impure-list-builder)))
-    (loop :until (is-empty collection) :do
-      (multiple-value-bind (new-collection value valid-p) (decompose collection)
+    (loop :until (^is-empty collection) :do
+      (multiple-value-bind (new-collection value valid-p) (^decompose collection)
         (cassert valid-p)
         (impure-list-builder-add builder value)
         (setf collection new-collection)))
     (impure-list-builder-extract builder)))
 
-(defun compare-equal-ish (l r)
-  ;; Let's not be picky about the ordering of unequal objects
-  (ecase (compare l r)
-    ((:unequal :equal)
-     :equal)
-    (:less
-     :less)
-    (:greater
-     :greater)))
-
 (defun test-ordered-collection ()
-  (is (comparator (build)) *comparator*
-      "Empty collections have the right comparator")
-  (is (comparator (build 1 2 3)) *comparator*
-      "Full collections have the right comparator")
+  (subtest* "TEST-BASICS"
+    (ok (^comparator (build))
+        "Empty collections have a comparator")
+    (ok (^comparator (build 1 2 3))
+        "Full collections have a comparator")
 
-  (is (sort (list-using-decompose (build-from-list *unequal-objects*)) #'compare-less-p)
-      (sort (copy-list *unequal-objects*) #'compare-less-p)
-      :test #'compare-equal-ish
-      "Successive decomposition returns elements in order"))
+    (is (list-using-decompose (build-from-list *unequal-objects*))
+        (sort (copy-list *unequal-objects*) #'compare-less-p)
+        :test #'compare-equal-ish
+        "Successive decomposition returns elements in order")))

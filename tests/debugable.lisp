@@ -12,9 +12,10 @@
 ;; See the License for the specific language governing permissions and
 ;; limitations under the License.
 
-(defpackage :pfds.shcl.io/tests/debugable
+(uiop:define-package :pfds.shcl.io/tests/debugable
   (:use :common-lisp)
-  (:use :pfds.shcl.io/interface)
+  (:use :pfds.shcl.io/utility/interface)
+  (:use :pfds.shcl.io/tests/test-interface)
   (:use :pfds.shcl.io/tests/common)
   (:import-from :prove #:pass #:fail #:skip)
   (:export #:test-debugable))
@@ -37,13 +38,13 @@
         (uiop:run-program "dot"
                           :input (make-string-input-stream
                                   (with-output-to-string (str)
-                                    (graphviz (build-from-list *reverse-sorted-numbers*) str)))
+                                    (^graphviz (build-from-list *reverse-sorted-numbers*) str)))
                           :output (make-broadcast-stream))
 
         (uiop:run-program "dot"
                           :input (make-string-input-stream
                                   (with-output-to-string (str)
-                                    (graphviz (build) str)))
+                                    (^graphviz (build) str)))
                           :output (make-broadcast-stream)))
     (error (e)
       (fail (format nil "Invalid graphviz document produced: ~A" e))
@@ -52,8 +53,8 @@
   (pass "Valid graphviz documents produced!"))
 
 (defun test-check-invariants ()
-  (check-invariants (build))
-  (check-invariants (build-from-list *unequal-objects*))
+  (^check-invariants (^representative-empty))
+  (^check-invariants (build-from-list *unequal-objects*))
   (pass "CHECK-INVARIANTS didn't barf!"))
 
 (defun test-debugable ()

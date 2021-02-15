@@ -16,7 +16,7 @@
   :class :package-inferred-system
   :description "Purely Functional Data Structures"
   :version "0.0.1"
-  :author "Ada Avery <2561504+SquircleSpace@users.noreply.github.com>"
+  :author "Ada Avery <code@squircle.space>"
   :licence "Apache License, Version 2.0"
   :depends-on ("pfds.shcl.io/main")
   :in-order-to ((test-op (test-op "pfds.shcl.io/tests"))))

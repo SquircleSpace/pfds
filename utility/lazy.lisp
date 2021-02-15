@@ -12,7 +12,7 @@
 ;; See the License for the specific language governing permissions and
 ;; limitations under the License.
 
-(defpackage :pfds.shcl.io/utility/lazy
+(uiop:define-package :pfds.shcl.io/utility/lazy
   (:use :common-lisp)
   (:import-from :bordeaux-threads #:make-lock #:with-lock-held)
   (:export #:lazy #:force))
@@ -20,16 +20,16 @@
 
 (defmacro lazy (&body body)
   (let ((lock (gensym "LOCK"))
-        (evaluated-p (gensym "EVALUATED-P"))
-        (values (gensym "VALUES")))
+        (values (gensym "VALUES"))
+        (computer (gensym "COMPUTER")))
     `(let ((,lock (make-lock "lazy block"))
-           ,evaluated-p
-           ,values)
+           ,values
+           (,computer (lambda () ,@body)))
        (lambda ()
          (with-lock-held (,lock)
-           (unless ,evaluated-p
-             (setf ,values (multiple-value-list (progn ,@body)))
-             (setf ,evaluated-p t))
+           (when ,computer
+             (setf ,values (multiple-value-list (funcall ,computer)))
+             (setf ,computer nil))
            (values-list ,values))))))
 
 (defun force (suspension)

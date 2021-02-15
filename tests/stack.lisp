@@ -12,9 +12,10 @@
 ;; See the License for the specific language governing permissions and
 ;; limitations under the License.
 
-(defpackage :pfds.shcl.io/tests/stack
+(uiop:define-package :pfds.shcl.io/tests/stack
   (:use :common-lisp)
-  (:use :pfds.shcl.io/interface)
+  (:use :pfds.shcl.io/utility/interface)
+  (:use :pfds.shcl.io/tests/test-interface)
   (:use :pfds.shcl.io/tests/common)
   (:import-from :pfds.shcl.io/utility/misc #:cassert)
   (:import-from :prove #:is #:ok)
@@ -22,32 +23,32 @@
 (in-package :pfds.shcl.io/tests/stack)
 
 (defun test-empty ()
-  (let* ((e (build))
-         (without-top (multiple-value-list (without-top e)))
-         (peek-top (multiple-value-list (peek-top e))))
+  (let* ((e (^make-stack))
+         (without-top (multiple-value-list (^without-top e)))
+         (peek-top (multiple-value-list (^peek-top e))))
     (is without-top (list e nil nil)
         "WITHOUT-TOP on empty stack produces the expected output")
     (is peek-top (list nil nil)
         "PEEK-TOP on empty produces the expected output")))
 
 (defun test-build-up-and-tear-down ()
-  (let ((stack (build))
+  (let ((stack (^make-stack))
         model-stack
         (count 0))
     (loop :for item :in *random-numbers* :do
       (progn
-        (let ((new-stack (with-top stack item)))
-          (check-invariants new-stack)
-          (cassert (not (is-empty new-stack)) nil
+        (let ((new-stack (^with-top stack item)))
+          (^check-invariants new-stack)
+          (cassert (not (^is-empty new-stack)) nil
                    "The stack shouldn't report that it is empty after adding items")
           (push item model-stack)
           (incf count)
           (setf stack new-stack))))
-    (is (size stack) count
+    (is (^size stack) count
         "Stack has expected size")
     (loop :while model-stack :do
       (progn
-        (let ((without-top (multiple-value-list (without-top stack)))
+        (let ((without-top (multiple-value-list (^without-top stack)))
               (new-model-stack (cdr model-stack))
               (expected-value (car model-stack)))
           (destructuring-bind (new-stack value valid-p) without-top
@@ -56,13 +57,14 @@
             (cassert (equal value expected-value) nil
                      "The stack should return the right objects: got ~A expected ~A"
                      value expected-value)
+            (^check-invariants new-stack)
             (setf stack new-stack)
             (setf model-stack new-model-stack)
-            (cassert (or (null model-stack) (not (is-empty new-stack))) nil
+            (cassert (or (null model-stack) (not (^is-empty new-stack))) nil
                      "The stack shouldn't report that it is empty yet")))))
-    (ok (is-empty stack)
+    (ok (^is-empty stack)
         "Stack should be empty now")
-    (is (size stack) 0
+    (is (^size stack) 0
         "Stack should be empty now")))
 
 (defun test-stack ()

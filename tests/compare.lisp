@@ -12,12 +12,14 @@
 ;; See the License for the specific language governing permissions and
 ;; limitations under the License.
 
-(defpackage :pfds.shcl.io/tests/compare
+(uiop:define-package :pfds.shcl.io/tests/compare
   (:use :common-lisp)
+  (:import-from :pfds.shcl.io/tests/common
+   #:named-subtests)
   (:import-from :pfds.shcl.io/utility/compare
    #:compare #:compare-objects #:compare-objects-using-slots
    #:compare*)
-  (:import-from :prove #:is #:ok)
+  (:import-from :prove #:pass)
   (:export #:test-compare))
 (in-package :pfds.shcl.io/tests/compare)
 
@@ -237,8 +239,8 @@
   (let ((objects (make-test-objects)))
     (setf objects (sorted comparator objects))
     (validate-ordering comparator objects))
-  t)
+  (pass "This comparator seems pretty rad"))
 
 (defun test-compare (&optional (comparator 'compare))
-  (ok (test-ordering comparator)
-      "compare seems to produce well ordered results"))
+  (named-subtests
+    (test-ordering comparator)))

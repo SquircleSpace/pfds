@@ -12,28 +12,36 @@
 ;; See the License for the specific language governing permissions and
 ;; limitations under the License.
 
-(defpackage :pfds.shcl.io/implementation/list
+(uiop:define-package :pfds.shcl.io/implementation/list
   (:use :common-lisp)
-  (:use :pfds.shcl.io/interface)
+  (:use :pfds.shcl.io/implementation/interface)
+  (:use :pfds.shcl.io/utility/interface)
   (:import-from :pfds.shcl.io/utility/compare
-   #:compare-objects)
+   #:compare-lists #:compare)
   (:import-from :pfds.shcl.io/utility/impure-list-builder
    #:make-impure-list-builder #:impure-list-builder-add
    #:impure-list-builder-extract)
-  (:export))
+  (:import-from :pfds.shcl.io/utility/iterator-tools
+   #:list-iterator)
+  (:export
+   #:<list>
+   #:list
+   #:listp))
 (in-package :pfds.shcl.io/implementation/list)
 
-(declare-interface-conformance list sequence)
-
+(declaim (inline list-push-front))
 (defun list-push-front (list object)
   (cons object list))
 
+(declaim (inline list-pop-front))
 (defun list-pop-front (list)
   (values (cdr list) (car list) (not (null list))))
 
+(declaim (inline list-peek-front))
 (defun list-peek-front (list)
   (values (car list) (not (null list))))
 
+(declaim (inline list-push-back))
 (defun list-push-back (list object)
   (append list (list object)))
 
@@ -44,39 +52,38 @@
 
   (let* ((last list)
          (butlast (loop :until (null (cdr last)) :collect (pop last))))
-    (values butlast last t)))
+    (values butlast (car last) t)))
 
+(declaim (inline list-peek-back))
 (defun list-peek-back (list)
   (let ((last (last list)))
     (values (car last) (not (null last)))))
 
-(defmethod check-invariants ((list list))
+(declaim (inline list-check-invariants))
+(defun list-check-invariants (list)
+  (declare (ignore list))
   ;; Cool.
   )
 
-(defmethod print-graphviz ((list list) stream id-vendor)
+(defun list-print-graphviz (list stream id-vendor)
   (let ((id (next-graphviz-id id-vendor)))
     (unless list
       (format stream "ID~A [shape=oval, color=gray, label=\"(nil)\"]~%" id)
-      (return-from print-graphviz))
+      (return-from list-print-graphviz id))
 
     (format stream "ID~A [label=\"~A\"]~%" id (car list))
-    (let ((child-id (print-graphviz (cdr list) stream id-vendor)))
+    (let ((child-id (list-print-graphviz (cdr list) stream id-vendor)))
       (format stream "ID~A -> ID~A~%" id child-id))
 
     id))
 
-(defmethod iterator ((list list))
-  (lambda ()
-    (cond
-      (list
-       (let ((head (car list)))
-         (setf list (cdr list))
-         (values head t)))
-      (t
-       (values nil nil)))))
+(declaim (inline list-representative-empty))
+(defun list-representative-empty ()
+  nil)
 
-(defmethod empty ((list list))
+(declaim (inline list-empty))
+(defun list-empty (list)
+  (declare (ignore list))
   nil)
 
 (defun list-map-entries (list function)
@@ -119,34 +126,41 @@
         (push object result))
       result)))
 
-(defmethod map-members ((list list) function)
+(declaim (inline list-map-members))
+(defun list-map-members (list function)
   ;; Instead of using mapcar, we'll re-use the map-entries implementation.
   ;; mapcar promises to return a fresh list.  We want to try to share
   ;; data if we can.
   (list-map-entries list (lambda (k v)
-                      (declare (ignore k))
-                      (funcall function v))))
+                           (declare (ignore k))
+                           (funcall function v))))
 
-(defmethod size ((list list))
+(declaim (inline list-size))
+(defun list-size (list)
   (length list))
 
-(defmethod with-member ((list list) object)
+(declaim (inline list-with-member))
+(defun list-with-member (list object)
   (list-push-front list object))
 
-(defmethod decompose ((list list))
+(declaim (inline list-decompose))
+(defun list-decompose (list)
   (list-pop-front list))
 
-(defmethod is-empty ((list list))
+(declaim (inline list-is-empty))
+(defun list-is-empty (list)
   (null list))
 
-(defmethod for-each ((list list) function)
+(declaim (inline list-for-each))
+(defun list-for-each (list function)
   (dolist (object list)
     (funcall function object)))
 
-(defmethod to-list ((list list))
+(declaim (inline list-to-list))
+(defun list-to-list (list)
   list)
 
-(defmethod with-entry ((list list) index value)
+(defun list-with-entry (list index value)
   (check-type index (integer 0))
   (cond
     ((zerop index)
@@ -160,18 +174,18 @@
        (pop list)
        (impure-list-builder-extract list)))))
 
-(defmethod lookup-entry ((list list) index)
+(defun list-lookup-entry (list index)
   (check-type index (integer 0))
   (dotimes (i index)
     (unless list
-      (return-from lookup-entry
+      (return-from list-lookup-entry
         (values nil nil)))
     (setf list (cdr list)))
   (if list
       (values (car list) t)
       (values nil nil)))
 
-(defmethod without-entry ((list list) index)
+(defun list-without-entry (list index)
   (check-type index (integer 0))
   (cond
     ((null list)
@@ -190,49 +204,52 @@
        (setf removed-value (pop list))
        (values (impure-list-builder-extract list) removed-value t)))))
 
-(defmethod for-each-entry ((list list) function)
+(declaim (inline list-for-each-entry))
+(defun list-for-each-entry (list function)
   (loop :for object :in list :for index :from 0 :do
     (funcall function index object)))
 
-(defmethod map-entries ((list list) function)
-  (list-map-entries list function))
-
 ;;; Stack
 
-(defmethod with-top ((list list) object)
+(declaim (inline list-with-top))
+(defun list-with-top (list object)
   (list-push-front list object))
 
-(defmethod without-top ((list list))
+(declaim (inline list-without-top))
+(defun list-without-top (list)
   (list-pop-front list))
 
-(defmethod peek-top ((list list))
+(declaim (inline list-peek-top))
+(defun list-peek-top (list)
   (list-peek-front list))
+
+(declaim (inline list-reverse))
+(defun list-reverse (list)
+  (reverse list))
 
 ;;; Queue
 
-(defmethod with-back ((list list) object)
+(declaim (inline list-with-back))
+(defun list-with-back (list object)
   (list-push-back list object))
 
-(defmethod without-front ((list list))
+(declaim (inline list-without-front))
+(defun list-without-front (list)
   (list-pop-front list))
-
-(defmethod peek-front ((list list))
-  (list-peek-front list))
 
 ;;; Deque
 
-(defmethod with-front ((list list) object)
+(declaim (inline list-with-front))
+(defun list-with-front (list object)
   (list-push-front list object))
 
-(defmethod without-back ((list list))
+(declaim (inline list-without-back))
+(defun list-without-back (list)
   (list-pop-back list))
-
-(defmethod peek-back ((list list))
-  (list-peek-back list))
 
 ;;; Sequence
 
-(defmethod insert ((list list) before-index object)
+(defun list-insert (list before-index object)
   (cond
     ((zerop before-index)
      (cons object list))
@@ -244,21 +261,22 @@
        (impure-list-builder-add builder object)
        (impure-list-builder-extract builder list)))))
 
-(defmethod join ((left list) (right list))
+(declaim (inline list-join))
+(defun list-join (left right)
   (append left right))
 
-(defmethod subsequence ((list list) min max)
+(defun list-subsequence (list min max)
   (check-type min (integer 0))
   (check-type max (or null (integer 0)))
 
   (when (and max (<= max min))
-    (return-from subsequence nil))
+    (return-from list-subsequence nil))
 
   (loop :for i :below min :while list :do
     (pop list))
 
   (when (or (null list) (null max))
-    (return-from subsequence list))
+    (return-from list-subsequence list))
 
   (decf max min)
 
@@ -269,14 +287,39 @@
           (return)))
     (impure-list-builder-extract builder)))
 
-(defmethod with-first ((list list) object)
+(declaim (inline list-with-first))
+(defun list-with-first (list object)
   (list-push-front list object))
 
-(defmethod without-first ((list list))
+(declaim (inline list-without-first))
+(defun list-without-first (list)
   (list-pop-front list))
 
-(defmethod with-last ((list list) object)
+(declaim (inline list-with-last))
+(defun list-with-last (list object)
   (list-push-back list object))
 
-(defmethod without-last ((list list))
+(declaim (inline list-without-last))
+(defun list-without-last (list)
   (list-pop-back list))
+
+(declaim (inline list-make-seq))
+(defun list-make-sequence (&key items)
+  items)
+
+(declaim (inline list-make-stack))
+(defun list-make-stack (&key items)
+  items)
+
+(declaim (inline list-make-queue))
+(defun list-make-queue (&key items)
+  items)
+
+(declaim (inline list-make-deque))
+(defun list-make-deque (&key items)
+  items)
+
+(define-simple-interface-instance <list> <<seq>> list-
+  'compare 'compare-lists)
+
+(define-interface-methods <list> list)

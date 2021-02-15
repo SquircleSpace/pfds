@@ -286,6 +286,36 @@ This ensures that the ordering invariants of data structures are not
 violated by mutation while also minimizing the number of `:UNEQUAL`
 entries.
 
+#### Inheritance
+
+If its arguments have different classes, `COMPARE` will compare the
+arguments' classes instead of comparing the arguments directly.  This
+ensures that `COMPARE-OBJECTS`, the generic function behind `COMPARE`,
+always receives arguments of the same class.  That means that your
+`COMPARE-OBJECTS` method doesn't need to worry about subclasses.
+
+That's great because as long as your class is open to subclassing and
+you have at least one private slot, writing a `COMPARE-OBJECTS` method
+that works for subclasses is VERY tricky.  In order to keep `COMPARE`
+consistent, you practically need to establish an ad-hoc class ordering
+anyway.  That's basically what `FSET` does.  Over here we just make
+the behavior explicit.
+
+Naturally, it wouldn't be any fun if we didn't have an exception or
+two.  Once again, Common Lisp rears its ugly head.  If `BASE-STRING`
+instances and `STRING` instances weren't compared directly then
+`COMPARE` would be extremely frustrating to work with.  Imagine
+reading some text from a file, splitting it into words, putting the
+words into a set, and then checking whether specific words are in the
+set.  When you write `(IS-MEMBER SET "word")`, you need to ask
+yourself whether the string literal `"word"` has the same string class
+as the content you read from the file.  Similarly, things get VERY
+whacky for numeric types.  Note that although the results would be
+whacky, they would be perfectly consistent as far as the rules for
+`COMPARE` are concerned.  As another concession for practicality,
+`COMPARE` ignores some class differences for data types provided by
+Common Lisp.  This exception applies to array types and real numbers.
+
 ### `DEFSTRUCT` vs `DEFCLASS`
 
 For pure data structures, this library always uses `DEFSTRUCT` instead
@@ -396,3 +426,26 @@ fuzzy.
 - `IMPURE-SPLAY-MAP-IS-EMPTY`: `O(1)`
 - `IMPURE-SPLAY-MAP-INSERT`, `IMPURE-SPLAY-MAP-REMOVE`, `IMPURE-SPLAY-MAP-LOOKUP`: `O(log(n))` amortized
 - `IMPURE-SPLAY-MAP-REMOVE-ALL`: `O(1)`
+
+## Aside: Interfaces
+
+In this project, an interface class is a protocol that can be
+implemented by instantiating the class.  Interface instances are
+immutable collections of functions that can be looked up by name.  You
+can think of them like C++ vtables or Haskell's hidden class instance
+dictionaries.
+
+You don't need to use interfaces to interact with this library's data
+structures.  In fact, you are encouraged to simply use the generic
+interface.  If you're a speed demon or allergic to generic functions,
+you can use the interface infrastructure.  The `INTERFACE-GET`
+function has a compiler macro that does function lookup at compile
+time when the interface is a literal or a macro that expands to a
+literal.  It also handles cases where the interface argument is a
+constant form.  The end result is that calling `(FUNCALL
+(INTERFACE-GET <I> 'SYM))` will often be transformed to `(FUNCALL
+'OTHER-SYM)` (assuming the interface `<I>` maps `SYM` to
+`OTHER-SYM`!).  While this is nifty, its a lot clunkier than just
+using generic functions.  Steer clear of interfaces until you have
+benchmarks that show that generic function dispatch is a bottleneck
+for you.

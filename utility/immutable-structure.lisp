@@ -12,7 +12,7 @@
 ;; See the License for the specific language governing permissions and
 ;; limitations under the License.
 
-(defpackage :pfds.shcl.io/utility/immutable-structure
+(uiop:define-package :pfds.shcl.io/utility/immutable-structure
   (:use :common-lisp)
   (:import-from :pfds.shcl.io/utility/structure-mop
    #:find-struct-class

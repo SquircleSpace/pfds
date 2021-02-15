@@ -12,9 +12,10 @@
 ;; See the License for the specific language governing permissions and
 ;; limitations under the License.
 
-(defpackage :pfds.shcl.io/tests/set
+(uiop:define-package :pfds.shcl.io/tests/set
   (:use :common-lisp)
-  (:use :pfds.shcl.io/interface)
+  (:use :pfds.shcl.io/utility/interface)
+  (:use :pfds.shcl.io/implementation/interface)
   (:use :pfds.shcl.io/tests/common)
   (:import-from :pfds.shcl.io/utility/compare
    #:compare)

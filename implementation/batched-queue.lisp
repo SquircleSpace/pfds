@@ -12,13 +12,16 @@
 ;; See the License for the specific language governing permissions and
 ;; limitations under the License.
 
-(defpackage :pfds.shcl.io/implementation/batched-queue
+(uiop:define-package :pfds.shcl.io/implementation/batched-queue
   (:use :common-lisp)
-  (:use :pfds.shcl.io/interface)
+  (:use :pfds.shcl.io/utility/interface)
+  (:use :pfds.shcl.io/implementation/interface)
+  (:import-from :pfds.shcl.io/implementation/list
+   #:<list>)
   (:import-from :pfds.shcl.io/utility/printer
    #:print-container)
   (:import-from :pfds.shcl.io/utility/iterator-tools
-   #:iterator-flatten* #:compare-containers)
+   #:iterator-flatten* #:compare-collection-contents)
   (:import-from :pfds.shcl.io/utility/compare
    #:compare-objects #:compare)
   (:import-from :pfds.shcl.io/utility/misc
@@ -29,9 +32,9 @@
    #:make-impure-list-builder #:impure-list-builder-add
    #:impure-list-builder-extract)
   (:export
+   #:<batched-queue>
    #:batched-queue
-   #:batched-queue-p
-   #:make-batched-queue))
+   #:batched-queue-p))
 (in-package :pfds.shcl.io/implementation/batched-queue)
 
 ;; See "Purely Functional Data Structures" by Chris Okasaki
@@ -41,9 +44,10 @@
   (back-stack nil :type list)
   (count 0 :type (integer 0)))
 
-(declare-interface-conformance batched-queue queue)
+(define-simple-interface-instance <batched-queue> <<queue>> batched-queue-
+  'make-queue 'make-batched-queue)
 
-(defmethod check-invariants ((queue batched-queue))
+(defun batched-queue-check-invariants (queue)
   (with-accessors ((front batched-queue-front-stack)
                    (back batched-queue-back-stack)
                    (count batched-queue-count))
@@ -56,7 +60,7 @@
                        (length back)))
              nil "Count must be accurate")))
 
-(defmethod print-graphviz ((queue batched-queue) stream id-vendor)
+(defun batched-queue-print-graphviz (queue stream id-vendor)
   (let ((id (next-graphviz-id id-vendor))
         last-id)
     (labels
@@ -66,7 +70,7 @@
            (setf last-id this-id))
 
          (link-list (list)
-           (do-each (value list)
+           (dolist (value list)
              (let ((node-id (next-graphviz-id id-vendor)))
                (format stream "ID~A [label=\"~A\"]~%" node-id value)
                (link node-id)))))
@@ -77,27 +81,37 @@
       (link-list (reverse (batched-queue-front-stack queue)))
       id)))
 
-(defmethod to-list ((queue batched-queue))
+(declaim (inline batched-queue-to-list))
+(defun batched-queue-to-list (queue)
   (append (batched-queue-front-stack queue)
           (reverse (batched-queue-back-stack queue))))
 
-(defmethod iterator ((queue batched-queue))
-  (iterator-flatten* (iterator (batched-queue-front-stack queue))
-                     (iterator (reverse (batched-queue-back-stack queue)))))
+(declaim (inline batched-queue-iterator))
+(defun batched-queue-iterator (queue)
+  (iterator-flatten*
+   (i-iterator <list> (batched-queue-front-stack queue))
+   (i-iterator <list> (reverse (batched-queue-back-stack queue)))))
 
-(defmethod for-each ((queue batched-queue) function)
-  (for-each (batched-queue-front-stack queue) function)
-  (for-each (reverse (batched-queue-back-stack queue)) function))
+(declaim (inline batched-queue-for-each))
+(defun batched-queue-for-each (queue function)
+  (i-for-each <list> (batched-queue-front-stack queue) function)
+  (i-for-each <list> (reverse (batched-queue-back-stack queue)) function))
 
-(defmethod map-members ((queue batched-queue) function)
+(defun batched-queue-map-members (queue function)
   (cond
     ((null (batched-queue-back-stack queue))
-     (copy-batched-queue queue :front-stack (map-members (batched-queue-front-stack queue) function)))
+     (copy-batched-queue
+      queue
+      :front-stack (i-map-members <list> (batched-queue-front-stack queue) function)))
 
     (t
      (let ((builder (make-impure-list-builder)))
-       (for-each queue (lambda (value)
-                         (impure-list-builder-add builder (funcall function value))))
+       (i-for-each
+        <batched-queue>
+        queue
+        (lambda (value)
+          (impure-list-builder-add builder (funcall function value))))
+
        (copy-batched-queue queue
                           :front-stack (impure-list-builder-extract builder)
                           :count (batched-queue-count queue)
@@ -106,10 +120,11 @@
 (defmethod print-object ((queue batched-queue) stream)
   (if *print-readably*
       (call-next-method)
-      (print-container queue stream)))
+      (print-container <batched-queue> queue stream)))
 
 (defvar *empty-batched-queue* (%make-batched-queue))
 
+(declaim (inline make-batched-queue))
 (defun make-batched-queue (&key items)
   (if items
       (%make-batched-queue
@@ -117,6 +132,7 @@
        :count (length items))
       *empty-batched-queue*))
 
+(declaim (inline batched-queue))
 (defun batched-queue (&rest items)
   (make-batched-queue :items items))
 
@@ -130,9 +146,6 @@
        queue
        :front-stack (cons item nil)
        :count (1+ (batched-queue-count queue)))))
-
-(defmethod with-back ((queue batched-queue) item)
-  (batched-queue-with-back queue item))
 
 (defun batched-queue-without-front (queue)
   (let ((front-stack (batched-queue-front-stack queue)))
@@ -157,29 +170,40 @@
        value
        t))))
 
-(defmethod without-front ((queue batched-queue))
-  (batched-queue-without-front queue))
-
-(defmethod peek-front ((queue batched-queue))
+(declaim (inline batched-queue-peek-front))
+(defun batched-queue-peek-front (queue)
   (if (batched-queue-front-stack queue)
       (values (car (batched-queue-front-stack queue))
               t)
       (values nil nil)))
 
-(defmethod is-empty ((queue batched-queue))
+(declaim (inline batched-queue-is-empty))
+(defun batched-queue-is-empty (queue)
   (null (batched-queue-front-stack queue)))
 
-(defmethod empty ((queue batched-queue))
+(declaim (inline batched-queue-empty))
+(defun batched-queue-empty (queue)
+  (declare (ignore queue))
   *empty-batched-queue*)
 
-(defmethod size ((queue batched-queue))
+(declaim (inline batched-queue-representative-empty))
+(defun batched-queue-representative-empty ()
+  *empty-batched-queue*)
+
+(declaim (inline batched-queue-size))
+(defun batched-queue-size (queue)
   (batched-queue-count queue))
 
-(defmethod compare-objects ((left batched-queue) (right batched-queue))
-  (compare-containers left right #'compare))
+(declaim (inline batched-queue-compare))
+(defun batched-queue-compare (left right)
+  (compare-collection-contents <batched-queue> left right #'compare))
 
-(defmethod with-member ((queue batched-queue) object)
+(declaim (inline batched-queue-with-member))
+(defun batched-queue-with-member (queue object)
   (batched-queue-with-back queue object))
 
-(defmethod decompose ((queue batched-queue))
+(declaim (inline batched-queue-decompose))
+(defun batched-queue-decompose (queue)
   (batched-queue-without-front queue))
+
+(define-interface-methods <batched-queue> batched-queue)

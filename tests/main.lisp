@@ -12,11 +12,13 @@
 ;; See the License for the specific language governing permissions and
 ;; limitations under the License.
 
-(defpackage :pfds.shcl.io/tests/main
+(uiop:define-package :pfds.shcl.io/tests/main
   (:use :common-lisp)
   (:use :pfds.shcl.io/tests/common)
-  (:use :pfds.shcl.io/interface)
-  (:import-from :pfds.shcl.io/utility/compare #:compare)
+  (:use :pfds.shcl.io/utility/interface)
+  (:use :pfds.shcl.io/tests/test-interface)
+  (:import-from :pfds.shcl.io/utility/compare
+   #:compare-objects)
   (:import-from :pfds.shcl.io/utility/misc
    #:intern-conc)
   (:import-from :pfds.shcl.io/utility/structure-mop
@@ -28,25 +30,27 @@
   (:import-from :pfds.shcl.io/tests/collection #:test-collection)
   (:import-from :pfds.shcl.io/tests/ordered-collection #:test-ordered-collection)
   (:import-from :pfds.shcl.io/tests/stack #:test-stack)
-  (:import-from :pfds.shcl.io/tests/set #:test-set)
-  (:import-from :pfds.shcl.io/tests/ordered-map #:test-ordered-map)
+  ;; (:import-from :pfds.shcl.io/tests/set #:test-set)
+  ;; (:import-from :pfds.shcl.io/tests/ordered-map #:test-ordered-map)
   (:import-from :pfds.shcl.io/tests/queue #:test-queue)
+  (:import-from :pfds.shcl.io/tests/deque #:test-deque)
   (:import-from :pfds.shcl.io/tests/priority-queue #:test-priority-queue)
   (:import-from :pfds.shcl.io/tests/compare #:test-compare)
-  (:import-from :pfds.shcl.io/implementation/list)
-  (:import-from :pfds.shcl.io/implementation/bankers-queue #:bankers-queue)
-  (:import-from :pfds.shcl.io/implementation/batched-queue #:batched-queue)
-  (:import-from :pfds.shcl.io/implementation/binomial-heap #:binomial-heap)
-  (:import-from :pfds.shcl.io/implementation/leftist-heap #:leftist-heap)
-  (:import-from :pfds.shcl.io/implementation/pairing-heap #:pairing-heap)
-  (:import-from :pfds.shcl.io/implementation/splay-tree #:splay-heap)
-  (:import-from :pfds.shcl.io/implementation/batched-deque #:batched-deque)
-  (:import-from :pfds.shcl.io/implementation/lazy-list #:lazy-list)
-  (:import-from :pfds.shcl.io/implementation/persistent-vector #:persistent-vector)
-  (:import-from :pfds.shcl.io/implementation/weight-balanced-tree
-   #:weight-balanced-sequence #:weight-balanced-set #:weight-balanced-map)
-  (:import-from :pfds.shcl.io/implementation/red-black-tree
-   #:red-black-set #:red-black-map)
+  (:import-from :pfds.shcl.io/implementation/list #:<list>)
+  (:import-from :pfds.shcl.io/implementation/lazy-list #:<lazy-list>)
+  (:import-from :pfds.shcl.io/implementation/bankers-queue #:<bankers-queue>)
+  (:import-from :pfds.shcl.io/implementation/batched-queue #:<batched-queue>)
+  (:import-from :pfds.shcl.io/implementation/binomial-heap #:<binomial-heap>)
+  (:import-from :pfds.shcl.io/implementation/leftist-heap
+   #:<weight-biased-leftist-heap> #:<height-biased-leftist-heap>)
+  (:import-from :pfds.shcl.io/implementation/pairing-heap #:<pairing-heap>)
+  ;; (:import-from :pfds.shcl.io/implementation/splay-tree #:splay-heap)
+  (:import-from :pfds.shcl.io/implementation/batched-deque #:<batched-deque>)
+  (:import-from :pfds.shcl.io/implementation/persistent-vector #:<persistent-vector>)
+  ;; (:import-from :pfds.shcl.io/implementation/weight-balanced-tree
+  ;;  #:weight-balanced-sequence #:weight-balanced-set #:weight-balanced-map)
+  ;; (:import-from :pfds.shcl.io/implementation/red-black-tree
+  ;;  #:red-black-set #:red-black-map)
   (:import-from :prove #:*suite* #:suite #:finalize #:skip)
   (:export #:run-tests #:main))
 (in-package :pfds.shcl.io/tests/main)
@@ -85,7 +89,7 @@
      (find-struct-class name :error-p error-p))))
 
 (defun has-method (function-name class-name)
-  (let* ((function (symbol-function function-name))
+  (let* ((function (fdefinition function-name))
          (class (find-class class-name))
          (methods (closer-mop:generic-function-methods function)))
     (dolist (method methods)
@@ -120,113 +124,68 @@
       ;; We're good!
       t)))
 
-(defun check-interface-conformance (class-name interface-name)
-  (let (missing-methods)
-    (dolist (function (interface-functions interface-name :include-inherited-functions nil))
-      (let ((function-name (car function))
-            (strength (cdr function)))
-        (when (and (eq strength :required)
-                   (not (has-method function-name class-name)))
-          (push function-name missing-methods))))
+(defun check-interface-conformance (class-name interface-instance)
+  (let ((missing-methods
+          (loop :for pair :in (interface-functions interface-instance)
+                :for function-name = (car pair)
+                :for strength = (cdr pair)
+                :when (or (not (fboundp function-name))
+                          (and (eq strength :required)
+                               (typep (fdefinition function-name) 'generic-function)
+                               (not (has-method function-name class-name))))
+                  :collect function-name)))
     (prove:is missing-methods nil
-              (format nil "~A conforms to ~A" class-name interface-name))
+              (format nil "~A conforms to ~A" class-name interface-instance))
     (null missing-methods)))
 
-(defparameter *test-environments*
-  (labels
-      ((env (class-name &rest initargs)
-         (apply 'make-test-environment class-name initargs)))
-    (list
-     ;; Queue
-     (env 'bankers-queue)
-     (env 'batched-queue)
-     ;; Priority Queue
-     (env 'binomial-heap)
-     (env 'leftist-heap :bias :weight)
-     (env 'leftist-heap :bias :height)
-     (env 'pairing-heap)
-     (env 'splay-heap)
-     ;; Deque
-     (env 'batched-deque)
-     ;; Sequence
-     (env 'lazy-list)
-     (env 'list)
-     (env 'persistent-vector)
-     (env 'weight-balanced-sequence)
-     ;; Set
-     (env 'red-black-set)
-     (env 'weight-balanced-set)
-     ;; Map
-     (env 'weight-balanced-map)
-     (env 'red-black-map))))
+(defparameter *interface-symbols*
+  '(<list>
+    <lazy-list>
+    <batched-queue>
+    <batched-deque>
+    <bankers-queue>
+    <height-biased-leftist-heap>
+    <weight-biased-leftist-heap>
+    <pairing-heap>
+    <binomial-heap>
+    <persistent-vector>))
 
 (defparameter *interface-tests*
-  (alexandria:alist-hash-table
-   '((debugable . test-debugable)
-     (comparable . test-comparable)
-     (collection . test-collection)
-     (ordered-collection . test-ordered-collection)
-     ;; (indexed-collection . test-indexed-collection)
-     (ordered-map . test-ordered-map)
-     (set . test-set)
-     (stack . test-stack)
-     (queue . test-queue)
-     ;; (deque . test-deque)
-     (priority-queue . test-priority-queue)
-     ;; (sequence . test-sequence)
-     )))
+  '((<<debugable>> . test-debugable)
+    ((and <<debugable>> <<comparable>>) . test-comparable)
+    (<<collection>> . test-collection)
+    (<<ordered-collection>> . test-ordered-collection)
+    ;; (<<indexed-collection>> . test-indexed-collection)
+    ;; (<<ordered-map>> . test-ordered-map)
+    ;; (<<set>> . test-set)
+    (<<stack>> . test-stack)
+    (<<queue>> . test-queue)
+    (<<deque>> . test-deque)
+    (<<priority-queue>> . test-priority-queue)
+    ;; (<<sequence>> . test-sequence)
+    ))
 
-(defun run-type-tests ()
-  (let* ((interfaces (sort (copy-list (interfaces-implemented *name*)) #'string<)) ;; Establish stable ordering
-         (visited-interfaces (make-hash-table))
-         test-plan
-         untestable-interfaces)
+(defun run-interface-tests (interface-instance)
+  (ensure-suite
+    (loop :for record :in *interface-tests*
+          :for type = (car record) :for function = (cdr record)
+          :when (typep interface-instance type) :do
+            (subtest* (symbol-name function)
+              (let ((*interface* interface-instance))
+                (funcall function))))))
 
-    (labels
-        ;; Build a test plan that ensures more foundational tests
-        ;; come first
-        ((visit (interface)
-           (when (gethash interface visited-interfaces)
-             (return-from visit))
-           (setf (gethash interface visited-interfaces) t)
-           (let ((supers (interface-supers interface)))
-             (dolist (super supers)
-               (visit super)))
-           (let ((test-fn (gethash interface *interface-tests*)))
-             (if test-fn
-                 (push (cons interface test-fn) test-plan)
-                 (push interface untestable-interfaces)))))
-      (dolist (interface interfaces)
-        (visit interface)))
-
-    (setf test-plan (nreverse test-plan))
-
-    (dolist (test test-plan)
-      (subtest* (symbol-name (car test))
-        (if (check-interface-conformance *name* (car test))
-            (funcall (cdr test))
-            (skip 1 "No point testing ~A interface if conformance is incomplete" (car test)))))
-
-    (when untestable-interfaces
-      (subtest* "Other interfaces"
-        (dolist (interface untestable-interfaces)
-          (check-interface-conformance *name* interface))))))
-
-(defun test-types (&optional (environments *test-environments*))
-  (dolist (environment environments)
-    (with-test-environment environment
-      (subtest* (symbol-name *name*)
-        (run-type-tests)))))
-
-(defun test-type (name &rest initargs)
-  (with-test-environment (apply 'make-test-environment name initargs)
-    (run-type-tests)))
+(defun test-interfaces (&optional (interface-symbols *interface-symbols*))
+  (ensure-suite
+    (dolist (sym interface-symbols)
+      (subtest* (symbol-name sym)
+        ;; Macroexpand the symbol because we use symbol macros to make
+        ;; interface instances redefineable
+        (run-interface-tests (macroexpand sym))))))
 
 (defun all-tests ()
-  (let ((*suite* (make-instance 'suite :plan nil)))
+  (ensure-suite
     (test-compare)
-    (test-types)
-    (finalize)))
+    (test-interfaces)))
 
 (defun main ()
   (if (all-tests)

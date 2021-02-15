@@ -14,7 +14,8 @@
 
 (uiop:define-package :pfds.shcl.io
   (:use :common-lisp)
-  (:use-reexport :pfds.shcl.io/interface)
+  (:use :pfds.shcl.io/utility/interface)
+  (:use-reexport :pfds.shcl.io/implementation/interface)
   (:import-from :pfds.shcl.io/implementation/red-black-tree
    #:make-red-black-map
    #:make-red-black-set)

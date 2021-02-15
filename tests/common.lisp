@@ -12,11 +12,12 @@
 ;; See the License for the specific language governing permissions and
 ;; limitations under the License.
 
-(defpackage :pfds.shcl.io/tests/common
+(uiop:define-package :pfds.shcl.io/tests/common
   (:use :common-lisp)
-  (:use :pfds.shcl.io/interface)
+  (:use :pfds.shcl.io/utility/interface)
+  (:use :pfds.shcl.io/tests/test-interface)
   (:import-from :pfds.shcl.io/utility/compare
-   #:compare #:compare-objects)
+   #:compare-objects #:compare-reals #:compare)
   (:import-from :pfds.shcl.io/utility/immutable-structure
    #:define-immutable-structure)
   (:import-from :pfds.shcl.io/utility/misc
@@ -24,32 +25,23 @@
   (:import-from :closer-mop)
   (:import-from :alexandria)
   (:import-from :prove
-   #:is #:subtest)
+   #:subtest #:finalize)
   (:export
-   #:check-common-consistency
-   #:check-interface-conformance
-   #:do-type-records
    #:token
    #:make-token
    #:token-p
    #:token-value
-   #:compare-equal-p
-   #:compare-less-p
+   #:^compare-equal-p
    #:shuffle
-   #:cons-to-item
-   #:item-to-cons
    #:encode
    #:decode
    #:build
    #:build-from-list
-   #:make
-   #:make-test-environment
-   #:with-test-environment
    #:named-subtests
    #:subtest*
-   #:*name*
-   #:*comparator*
-   #:*maker*
+   #:ensure-suite
+   #:transform-interface
+   #:wrap-interface
    #:*problem-size*
    #:*sorted-numbers*
    #:*even-numbers*
@@ -75,27 +67,16 @@
 (defmethod compare-objects ((left token) (right token))
   (when (eql left right)
     (return-from compare-objects :equal))
-  (let ((result (compare (token-value left) (token-value right))))
+  (let ((result (compare-reals (token-value left) (token-value right))))
     (when (eq :equal result)
       (setf result :unequal))
     result))
 
-(defun item-to-cons (item)
-  (cons item (complex 0 (sxhash item))))
-
-(defun cons-to-item (cons)
-  (cassert (equal (cdr cons) (complex 0 (sxhash (car cons))))
-           (cons) "Cons must not be corrupted")
-  (car cons))
-
 (defun shuffle (list)
   (coerce (alexandria:shuffle (coerce list 'vector)) 'list))
 
-(defun compare-equal-p (l r)
-  (eq :equal (compare l r)))
-
-(defun compare-less-p (l r)
-  (eq :less (compare l r)))
+(defun ^compare-equal-p (l r)
+  (eq :equal (^compare l r)))
 
 (defvar *problem-size* 1000)
 
@@ -107,61 +88,48 @@
 (defparameter *random-numbers-uniqued* (eql-unique *random-numbers*))
 (defparameter *unequal-objects* (shuffle (loop :for i :below (/ *problem-size* 4) :nconc (loop :for j :below 4 :collect (make-token :value i)))))
 
-(defvar *encode*)
-(defvar *decode*)
-(defvar *maker*)
-(defvar *maker-initargs* nil)
-(defvar *maker-positional-args*)
-(defvar *maker-items-initarg*)
-(defvar *name*)
-(defvar *comparator*)
+(defun encode (item collection)
+  (let ((type (^member-type collection)))
+    (cond
+      ((equal type t)
+       item)
+      ((equal type '(cons t t))
+       (cons item (complex 0 (sxhash item))))
+      (t
+       (error "Not sure how to encode ~A" type)))))
 
-(defun encode (item)
-  (funcall *encode* item))
-
-(defun decode (item)
-  (funcall *decode* item))
-
-(defun make (&rest args &key &allow-other-keys)
-  (apply *maker* (concatenate 'list *maker-positional-args* *maker-initargs* args)))
+(defun decode (item collection)
+  (let ((type (^member-type collection)))
+    (cond
+      ((equal type t)
+       item)
+      ((equal type '(cons t t))
+       (cassert (equal (complex 0 (sxhash (car item)))
+                       (cdr item))
+                (item)
+                "Mismatched hash for ~W" item)
+       (car item))
+      (t
+       (error "Not sure how to encode ~A" type)))))
 
 (defun build-from-list (items)
-  (make *maker-items-initarg* (mapcar #'encode items)))
+  (let ((collection (^representative-empty)))
+    (loop :for item :in items :do
+      (setf collection (^with-member collection (encode item collection))))
+    collection))
 
 (defun build (&rest items)
   (build-from-list items))
 
-(defun make-list* (&key items)
-  items)
-
-(defun find-maker (class-name)
-  (if (eq class-name 'list)
-      'make-list*
-      (multiple-value-bind (sym state) (find-symbol (format nil "MAKE-~A" class-name) (symbol-package class-name))
-        (when (eq :external state)
-          sym))))
-
-(defun other-compare (l r)
-  (compare l r))
-
-(defun make-test-environment (class-name &rest initargs)
-  (let* ((interfaces (interfaces-implemented class-name))
-         (map-p (find 'ordered-map interfaces))
-         (ordered-p (find 'ordered-collection interfaces)))
-    `((*encode* . ,(if map-p 'item-to-cons 'identity))
-      (*decode* . ,(if map-p 'cons-to-item 'identity))
-      (*maker* . ,(find-maker class-name))
-      (*maker-items-initarg* . ,(if map-p :alist :items))
-      (*maker-positional-args* . ,(when ordered-p '(other-compare)))
-      (*comparator* . ,(when ordered-p 'other-compare))
-      (*maker-initargs* . ,initargs)
-      (*name* . ,class-name))))
-
-(defmacro with-test-environment (environment &body body)
-  (let ((record-val (gensym "RECORD")))
-    `(let ((,record-val ,environment))
-       (progv (mapcar #'car ,record-val) (mapcar #'cdr ,record-val)
-         ,@body))))
+(defmacro ensure-suite (&body body)
+  (let ((old-suite (gensym "OLD-SUITE")))
+    `(let* ((,old-suite prove:*suite*)
+            (prove:*suite* (or ,old-suite
+                               (make-instance 'prove:suite :plan nil))))
+       (multiple-value-prog1
+           (progn ,@body)
+         (unless ,old-suite
+           (finalize prove:*suite*))))))
 
 (defconstant +test-name-prefix+ (if (boundp '+test-name-prefix+)
                                     (symbol-value '+test-name-prefix+)
@@ -172,19 +140,18 @@
         (done (gensym "DONE"))
         (again (gensym "AGAIN"))
         (stream (gensym "STREAM")))
-    `(let ((,name-val ,name)
-           (prove:*suite* (or prove:*suite*
-                              (make-instance 'prove:suite))))
-       (block ,done
-         (tagbody
-            ,again
-            (return-from ,done
-              (subtest ,name-val
-                (restart-case
-                    (progn ,@body)
-                  (restart-test ()
-                    :report (lambda (,stream) (format ,stream "Restart testing from ~A" ,name-val))
-                    (go ,again))))))))))
+    `(ensure-suite
+       (let ((,name-val ,name))
+         (block ,done
+           (tagbody
+              ,again
+              (return-from ,done
+                (subtest ,name-val
+                  (restart-case
+                      (progn ,@body)
+                    (restart-test ()
+                      :report (lambda (,stream) (format ,stream "Restart testing from ~A" ,name-val))
+                      (go ,again)))))))))))
 
 (defmacro named-subtests (&body body)
   (labels
@@ -192,8 +159,26 @@
          (and (consp form)
               (symbolp (car form))
               (nth-value 1 (alexandria:starts-with-subseq "TEST-" (symbol-name (car form)) :return-suffix t)))))
-    `(progn ,@(loop :for form :in body
-                    :collect (let ((name (test-name form)))
-                               (if name
-                                   `(subtest* ,name ,form)
-                                   form))))))
+    `(ensure-suite
+       ,@(loop :for form :in body
+               :collect (let ((name (test-name form)))
+                          (if name
+                              `(subtest* ,name ,form)
+                              form))))))
+
+(defun transform-interface (interface &rest initargs &key &allow-other-keys)
+  (let ((base-initargs
+          (list*
+           :debug-name (interface-instance-debug-name interface)
+           (loop :for pair :in (interface-functions interface)
+                 :for name = (car pair)
+                 :nconc (list name (interface-get interface name))))))
+    (apply 'make-instance (class-of interface) (concatenate 'list initargs base-initargs))))
+
+(defun wrap-interface (interface &rest wrapper-specs &key &allow-other-keys)
+  (let ((initargs
+          (loop :with remaining-specs = wrapper-specs :while remaining-specs
+                :for key = (pop remaining-specs) :for transformer = (pop remaining-specs)
+                :nconc (list key (funcall transformer (interface-get interface key))))))
+
+    (apply 'transform-interface interface initargs)))

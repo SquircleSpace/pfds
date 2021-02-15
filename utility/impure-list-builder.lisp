@@ -12,7 +12,7 @@
 ;; See the License for the specific language governing permissions and
 ;; limitations under the License.
 
-(defpackage :pfds.shcl.io/utility/impure-list-builder
+(uiop:define-package :pfds.shcl.io/utility/impure-list-builder
   (:use :common-lisp)
   (:export
    #:make-impure-list-builder

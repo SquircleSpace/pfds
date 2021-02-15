@@ -12,9 +12,12 @@
 ;; See the License for the specific language governing permissions and
 ;; limitations under the License.
 
-(defpackage :pfds.shcl.io/implementation/binomial-heap
+(uiop:define-package :pfds.shcl.io/implementation/binomial-heap
   (:use :common-lisp)
-  (:use :pfds.shcl.io/interface)
+  (:use :pfds.shcl.io/utility/interface)
+  (:use :pfds.shcl.io/implementation/interface)
+  (:import-from :pfds.shcl.io/utility/specialization
+   #:specialize)
   (:import-from :pfds.shcl.io/utility/printer
    #:print-container)
   (:import-from :pfds.shcl.io/utility/impure-list-builder
@@ -29,11 +32,9 @@
   (:import-from :pfds.shcl.io/utility/misc
    #:cassert)
   (:export
-   #:make-binomial-heap
+   #:<binomial-heap>
    #:binomial-heap
-   #:binomial-heap-p
-   #:binomial-heap-comparator
-   #:binomial-heap-size))
+   #:binomial-heap-p))
 (in-package :pfds.shcl.io/implementation/binomial-heap)
 
 ;; See "Purely Functional Data Structures" by Chris Okasaki
@@ -42,14 +43,15 @@
   (value (error "value is required"))
   (children nil :type list))
 
-(defmethod print-graphviz ((heap tree-node) stream id-vendor)
+(defun tree-node-print-graphviz (heap stream id-vendor)
   (let ((id (next-graphviz-id id-vendor)))
     (format stream "ID~A [label=\"~A\" shape=box]~%" id (tree-node-value heap))
     (dolist (child (tree-node-children heap))
-      (let ((child-id (print-graphviz child stream id-vendor)))
+      (let ((child-id (tree-node-print-graphviz child stream id-vendor)))
         (format stream "ID~A -> ID~A~%" id child-id)))
     id))
 
+(declaim (inline tree-link))
 (defun tree-link (left right comparator)
   (when (eq :greater (funcall comparator (tree-node-value left) (tree-node-value right)))
     (rotatef left right))
@@ -61,13 +63,14 @@
   (tree (error "required arg") :type tree-node)
   (rank (error "required arg") :type (integer 0)))
 
-(defmethod print-graphviz ((ranked-tree ranked-tree) stream id-vendor)
+(defun ranked-tree-print-graphviz (ranked-tree stream id-vendor)
   (let ((id (next-graphviz-id id-vendor)))
     (format stream "ID~A [label=\"rank ~A\"]~%" id (ranked-tree-rank ranked-tree))
-    (let ((child-id (print-graphviz (ranked-tree-tree ranked-tree) stream id-vendor)))
+    (let ((child-id (tree-node-print-graphviz (ranked-tree-tree ranked-tree) stream id-vendor)))
       (format stream "ID~A -> ID~A~%" id child-id))
     id))
 
+(declaim (inline ranked-tree-link))
 (defun ranked-tree-link (left right comparator)
   (assert (equal (ranked-tree-rank left)
                  (ranked-tree-rank right)))
@@ -92,6 +95,7 @@
      (cdr ranked-tree-list)
      comparator)))
 
+(declaim (inline insert-object))
 (defun insert-object (object ranked-tree-list comparator)
   (insert-tree
    (make-ranked-tree
@@ -214,42 +218,49 @@
   (size 0 :type (integer 0))
   (ranked-trees nil :type list))
 
-(declare-interface-conformance binomial-heap priority-queue)
+(define-simple-interface-instance <binomial-heap> <<priority-queue>> binomial-heap-
+  'make-priority-queue 'make-binomial-heap)
 
-(defmethod print-graphviz ((heap binomial-heap) stream id-vendor)
+(defun binomial-heap-print-graphviz (heap stream id-vendor)
   (let ((id (next-graphviz-id id-vendor)))
     (format stream "ID~A [label=\"top\"]~%" id)
     (dolist (tree (binomial-heap-ranked-trees heap))
-      (let ((child-id (print-graphviz tree stream id-vendor)))
+      (let ((child-id (ranked-tree-print-graphviz tree stream id-vendor)))
         (format stream "ID~A -> ID~A~%" id child-id)))
     id))
 
-(defmethod for-each ((heap binomial-heap) function)
+(declaim (inline binomial-heap-for-each))
+(defun binomial-heap-for-each (heap function)
   (dolist (ranked-tree (binomial-heap-ranked-trees heap))
     (do-tree (item (ranked-tree-tree ranked-tree))
       (funcall function item))))
 
-(defmethod map-members ((heap binomial-heap) function)
+(defun binomial-heap-map-members (heap function)
   (if (zerop (binomial-heap-size heap))
       heap
       (let (list)
-        (for-each heap (lambda (v) (push (funcall function v) list)))
-        (make-binomial-heap (binomial-heap-comparator heap)
-                            :items list))))
+        (binomial-heap-for-each heap (lambda (v) (push (funcall function v) list)))
+        (make-binomial-heap
+         :comparator (binomial-heap-comparator heap)
+         :items list))))
 
-(defmethod iterator ((heap binomial-heap))
+(specialize collection-to-list <binomial-heap>)
+
+(declaim (inline binomial-heap-to-list))
+(defun binomial-heap-to-list (heap)
+  (collection-to-list <binomial-heap> heap))
+
+(declaim (inline binomial-heap-iterator))
+(defun binomial-heap-iterator (heap)
   (let ((tree-list (mapcar #'ranked-tree-tree (binomial-heap-ranked-trees heap))))
     (make-heap-iterator tree-list)))
-
-(defmethod comparator ((heap binomial-heap))
-  (binomial-heap-comparator heap))
 
 (defmethod print-object ((heap binomial-heap) stream)
   (if *print-readably*
       (call-next-method)
-      (print-container heap stream)))
+      (print-container <binomial-heap> heap stream)))
 
-(defun make-binomial-heap (comparator &key items)
+(defun make-binomial-heap (&key (comparator 'compare) items)
   (let (ranked-tree-list
         (count 0))
 
@@ -266,9 +277,11 @@
      :size count
      :ranked-trees ranked-tree-list)))
 
-(defun binomial-heap (comparator &rest items)
-  (make-binomial-heap comparator :items items))
+(declaim (inline binomial-heap))
+(defun binomial-heap (&rest items)
+  (make-binomial-heap :items items))
 
+(declaim (inline comparator-min))
 (defun comparator-min (comparator first second)
   (ecase (funcall comparator first second)
     (:greater
@@ -276,14 +289,14 @@
     ((:less :equal :unequal)
      first)))
 
-(defmethod meld ((first binomial-heap) (second binomial-heap))
+(defun binomial-heap-meld (first second)
   (let ((comparator (binomial-heap-comparator first)))
     (unless (eq comparator (binomial-heap-comparator second))
       (error "Cannot merge heaps with incompatible comparators"))
     (when (zerop (binomial-heap-size first))
-      (return-from meld second))
+      (return-from binomial-heap-meld second))
     (when (zerop (binomial-heap-size second))
-      (return-from meld first))
+      (return-from binomial-heap-meld first))
 
     (%make-binomial-heap
      :comparator comparator
@@ -294,7 +307,8 @@
                     (binomial-heap-ranked-trees second)
                     comparator))))
 
-(defmethod peek-front ((heap binomial-heap))
+(declaim (inline binomial-heap-peek-front))
+(defun binomial-heap-peek-front (heap)
   (find-minimum (binomial-heap-ranked-trees heap)
                 (binomial-heap-comparator heap)))
 
@@ -316,29 +330,31 @@
        removed-value
        t))))
 
-(defmethod without-front ((heap binomial-heap))
-  (binomial-heap-without-front heap))
-
-(defmethod with-member ((heap binomial-heap) item)
+(declaim (inline binomial-heap-with-member))
+(defun binomial-heap-with-member (heap item)
   (let ((comparator (binomial-heap-comparator heap)))
     (%make-binomial-heap
      :comparator comparator
      :size (1+ (binomial-heap-size heap))
      :ranked-trees (insert-object item (binomial-heap-ranked-trees heap) comparator))))
 
-(defmethod comparator ((heap binomial-heap))
-  (binomial-heap-comparator heap))
-
-(defmethod decompose ((heap binomial-heap))
+(declaim (inline binomial-heap-decompose))
+(defun binomial-heap-decompose (heap)
   (binomial-heap-without-front heap))
 
-(defmethod is-empty ((heap binomial-heap))
+(declaim (inline binomial-heap-is-empty))
+(defun binomial-heap-is-empty (heap)
   (zerop (binomial-heap-size heap)))
 
-(defmethod empty ((heap binomial-heap))
+(declaim (inline binomial-heap-empty))
+(defun binomial-heap-empty (heap)
   (if (zerop (binomial-heap-size heap))
       heap
-      (make-binomial-heap (binomial-heap-comparator heap))))
+      (make-binomial-heap :comparator (binomial-heap-comparator heap))))
+
+(declaim (inline binomial-heap-representative-empty))
+(defun binomial-heap-representative-empty ()
+  (make-binomial-heap))
 
 (defun check-rank (tree rank)
   (cassert (equal rank (length (tree-node-children tree)))
@@ -352,15 +368,13 @@
     (cassert (not (eq :greater (funcall comparator (tree-node-value tree) (tree-node-value child))))
              nil "Child trees must not be greater than parent trees")))
 
-(defmethod check-invariants ((heap binomial-heap))
+(defun binomial-heap-check-invariants (heap)
   (dolist (ranked-tree (binomial-heap-ranked-trees heap))
     (check-rank (ranked-tree-tree ranked-tree) (ranked-tree-rank ranked-tree))
     (check-order (ranked-tree-tree ranked-tree) (binomial-heap-comparator heap))))
 
-(defmethod size ((heap binomial-heap))
-  (binomial-heap-size heap))
+(declaim (inline binomial-heap-compare))
+(defun binomial-heap-compare (left right)
+  (compare-heaps <binomial-heap> left right))
 
-(defmethod compare-objects ((left binomial-heap) (right binomial-heap))
-  (compare-heaps left (binomial-heap-comparator left)
-                 right (binomial-heap-comparator right)
-                 #'compare))
+(define-interface-methods <binomial-heap> binomial-heap)

@@ -12,9 +12,10 @@
 ;; See the License for the specific language governing permissions and
 ;; limitations under the License.
 
-(defpackage :pfds.shcl.io/tests/queue
+(uiop:define-package :pfds.shcl.io/tests/queue
   (:use :common-lisp)
-  (:use :pfds.shcl.io/interface)
+  (:use :pfds.shcl.io/utility/interface)
+  (:use :pfds.shcl.io/tests/test-interface)
   (:use :pfds.shcl.io/tests/common)
   (:import-from :pfds.shcl.io/utility/misc
    #:cassert)
@@ -23,18 +24,18 @@
 (in-package :pfds.shcl.io/tests/queue)
 
 (defun with (queue object)
-  (let ((result (with-back queue object)))
-    (check-invariants result)
+  (let ((result (^with-back queue object)))
+    (^check-invariants result)
     result))
 
 (defun without (queue)
-  (multiple-value-bind (result head valid-p) (without-front queue)
-    (check-invariants result)
+  (multiple-value-bind (result head valid-p) (^without-front queue)
+    (^check-invariants result)
     (if valid-p
-        (cassert (not (is-empty queue)) nil "A non-empty queue should always claim validity for without-first returns")
-        (cassert (is-empty queue) nil "An empty queue should always claim non-validity for without-first returns"))
+        (cassert (not (^is-empty queue)) nil "A non-empty queue should always claim validity for without-first returns")
+        (cassert (^is-empty queue) nil "An empty queue should always claim non-validity for without-first returns"))
 
-    (multiple-value-bind (other-head peek-valid-p) (peek-front queue)
+    (multiple-value-bind (other-head peek-valid-p) (^peek-front queue)
       (cassert (eq other-head head)
                nil
                "Peek-first and without-first should return the same value")
@@ -46,10 +47,10 @@
     (values result head valid-p)))
 
 (defun peek (queue)
-  (multiple-value-bind (result valid-p) (peek-front queue)
+  (multiple-value-bind (result valid-p) (^peek-front queue)
     (if valid-p
-        (cassert (not (is-empty queue)) nil "A non-empty queue should always return a true valid-p result for peek")
-        (cassert (is-empty queue) nil "An empty queue should always return a nil valid-p result for peek"))
+        (cassert (not (^is-empty queue)) nil "A non-empty queue should always return a true valid-p result for peek")
+        (cassert (^is-empty queue) nil "An empty queue should always return a nil valid-p result for peek"))
     (values result valid-p)))
 
 (defvar *operations*
@@ -65,7 +66,7 @@
     with without without with without without))
 
 (defun test-empty-queues ()
-  (let ((q (build)))
+  (let ((q (^make-queue)))
     (is (multiple-value-list (peek q))
         (list nil nil)
         "PEEK-FRONT is expected to return two nils on empty queues")
@@ -73,28 +74,29 @@
         (list q nil nil)
         :test #'equal
         "WITHOUT-FRONT is expected to return the same queue and two nils when empty")
-    (is (build)
+    (is (^make-queue)
         q
         :test #'eq
         "All empty queues are eq")
-    (is (without (build 1))
+    (is (without (^make-queue :items '(1)))
         q
         :test #'eq
         "Queues that become empty are also eq to other empty queues")))
 
 (defun test-maker ()
   (let* ((numbers *sorted-numbers*)
-         (q (build-from-list numbers)))
+         (q (^make-queue :items numbers)))
     (dotimes (i (length numbers))
       (multiple-value-bind (new-q head valid-p) (without q)
         (cassert valid-p nil "Queue shouldn't be empty, yet!")
         (setf q new-q)
-        (cassert (eq head (pop numbers)) nil "The queue must return the objects in the same order")))
+        (cassert (eql head (car numbers)) (head (car numbers)) "The queue must return the objects in the same order.")
+        (pop numbers)))
     (pass "Constructing a queue from a list produces a queue containing the given objects")))
 
 (defun test-mixed-operations ()
   (let ((numbers *sorted-numbers*)
-        (q (build))
+        (q (^make-queue))
         (length 0)
         (expected-without-head 0))
     (dolist (operation *operations*)
@@ -110,7 +112,7 @@
            (decf length)
            (setf q new-q))))
 
-      (cassert (equal (to-list q)
+      (cassert (equal (^to-list q)
                       (loop :for i = expected-without-head :then (1+ i)
                             :for count :below length
                             :collect i))
@@ -118,13 +120,13 @@
     (pass "Messing with the queue produces the right results")))
 
 (defun test-purity ()
-  (let* ((q (build-from-list *sorted-numbers*))
+  (let* ((q (^make-queue :items *sorted-numbers*))
          (other-q q))
     (dolist (number *sorted-numbers*)
       (setf q (with q number)))
-    (loop :while (not (is-empty q)) :do
+    (loop :while (not (^is-empty q)) :do
       (setf q (without q)))
-    (is (to-list other-q) *sorted-numbers*
+    (is (^to-list other-q) *sorted-numbers*
         "Pointers to old queues remain valid after using with-last and without-first")))
 
 (defun test-queue ()

@@ -12,9 +12,10 @@
 ;; See the License for the specific language governing permissions and
 ;; limitations under the License.
 
-(defpackage :pfds.shcl.io/tests/priority-queue
+(uiop:define-package :pfds.shcl.io/tests/priority-queue
   (:use :common-lisp)
-  (:use :pfds.shcl.io/interface)
+  (:use :pfds.shcl.io/utility/interface)
+  (:use :pfds.shcl.io/tests/test-interface)
   (:use :pfds.shcl.io/tests/common)
   (:import-from :pfds.shcl.io/utility/compare #:compare)
   (:import-from :pfds.shcl.io/utility/misc #:cassert)
@@ -23,17 +24,17 @@
 (in-package :pfds.shcl.io/tests/priority-queue)
 
 (defun without (priority-queue)
-  (multiple-value-bind (new-priority-queue removed-value success-p) (without-front priority-queue)
-    (check-invariants new-priority-queue)
+  (multiple-value-bind (new-priority-queue removed-value success-p) (^without-front priority-queue)
+    (^check-invariants new-priority-queue)
     (cond
-      ((is-empty priority-queue)
+      ((^is-empty priority-queue)
        (cassert (not success-p))
-       (cassert (equal (size new-priority-queue) 0)))
+       (cassert (equal (^size new-priority-queue) 0)))
       (t
        (cassert success-p)
-       (cassert (equal (size new-priority-queue) (1- (size priority-queue))))))
+       (cassert (equal (^size new-priority-queue) (1- (^size priority-queue))))))
 
-    (multiple-value-bind (peek-top peek-success-p) (peek-front priority-queue)
+    (multiple-value-bind (peek-top peek-success-p) (^peek-front priority-queue)
       (cassert (eql peek-top removed-value))
       (cassert (or (and success-p peek-success-p)
                    (and (not success-p) (not peek-success-p)))))
@@ -41,9 +42,9 @@
     (values new-priority-queue removed-value success-p)))
 
 (defun with (priority-queue object)
-  (let ((result (with-member priority-queue object)))
-    (check-invariants result)
-    (cassert (equal (size result) (1+ (size priority-queue))))
+  (let ((result (^with-member priority-queue object)))
+    (^check-invariants result)
+    (cassert (equal (^size result) (1+ (^size priority-queue))))
     result))
 
 (defun compare-ish (l r)
@@ -55,8 +56,11 @@
     (:greater
      :greater)))
 
+(defun compare-less-p (l r)
+  (eq :less (compare l r)))
+
 (defun priority-queue-sort* (comment priority-queue expected)
-  (is (size priority-queue)
+  (is (^size priority-queue)
       (length expected)
       (format nil "At the outset, priority-queue has the expected size (~A)" comment))
   (let (sorted)
@@ -92,7 +96,7 @@
   (let ((priority-queue (build)))
     (dolist (number *unequal-objects*)
       (setf priority-queue (with priority-queue number)))
-    (is (size priority-queue)
+    (is (^size priority-queue)
         (length *unequal-objects*)
         "Size should equal the number of objects added")
     (priority-queue-sort* "unequal" priority-queue (sort (copy-list *unequal-objects*) #'compare-less-p))))
