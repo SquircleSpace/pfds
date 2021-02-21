@@ -172,7 +172,9 @@
         (done (gensym "DONE"))
         (again (gensym "AGAIN"))
         (stream (gensym "STREAM")))
-    `(let ((,name-val ,name))
+    `(let ((,name-val ,name)
+           (prove:*suite* (or prove:*suite*
+                              (make-instance 'prove:suite))))
        (block ,done
          (tagbody
             ,again
