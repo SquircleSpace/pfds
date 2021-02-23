@@ -243,7 +243,7 @@
 (defmacro specialize-1 (name &rest interface-arguments &environment env)
   (dolist (arg interface-arguments)
     (unless (or (constantp arg env)
-                (constantp (fully-expand arg env) env))
+                (constantp (macroexpand arg env) env))
       (error "Interface argument isn't constant: ~W" arg)))
   (let* ((specialization-record (or (specialization-record name) (error "~W isn't specializable" name)))
          (provided-length (length interface-arguments))
