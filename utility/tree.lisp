@@ -39,6 +39,12 @@
    #:nil-tree-p #:node-left #:node-right #:node-values))
 (in-package :pfds.shcl.io/utility/tree)
 
+;; TODO: (funcall (interface-get ...) ...) isn't being optimized fully
+;; on SBCL.  It's being optimized to (funcall #'TARGET), but then its
+;; not running compiler macros for TARGET or inlining TARGET.  I guess
+;; not running compiler macros might be expected, but not inlining is
+;; lame.
+
 (declaim (inline always-t))
 (defun always-t (&rest args)
   (declare (ignore args))
@@ -276,7 +282,10 @@
        (funcall node-1-copy node :left left :right right))
 
       ((funcall node-n-type-p node)
-       (funcall node-n-copy node :left left :right right)))))
+       (funcall node-n-copy node :left left :right right))
+
+      (t
+       (error "Invalid node type: ~W" node)))))
 
 (define-specializable-function remove-min-node (<interface>) (tree)
   (with-interface <interface>
@@ -295,8 +304,10 @@
     (<interface>)
     (tree value-provider)
   (with-interface <interface>
-      (node-1-type-p node-n-type-p node-1-copy node-n-copy convert-1-to-n convert-n-to-1
+      (node-1-type-p node-1-copy node-n-copy convert-1-to-n convert-n-to-1
                      node-1-key node-1-value node-n-values map-p)
+    ;; TODO: We could avoid some type checks here when N-type nodes
+    ;; are disabled.
     (if (funcall node-1-type-p tree)
         (if (funcall node-1-type-p value-provider)
             (if (funcall map-p)
@@ -695,7 +706,10 @@
        (dolist (value (funcall n-type-values tree))
          (if (funcall map-p)
              (funcall function (cons (car value) (cdr value)))
-             (funcall function value)))))
+             (funcall function value))))
+
+      (t
+       (error "Invalid tree node: ~W" tree)))
     (tree-for-each <interface> (funcall node-right tree) function)))
 
 (define-specializable-function tree-to-list (<interface>) (tree)
@@ -740,7 +754,10 @@
        (funcall node-n-copy tree
                 :left (tree-map-entries <interface> (funcall node-left tree) function)
                 :right (tree-map-entries <interface> (funcall node-right tree) function)
-                :values (list-map-map-entries (funcall node-n-values tree) function))))))
+                :values (list-map-map-entries (funcall node-n-values tree) function)))
+
+      (t
+       (error "Invalid tree: ~W" tree)))))
 
 (define-specializable-function tree-node-value-iterator (<interface>) (tree)
   (with-interface <interface>
@@ -754,7 +771,10 @@
             (funcall node-1-key tree))))
 
       ((funcall node-n-type-p tree)
-       (list-iterator (funcall node-n-values tree))))))
+       (list-iterator (funcall node-n-values tree)))
+
+      (t
+       (error "Invalid tree node: ~W" tree)))))
 
 (define-specializable-function tree-iterator (<interface>) (tree)
   (with-interface <interface>
@@ -822,7 +842,10 @@
                        (funcall node-1-key tree))))
 
         ((funcall node-n-type-p tree)
-         (setf (gethash "label" properties) (funcall node-n-values tree))))
+         (setf (gethash "label" properties) (funcall node-n-values tree)))
+
+        (t
+         (error "Invalid tree: ~W" tree)))
 
       (funcall prepare-graphviz-properties tree properties)
 
@@ -882,4 +905,7 @@
          (cassert (cdr (funcall node-n-values tree))
                   nil "n-type nodes must have multiple values")
          (+ (length (funcall node-n-values tree))
-            children-count))))))
+            children-count))
+
+        (t
+         (error "Invalid tree: ~W" tree))))))
