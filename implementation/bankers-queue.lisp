@@ -142,6 +142,11 @@
 (defun bankers-queue-to-list (queue)
   (collection-to-list <bankers-queue> queue))
 
+(declaim (inline bankers-queue-size))
+(defun bankers-queue-size (queue)
+  (+ (bankers-queue-front-stack-size queue)
+     (bankers-queue-back-stack-size queue)))
+
 (defun bankers-queue-map-members (queue function)
   (let ((size (bankers-queue-size queue)))
     (when (zerop size)
@@ -201,11 +206,6 @@
       (link id)
       (link-list (i-reverse <lazy-list> (bankers-queue-back-stack queue)))
       id)))
-
-(declaim (inline bankers-queue-size))
-(defun bankers-queue-size (queue)
-  (+ (bankers-queue-front-stack-size queue)
-     (bankers-queue-back-stack-size queue)))
 
 (declaim (inline bankers-queue-compare))
 (defun bankers-queue-compare (left right)

@@ -416,7 +416,7 @@
 (defmethod print-object ((p-vec persistent-vector) stream)
   (if *print-readably*
       (call-next-method)
-      (print-sequence p-vec stream)))
+      (print-sequence <persistent-vector> p-vec stream)))
 
 (defun make-persistent-vector (&key items)
   (let ((result *empty-persistent-vector*))
