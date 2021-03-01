@@ -17,7 +17,7 @@
   (:use :pfds.shcl.io/utility/interface)
   (:use :pfds.shcl.io/implementation/interface)
   (:import-from :pfds.shcl.io/utility/iterator-tools
-   #:compare-sets #:compare-maps #:iterator-flatten #:compare-containers)
+   #:compare-sets #:compare-maps #:iterator-flatten #:compare-collection-contents)
   (:import-from :pfds.shcl.io/utility/compare
    #:compare-objects #:compare)
   (:import-from :pfds.shcl.io/utility/immutable-structure

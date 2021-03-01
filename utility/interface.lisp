@@ -31,14 +31,17 @@
    #:define-interface-instance
    #:define-simple-interface-instance
    #:interface-get
-   #:i-funcall
-   #:i-apply
    #:with-interface
 
    #:interface-functions
    #:interface-superclasses
    #:interface-function-lambda-list
-   #:interface-instance-debug-name))
+   #:interface-instance-debug-name
+
+   #:define-interface-function-invoker
+   #:define-interface-function
+   #:declaim-signature
+   #:proclaim-signature))
 (in-package :pfds.shcl.io/utility/interface)
 
 (eval-when (:compile-toplevel :load-toplevel :execute)
@@ -301,9 +304,6 @@ Note that this means that it ignores NOTINLINE declarations.  So, use
 it with care!"
   `(funcall ,(fully-expand target env) ,@args))
 
-(defmacro i-apply (target &rest args &environment env)
-  `(apply ,(fully-expand target env) ,@args))
-
 (defmacro with-interface (interface functions &body body &environment env)
   (setf interface (macroexpand interface env))
   (setf functions (loop :for entry :in functions
@@ -371,7 +371,6 @@ it with care!"
       (error "Unknown interface function: ~W" function-name))
     (interface-function-metadata-lambda-list metadata)))
 
-;; TODO: Move all uses of i-funcall over to using this thingie
 (defmacro define-interface-function-invoker (wrapper-name interface-function-name)
   (let* ((metadata (get+ interface-function-name +interface-function-metadata+))
          (documentation (interface-function-metadata-documentation metadata))
@@ -392,3 +391,27 @@ it with care!"
 
        (define-compiler-macro ,wrapper-name (,interface &rest ,rest)
          `(i-funcall (interface-get ,,interface ',',interface-function-name) ,@,rest)))))
+
+(defmacro define-interface-function (function-name lambda-list
+                                     &key documentation
+                                       (invoker (when (symbolp function-name)
+                                                  (intern-conc *package* "I-" function-name)))
+                                       (define-generic lambda-list)
+                                       (generic-name (when define-generic
+                                                       (intern-conc *package* "G-" function-name)))
+                                       (method-generator 'single-specializer))
+  (check-type function-name (or symbol list))
+  (check-type invoker (or symbol list))
+  (check-type generic-name (or symbol list))
+  `(progn
+     (declaim-signature ,function-name ,lambda-list :documentation ,documentation)
+     ,(when invoker
+        `(define-interface-function-invoker ,invoker ,function-name))
+     ,(when define-generic
+        `(defgeneric ,generic-name ,lambda-list
+           (:documentation ,documentation)))
+     ,(when generic-name
+        `(setf (get+ ',function-name +generic-name+) ',generic-name))
+     ,(when (and generic-name method-generator)
+        `(setf (get+ ',function-name +method-generator+) ',method-generator))
+     ',function-name))

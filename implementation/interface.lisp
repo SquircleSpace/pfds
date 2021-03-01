@@ -19,6 +19,7 @@
    #:interface-get
    #:interface-functions
    #:define-interface-function-invoker
+   #:define-interface-function
    #:declaim-signature
    #:interface-function-lambda-list)
   (:import-from :pfds.shcl.io/utility/impure-list-builder
@@ -223,30 +224,6 @@
 
 (defconstant +method-generator+ '+method-generator+)
 (defconstant +generic-name+ '+generic-name+)
-
-(defmacro define-interface-function (function-name lambda-list
-                                     &key documentation
-                                       (invoker (when (symbolp function-name)
-                                                  (intern-conc *package* "I-" function-name)))
-                                       (define-generic lambda-list)
-                                       (generic-name (when define-generic
-                                                       (intern-conc *package* "G-" function-name)))
-                                       (method-generator 'single-specializer))
-  (check-type function-name (or symbol list))
-  (check-type invoker (or symbol list))
-  (check-type generic-name (or symbol list))
-  `(progn
-     (declaim-signature ,function-name ,lambda-list :documentation ,documentation)
-     ,(when invoker
-        `(define-interface-function-invoker ,invoker ,function-name))
-     ,(when define-generic
-        `(defgeneric ,generic-name ,lambda-list
-           (:documentation ,documentation)))
-     ,(when generic-name
-        `(setf (get+ ',function-name +generic-name+) ',generic-name))
-     ,(when (and generic-name method-generator)
-        `(setf (get+ ',function-name +method-generator+) ',method-generator))
-     ',function-name))
 
 (defmacro define-interface-methods (instance class-name &environment env)
   (setf instance (macroexpand instance env))

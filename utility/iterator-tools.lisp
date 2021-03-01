@@ -61,12 +61,12 @@
         ((iterate ()
            (loop
              (unless current-iterator
-               (multiple-value-bind (new-iterator valid-p) (i-funcall iterator)
+               (multiple-value-bind (new-iterator valid-p) (funcall iterator)
                  (unless valid-p
                    (return-from iterate (values nil nil)))
                  (assert new-iterator)
                  (setf current-iterator new-iterator)))
-             (multiple-value-bind (result valid-p) (i-funcall current-iterator)
+             (multiple-value-bind (result valid-p) (funcall current-iterator)
                (if valid-p
                    (return-from iterate (values result valid-p))
                    (setf current-iterator nil))))))
@@ -78,7 +78,7 @@
 (defun iterator-to-list (iterator)
   (let ((builder (make-impure-list-builder)))
     (loop
-      (multiple-value-bind (value valid-p) (i-funcall iterator)
+      (multiple-value-bind (value valid-p) (funcall iterator)
         (if valid-p
             (impure-list-builder-add builder value)
             (return))))
@@ -87,11 +87,11 @@
 (defun compare-iterator-contents (left right comparator)
   (let ((result :equal))
     (loop
-      (multiple-value-bind (left-value left-valid-p) (i-funcall left)
-        (multiple-value-bind (right-value right-valid-p) (i-funcall right)
+      (multiple-value-bind (left-value left-valid-p) (funcall left)
+        (multiple-value-bind (right-value right-valid-p) (funcall right)
           (cond
             ((and left-valid-p right-valid-p)
-             (let ((comparison (i-funcall comparator left-value right-value)))
+             (let ((comparison (funcall comparator left-value right-value)))
                (ecase comparison
                  (:equal)
                  (:unequal
@@ -108,23 +108,19 @@
 
 (define-specializable-function compare-collection-contents
     (<interface>) (left right comparator)
-  (with-interface <interface>
-      (size iterator)
-    (compare*
-      (compare-reals (i-funcall size left)
-                     (i-funcall size right))
-      (compare-iterator-contents
-       (i-funcall iterator left)
-       (i-funcall iterator right)
-       comparator))))
+  (compare*
+    (compare-reals (i-size <interface> left)
+                   (i-size <interface> right))
+    (compare-iterator-contents
+     (i-iterator <interface> left)
+     (i-iterator <interface> right)
+     comparator)))
 
 (define-specializable-function heap-iterator (<interface>) (heap)
-  (with-interface <interface>
-      (without-front)
-    (lambda ()
-      (multiple-value-bind (new-heap removed-value valid-p) (i-funcall without-front heap)
-        (setf heap new-heap)
-        (values removed-value valid-p)))))
+  (lambda ()
+    (multiple-value-bind (new-heap removed-value valid-p) (i-without-front <interface> heap)
+      (setf heap new-heap)
+      (values removed-value valid-p))))
 
 (defun nil-instead-of-unequal (value)
   (unless (eq :unequal value)
@@ -133,61 +129,55 @@
 (define-specializable-function compare-heaps
     (<interface>)
     (left right &optional (comparator-comparator #'compare))
-  (with-interface <interface>
-      (size comparator)
-    (let ((left-comparator (i-funcall comparator left)))
-      (compare*
-        (compare-reals (i-funcall size left) (i-funcall size right))
-        (or (nil-instead-of-unequal (i-funcall comparator-comparator
-                                               left-comparator
-                                               (i-funcall comparator right)))
-            (return-from compare-heaps :unequal))
-        (compare-iterator-contents
-         (heap-iterator <interface> left)
-         (heap-iterator <interface> right)
-         left-comparator)))))
+  (let ((left-comparator (i-comparator <interface> left)))
+    (compare*
+      (compare-reals (i-size <interface> left) (i-size <interface> right))
+      (or (nil-instead-of-unequal (funcall comparator-comparator
+                                           left-comparator
+                                           (i-comparator <interface> right)))
+          (return-from compare-heaps :unequal))
+      (compare-iterator-contents
+       (heap-iterator <interface> left)
+       (heap-iterator <interface> right)
+       left-comparator))))
 
 (define-specializable-function compare-ordered-sets
     (<interface>)
     (left right &optional (comparator-comparator #'compare))
-  (with-interface <interface>
-      (size comparator iterator)
-    (let ((left-comparator (i-funcall comparator left)))
-      (compare*
-        (compare-reals (i-funcall size left) (i-funcall size right))
-        (or (nil-instead-of-unequal (i-funcall comparator-comparator
-                                               left-comparator
-                                               (i-funcall comparator right)))
-            (return-from compare-ordered-sets :unequal))
-        (compare-iterator-contents
-         (i-funcall iterator left)
-         (i-funcall iterator right)
-         left-comparator)))))
+  (let ((left-comparator (i-comparator <interface> left)))
+    (compare*
+      (compare-reals (i-size <interface> left) (i-size <interface> right))
+      (or (nil-instead-of-unequal (funcall comparator-comparator
+                                           left-comparator
+                                           (i-comparator <interface> right)))
+          (return-from compare-ordered-sets :unequal))
+      (compare-iterator-contents
+       (i-iterator <interface> left)
+       (i-iterator <interface> right)
+       left-comparator))))
 
 (define-specializable-function compare-ordered-maps
     (<interface>)
     (left right
           &optional (comparator-comparator #'compare)
           (value-comparator #'compare))
-  (with-interface <interface>
-      (size comparator iterator)
-    (let (comparator-comparison
-          (left-comparator (i-funcall comparator left)))
-      (compare*
-        (compare-reals (i-funcall size left) (i-funcall size right))
-        (setf comparator-comparison (i-funcall comparator-comparator
-                                               left-comparator
-                                               (i-funcall comparator right)))
-        (compare-iterator-contents
-         (i-funcall iterator left)
-         (i-funcall iterator right)
-         (if (eq :equal comparator-comparison)
-             (lambda (l-pair r-pair)
-               (compare*
-                 (i-funcall left-comparator (car l-pair) (car r-pair))
-                 (i-funcall value-comparator (cdr l-pair) (cdr r-pair))))
-             (lambda (l-pair r-pair)
-               (i-funcall value-comparator (cdr l-pair) (cdr r-pair)))))))))
+  (let (comparator-comparison
+        (left-comparator (i-comparator <interface> left)))
+    (compare*
+      (compare-reals (i-size <interface> left) (i-size <interface> right))
+      (setf comparator-comparison (funcall comparator-comparator
+                                           left-comparator
+                                           (i-comparator <interface> right)))
+      (compare-iterator-contents
+       (i-iterator <interface> left)
+       (i-iterator <interface> right)
+       (if (eq :equal comparator-comparison)
+           (lambda (l-pair r-pair)
+             (compare*
+               (funcall left-comparator (car l-pair) (car r-pair))
+               (funcall value-comparator (cdr l-pair) (cdr r-pair))))
+           (lambda (l-pair r-pair)
+             (funcall value-comparator (cdr l-pair) (cdr r-pair))))))))
 
 (defun do-iterator-f (iterator fn)
   (loop

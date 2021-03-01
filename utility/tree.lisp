@@ -110,6 +110,46 @@
 
   (:optional prepare-graphviz-properties default-prepare-graphviz-properties))
 
+(define-interface-function nil-type-p (object)
+  :define-generic nil)
+(define-interface-function node-1-type-p (object)
+  :define-generic nil)
+(define-interface-function node-n-type-p (object)
+  :define-generic nil)
+(define-interface-function node-type-p (object)
+  :define-generic nil)
+
+(define-interface-function node-1-key (node)
+  :define-generic nil)
+(define-interface-function node-1-value (node)
+  :define-generic nil)
+(define-interface-function node-n-values (node)
+  :define-generic nil)
+(define-interface-function node-left (node)
+  :define-generic nil)
+(define-interface-function node-right (node)
+  :define-generic nil)
+
+(define-interface-function node-1-copy (node &key left right key value)
+  :define-generic nil)
+(define-interface-function node-n-copy (node &key left right values)
+  :define-generic nil)
+(define-interface-function convert-1-to-n (node-1 &key values)
+  :define-generic nil)
+(define-interface-function convert-n-to-1 (node-n &key key value)
+  :define-generic nil)
+
+(define-interface-function make-node-1 (&key key value)
+  :define-generic nil)
+(define-interface-function make-nil ()
+  :define-generic nil)
+
+(define-interface-function map-p ()
+  :define-generic nil)
+
+(define-interface-function prepare-graphviz-properties (tree properties)
+  :define-generic nil)
+
 ;; Instances of this require special knowledge about the tree's
 ;; invariants
 (define-interface <<tree>> (<<base-tree>>)
@@ -252,356 +292,318 @@
 
          ',base-name))))
 
-(define-specializable-function representative-key (<interface>) (node)
-  (with-interface <interface>
-      (node-1-type-p node-n-type-p node-n-values node-1-key node-1-value
-                     map-p)
-    (cond
-      ((i-funcall node-1-type-p node)
-       (values (i-funcall node-1-key node)
-               (i-funcall node-1-value node)))
+(define-specializable-function representative-key (<tree>) (node)
+  (cond
+    ((i-node-1-type-p <tree> node)
+     (values (i-node-1-key <tree> node)
+             (i-node-1-value <tree> node)))
 
-      ((i-funcall node-n-type-p node)
-       (let ((value (car (i-funcall node-n-values node))))
-         (if (i-funcall map-p)
-             (values (car value) (cdr value))
-             (values value t))))
+    ((i-node-n-type-p <tree> node)
+     (let ((value (car (i-node-n-values <tree> node))))
+       (if (i-map-p <tree>)
+           (values (car value) (cdr value))
+           (values value t))))
 
-      (t
-       (error "Argument isn't a node: ~W" node)))))
+    (t
+     (error "Argument isn't a node: ~W" node))))
 
 (define-specializable-function node-copy
-    (<interface>)
+    (<tree>)
     (node &key
-          (left (i-funcall (interface-get <interface> 'node-left) node))
-          (right (i-funcall (interface-get <interface> 'node-right) node)))
-  (with-interface <interface>
-      (node-1-type-p node-n-type-p node-1-copy node-n-copy)
-    (cond
-      ((i-funcall node-1-type-p node)
-       (i-funcall node-1-copy node :left left :right right))
+          (left (i-(interface-get <tree> 'node-left) <tree> node))
+          (right (i-(interface-get <tree> 'node-right) <tree> node)))
+  (cond
+    ((i-node-1-type-p <tree> node)
+     (i-node-1-copy <tree> node :left left :right right))
 
-      ((i-funcall node-n-type-p node)
-       (i-funcall node-n-copy node :left left :right right))
+    ((i-node-n-type-p <tree> node)
+     (i-node-n-copy <tree> node :left left :right right))
 
-      (t
-       (error "Invalid node type: ~W" node)))))
+    (t
+     (error "Invalid node type: ~W" node))))
 
-(define-specializable-function remove-min-node (<interface>) (tree)
-  (with-interface <interface>
-      (nil-type-p node-type-p node-left node-right remove-left-balancer)
-    (cond
-      ((i-funcall nil-type-p tree)
-       (error "nil tree has no min"))
+(define-specializable-function remove-min-node (<tree>) (tree)
+  (cond
+    ((i-nil-type-p <tree> tree)
+     (error "nil tree has no min"))
 
-      ((i-funcall node-type-p tree)
-       (if (i-funcall nil-type-p (i-funcall node-left tree))
-           (values tree (i-funcall node-right tree))
-           (multiple-value-bind (result value) (remove-min-node <interface> (i-funcall node-left tree))
-             (values result (i-funcall remove-left-balancer tree :left value))))))))
+    ((i-node-type-p <tree> tree)
+     (if (i-nil-type-p <tree> (i-node-left <tree> tree))
+         (values tree (i-node-right <tree> tree))
+         (multiple-value-bind (result value) (remove-min-node <tree> (i-node-left <tree> tree))
+           (values result (i-remove-left-balancer <tree> tree :left value)))))))
 
 (define-specializable-function node-with-the-value-content-of-node
-    (<interface>)
+    (<tree>)
     (tree value-provider)
-  (with-interface <interface>
-      (node-1-type-p node-1-copy node-n-copy convert-1-to-n convert-n-to-1
-                     node-1-key node-1-value node-n-values map-p)
-    ;; TODO: We could avoid some type checks here when N-type nodes
-    ;; are disabled.
-    (if (i-funcall node-1-type-p tree)
-        (if (i-funcall node-1-type-p value-provider)
-            (if (i-funcall map-p)
-                (i-funcall node-1-copy tree :key (i-funcall node-1-key value-provider)
-                                            :value (i-funcall node-1-value value-provider))
-                (i-funcall node-1-copy tree :key (i-funcall node-1-key value-provider)))
-            (i-funcall convert-1-to-n tree :values (i-funcall node-n-values value-provider)))
-        (if (i-funcall node-1-type-p value-provider)
-            (if (i-funcall map-p)
-                (i-funcall convert-n-to-1 tree :key (i-funcall node-1-key value-provider) :value (i-funcall node-1-value value-provider))
-                (i-funcall convert-n-to-1 tree :key (i-funcall node-1-key value-provider)))
-            (i-funcall node-n-copy tree :values (i-funcall node-n-values value-provider))))))
+  (if (i-node-1-type-p <tree> tree)
+      (if (i-node-1-type-p <tree> value-provider)
+          (if (i-map-p <tree>)
+              (i-node-1-copy <tree> tree :key (i-node-1-key <tree> value-provider)
+                                         :value (i-node-1-value <tree> value-provider))
+              (i-node-1-copy <tree> tree :key (i-node-1-key <tree> value-provider)))
+          (i-convert-1-to-n <tree> tree :values (i-node-n-values <tree> value-provider)))
+      (if (i-node-1-type-p <tree> value-provider)
+          (if (i-map-p <tree>)
+              (i-convert-n-to-1 <tree> tree :key (i-node-1-key <tree> value-provider) :value (i-node-1-value <tree> value-provider))
+              (i-convert-n-to-1 <tree> tree :key (i-node-1-key <tree> value-provider)))
+          (i-node-n-copy <tree> tree :values (i-node-n-values <tree> value-provider)))))
 
-(define-specializable-function tree-append-children (<interface>) (tree)
-  (with-interface <interface>
-      (nil-type-p node-left node-right remove-right-balancer)
-    (when (i-funcall nil-type-p (i-funcall node-left tree))
-      (return-from tree-append-children
-        (i-funcall node-right tree)))
-    (when (i-funcall nil-type-p (i-funcall node-right tree))
-      (return-from tree-append-children
-        (i-funcall node-left tree)))
+(define-specializable-function tree-append-children (<tree>) (tree)
+  (when (i-nil-type-p <tree> (i-node-left <tree> tree))
+    (return-from tree-append-children
+      (i-node-right <tree> tree)))
+  (when (i-nil-type-p <tree> (i-node-right <tree> tree))
+    (return-from tree-append-children
+      (i-node-left <tree> tree)))
 
-    (multiple-value-bind (min without-min) (remove-min-node <interface> (i-funcall node-right tree))
-      (i-funcall remove-right-balancer
-                 (node-with-the-value-content-of-node
-                  <interface>
-                  tree
-                  min)
-                 :right without-min))))
+  (multiple-value-bind (min without-min) (remove-min-node <tree> (i-node-right <tree> tree))
+    (i-remove-right-balancer <tree>
+                             (node-with-the-value-content-of-node
+                              <tree>
+                              tree
+                              min)
+                             :right without-min)))
 
-(define-specializable-function node-n-copy-with-values (<interface>) (tree values)
-  (with-interface <interface>
-      (node-n-copy convert-n-to-1 map-p)
-    (if (cdr values)
-        (i-funcall node-n-copy tree :values values)
-        (if (i-funcall map-p)
-            (i-funcall convert-n-to-1 tree :key (car (car values)) :value (cdr (car values)))
-            (i-funcall convert-n-to-1 tree :key (car values))))))
+(define-specializable-function node-n-copy-with-values (<tree>) (tree values)
+  (if (cdr values)
+      (i-node-n-copy <tree> tree :values values)
+      (if (i-map-p <tree>)
+          (i-convert-n-to-1 <tree> tree :key (car (car values)) :value (cdr (car values)))
+          (i-convert-n-to-1 <tree> tree :key (car values)))))
 
 (mutually-recursive-specializable-functions
-  (define-specializable-function tree-mutate-missing (<interface>) (tree key action-function)
-    (multiple-value-bind (action value) (i-funcall action-function)
-      (with-interface <interface>
-          (nil-type-p node-1-type-p node-n-type-p make-node-1 convert-1-to-n
-                      node-1-key node-1-value node-n-copy node-n-values
-                      map-p)
-        (ecase action
-          (:insert
-           (cond
-             ((i-funcall nil-type-p tree)
-              (values (if (i-funcall map-p)
-                          (i-funcall make-node-1 :key key :value value)
-                          (i-funcall make-node-1 :key key))
-                      1
-                      t))
+  (define-specializable-function tree-mutate-missing (<tree>) (tree key action-function)
+    (multiple-value-bind (action value) (i-action-function <tree>)
+      (ecase action
+        (:insert
+         (cond
+           ((i-nil-type-p <tree> tree)
+            (values (if (i-map-p <tree>)
+                        (i-make-node-1 <tree> :key key :value value)
+                        (i-make-node-1 <tree> :key key))
+                    1
+                    t))
 
-             ((i-funcall node-1-type-p tree)
-              (values (i-funcall convert-1-to-n tree
-                                 :values (if (i-funcall map-p)
-                                             (list
-                                              (cons (i-funcall node-1-key tree) (i-funcall node-1-value tree))
-                                              (cons key value))
-                                             (list
-                                              (i-funcall node-1-key tree)
-                                              key)))
-                      1
-                      nil))
+           ((i-node-1-type-p <tree> tree)
+            (values (i-convert-1-to-n <tree> tree
+                                      :values (if (i-map-p <tree>)
+                                                  (list
+                                                   (cons (i-node-1-key <tree> tree) (i-node-1-value <tree> tree))
+                                                   (cons key value))
+                                                  (list
+                                                   (i-node-1-key <tree> tree)
+                                                   key)))
+                    1
+                    nil))
 
-             ((i-funcall node-n-type-p tree)
-              (values (i-funcall node-n-copy tree :values (cons
-                                                           (if (i-funcall map-p)
-                                                               (cons key value)
-                                                               key)
-                                                           (i-funcall node-n-values tree)))
-                      1
-                      nil))
+           ((i-node-n-type-p <tree> tree)
+            (values (i-node-n-copy <tree> tree :values (cons
+                                                        (if (i-map-p <tree>)
+                                                            (cons key value)
+                                                            key)
+                                                        (i-node-n-values <tree> tree)))
+                    1
+                    nil))
 
-             (t
-              (error "Unrecognized tree object: ~W" tree))))
+           (t
+            (error "Unrecognized tree object: ~W" tree))))
 
-          ((:remove nil)
-           (values tree 0 nil))))))
+        ((:remove nil)
+         (values tree 0 nil)))))
 
-  (define-specializable-function tree-mutate-equal (<interface>) (tree action-function extracted-key extracted-value)
-    (with-interface <interface>
-        (node-1-copy node-1-type-p node-n-copy node-n-type-p node-n-values map-p)
-      (multiple-value-bind
-            (action value)
-          (if (i-funcall map-p)
-              (i-funcall action-function extracted-key extracted-value)
-              (i-funcall action-function extracted-key))
+  (define-specializable-function tree-mutate-equal (<tree>) (tree action-function extracted-key extracted-value)
+    (multiple-value-bind
+          (action value)
+        (if (i-map-p <tree>)
+            (i-action-function <tree> extracted-key extracted-value)
+            (i-action-function <tree> extracted-key))
 
-        (ecase action
-          ((nil)
-           (values tree 0 nil))
+      (ecase action
+        ((nil)
+         (values tree 0 nil))
 
-          (:remove
-           (cond
-             ((i-funcall node-1-type-p tree)
-              (values (tree-append-children <interface> tree)
-                      -1
-                      t))
-             ((i-funcall node-n-type-p tree)
-              (values (node-n-copy-with-values <interface> tree (cdr (i-funcall node-n-values tree)))
-                      -1
-                      nil))
-             (t
-              (error "Invalid tree object: ~W" tree))))
+        (:remove
+         (cond
+           ((i-node-1-type-p <tree> tree)
+            (values (tree-append-children <tree> tree)
+                    -1
+                    t))
+           ((i-node-n-type-p <tree> tree)
+            (values (node-n-copy-with-values <tree> tree (cdr (i-node-n-values <tree> tree)))
+                    -1
+                    nil))
+           (t
+            (error "Invalid tree object: ~W" tree))))
 
-          (:insert
-           (if (i-funcall map-p)
-               (cond
-                 ((i-funcall node-1-type-p tree)
-                  (values (i-funcall node-1-copy tree :value value)
-                          0
-                          nil))
-                 ((i-funcall node-n-type-p tree)
-                  (if (eql value extracted-value)
-                      (values tree 0 nil)
-                      (values (i-funcall node-n-copy tree :values (cons (cons extracted-key value)
-                                                                        (cdr (i-funcall node-n-values tree))))
-                              0
-                              nil)))
-                 (t
-                  (error "Invalid tree object: ~W" tree)))
-               (values tree 0 nil)))))))
+        (:insert
+         (if (i-map-p <tree>)
+             (cond
+               ((i-node-1-type-p <tree> tree)
+                (values (i-node-1-copy <tree> tree :value value)
+                        0
+                        nil))
+               ((i-node-n-type-p <tree> tree)
+                (if (eql value extracted-value)
+                    (values tree 0 nil)
+                    (values (i-node-n-copy <tree> tree :values (cons (cons extracted-key value)
+                                                                     (cdr (i-node-n-values <tree> tree))))
+                            0
+                            nil)))
+               (t
+                (error "Invalid tree object: ~W" tree)))
+             (values tree 0 nil))))))
 
-  (define-specializable-function tree-mutate-unequal (<interface>) (tree comparator key action-function)
-    (with-interface <interface>
-        (node-1-type-p node-n-type-p node-n-values map-p)
-      (cond
-        ((i-funcall node-1-type-p tree)
-         (tree-mutate-missing <interface> tree key action-function))
+  (define-specializable-function tree-mutate-unequal (<tree>) (tree comparator key action-function)
+    (cond
+      ((i-node-1-type-p <tree> tree)
+       (tree-mutate-missing <tree> tree key action-function))
 
-        ((i-funcall node-n-type-p tree)
-         (multiple-value-bind
-               (result count-change balance-needed-p)
-             (if (i-funcall map-p)
-                 ;; We don't need to check the first node -- we already know its unequal
-                 (list-map-mutate comparator (cdr (i-funcall node-n-values tree)) key action-function)
-                 (list-set-mutate comparator (cdr (i-funcall node-n-values tree)) key action-function))
-           (cassert (null balance-needed-p))
+      ((i-node-n-type-p <tree> tree)
+       (multiple-value-bind
+             (result count-change balance-needed-p)
+           (if (i-map-p <tree>)
+               ;; We don't need to check the first node -- we already know its unequal
+               (list-map-mutate comparator (cdr (i-node-n-values <tree> tree)) key action-function)
+               (list-set-mutate comparator (cdr (i-node-n-values <tree> tree)) key action-function))
+         (cassert (null balance-needed-p))
 
-           (when (eql result (cdr (i-funcall node-n-values tree)))
-             (cassert (equal count-change 0))
-             (return-from tree-mutate-unequal
-               (values tree count-change balance-needed-p)))
+         (when (eql result (cdr (i-node-n-values <tree> tree)))
+           (cassert (equal count-change 0))
+           (return-from tree-mutate-unequal
+             (values tree count-change balance-needed-p)))
 
-           (values
-            (node-n-copy-with-values <interface> tree
-                                     (cons (car (i-funcall node-n-values tree))
-                                           result))
-            count-change
-            balance-needed-p)))
+         (values
+          (node-n-copy-with-values <tree> tree
+                                   (cons (car (i-node-n-values <tree> tree))
+                                         result))
+          count-change
+          balance-needed-p)))
 
-        (t
-         (error "Invalid tree object: ~W" tree)))))
+      (t
+       (error "Invalid tree object: ~W" tree))))
 
-  (define-specializable-function tree-mutate-less (<interface>) (tree comparator key action-function)
-    (with-interface <interface>
-        (node-left insert-left-balancer remove-left-balancer)
-      (multiple-value-bind
-            (result count-change balance-needed-p)
-          (tree-mutate <interface> (i-funcall node-left tree) comparator key action-function)
-        (values
-         (if balance-needed-p
-             (if (plusp count-change)
-                 (i-funcall insert-left-balancer tree :left result)
-                 (i-funcall remove-left-balancer tree :left result))
-             (node-copy <interface> tree :left result))
-         count-change
-         balance-needed-p))))
+  (define-specializable-function tree-mutate-less (<tree>) (tree comparator key action-function)
+    (multiple-value-bind
+          (result count-change balance-needed-p)
+        (tree-mutate <tree> (i-node-left <tree> tree) comparator key action-function)
+      (values
+       (if balance-needed-p
+           (if (plusp count-change)
+               (i-insert-left-balancer <tree> tree :left result)
+               (i-remove-left-balancer <tree> tree :left result))
+           (node-copy <tree> tree :left result))
+       count-change
+       balance-needed-p)))
 
-  (define-specializable-function tree-mutate-greater (<interface>) (tree comparator key action-function)
-    (with-interface <interface>
-        (node-right insert-right-balancer remove-right-balancer)
-      (multiple-value-bind
-            (result count-change balance-needed-p)
-          (tree-mutate <interface> (i-funcall node-right tree) comparator key action-function)
-        (values
-         (if balance-needed-p
-             (if (plusp count-change)
-                 (i-funcall insert-right-balancer tree :right result)
-                 (i-funcall remove-right-balancer tree :right result))
-             (node-copy <interface> tree :right result))
-         count-change
-         balance-needed-p))))
+  (define-specializable-function tree-mutate-greater (<tree>) (tree comparator key action-function)
+    (multiple-value-bind
+          (result count-change balance-needed-p)
+        (tree-mutate <tree> (i-node-right <tree> tree) comparator key action-function)
+      (values
+       (if balance-needed-p
+           (if (plusp count-change)
+               (i-insert-right-balancer <tree> tree :right result)
+               (i-remove-right-balancer <tree> tree :right result))
+           (node-copy <tree> tree :right result))
+       count-change
+       balance-needed-p)))
 
-  (define-specializable-function tree-mutate (<interface>) (tree comparator key action-function)
-    (with-interface <interface>
-        (nil-type-p node-type-p)
-      (cond
-        ((i-funcall nil-type-p tree)
-         (tree-mutate-missing <interface> tree key action-function))
+  (define-specializable-function tree-mutate (<tree>) (tree comparator key action-function)
+    (cond
+      ((i-nil-type-p <tree> tree)
+       (tree-mutate-missing <tree> tree key action-function))
 
-        ((i-funcall node-type-p tree)
-         (multiple-value-bind (extracted-key extracted-value) (representative-key <interface> tree)
-           (let ((comparison (i-funcall comparator key extracted-key)))
-             (ecase comparison
-               (:less
-                (tree-mutate-less <interface> tree comparator key action-function))
-               (:greater
-                (tree-mutate-greater <interface> tree comparator key action-function))
-               (:unequal
-                (tree-mutate-unequal <interface> tree comparator key action-function))
-               (:equal
-                (tree-mutate-equal <interface> tree action-function extracted-key extracted-value))))))
+      ((i-node-type-p <tree> tree)
+       (multiple-value-bind (extracted-key extracted-value) (representative-key <tree> tree)
+         (let ((comparison (i-comparator <tree> key extracted-key)))
+           (ecase comparison
+             (:less
+              (tree-mutate-less <tree> tree comparator key action-function))
+             (:greater
+              (tree-mutate-greater <tree> tree comparator key action-function))
+             (:unequal
+              (tree-mutate-unequal <tree> tree comparator key action-function))
+             (:equal
+              (tree-mutate-equal <tree> tree action-function extracted-key extracted-value))))))
 
-        (t
-         (error "Invalid tree object: ~W" tree))))))
+      (t
+       (error "Invalid tree object: ~W" tree)))))
 
-(define-specializable-function tree-insert (<interface>) (tree comparator key value)
-  (with-interface <interface>
-      (map-p)
-    (tree-mutate
-     <interface>
-     tree
-     comparator
-     key
-     (if (i-funcall map-p)
-         (lambda (&optional extracted-key extracted-value)
-           (declare (ignore extracted-key extracted-value))
-           (values :insert value))
-         (lambda (&optional extracted-key)
-           (declare (ignore extracted-key))
-           :insert)))))
+(define-specializable-function tree-insert (<tree>) (tree comparator key value)
+  (tree-mutate
+   <tree>
+   tree
+   comparator
+   key
+   (if (i-map-p <tree>)
+       (lambda (&optional extracted-key extracted-value)
+         (declare (ignore extracted-key extracted-value))
+         (values :insert value))
+       (lambda (&optional extracted-key)
+         (declare (ignore extracted-key))
+         :insert))))
 
-(define-specializable-function tree-emplace (<interface>) (tree comparator key value)
-  (with-interface <interface>
-      (map-p)
-    (tree-mutate
-     <interface>
-     tree
-     comparator
-     key
-     (if (i-funcall map-p)
-         (lambda (&optional (extracted-key nil value-p) extracted-value)
-           (declare (ignore extracted-key extracted-value))
-           (unless value-p
-             (values :insert value)))
-         (lambda (&optional extracted-key)
-           (declare (ignore extracted-key))
-           :insert)))))
+(define-specializable-function tree-emplace (<tree>) (tree comparator key value)
+  (tree-mutate
+   <tree>
+   tree
+   comparator
+   key
+   (if (i-map-p <tree>)
+       (lambda (&optional (extracted-key nil value-p) extracted-value)
+         (declare (ignore extracted-key extracted-value))
+         (unless value-p
+           (values :insert value)))
+       (lambda (&optional extracted-key)
+         (declare (ignore extracted-key))
+         :insert))))
 
-(define-specializable-function make-map-tree (<interface>) (comparator &key alist plist)
-  (with-interface <interface>
-      (make-nil map-p)
-    (unless (i-funcall map-p)
-      (error "make-map-tree only works for maps"))
+(define-specializable-function make-map-tree (<tree>) (comparator &key alist plist)
+  (unless (i-map-p <tree>)
+    (error "make-map-tree only works for maps"))
 
-    (let ((tree (i-funcall make-nil))
-          (count 0))
-      (labels
-          ((add (key value)
-             (multiple-value-bind
-                   (result count-change balance-needed-p)
-                 (tree-emplace <interface> tree comparator key value)
-               (declare (ignore balance-needed-p))
-               (setf tree result)
-               (incf count count-change))))
-        (loop :with remaining-plist = plist :while remaining-plist
-              :for key = (pop remaining-plist)
-              :for value = (if remaining-plist
-                               (pop remaining-plist)
-                               (error "Odd number of items in plist"))
-              :do (add key value))
-        (loop :for pair :in alist
-              :for key = (car pair)
-              :for value = (cdr pair)
-              :do (add key value)))
-      (values tree count))))
+  (let ((tree (i-make-nil <tree>))
+        (count 0))
+    (labels
+        ((add (key value)
+           (multiple-value-bind
+                 (result count-change balance-needed-p)
+               (tree-emplace <tree> tree comparator key value)
+             (declare (ignore balance-needed-p))
+             (setf tree result)
+             (incf count count-change))))
+      (loop :with remaining-plist = plist :while remaining-plist
+            :for key = (pop remaining-plist)
+            :for value = (if remaining-plist
+                             (pop remaining-plist)
+                             (error "Odd number of items in plist"))
+            :do (add key value))
+      (loop :for pair :in alist
+            :for key = (car pair)
+            :for value = (cdr pair)
+            :do (add key value)))
+    (values tree count)))
 
-(define-specializable-function make-set-tree (<interface>) (comparator &key items)
-  (with-interface <interface>
-      (make-nil map-p)
-    (when (i-funcall map-p)
-      (error "make-set-tree only works for sets"))
+(define-specializable-function make-set-tree (<tree>) (comparator &key items)
+  (when (i-map-p <tree>)
+    (error "make-set-tree only works for sets"))
 
-    (let ((tree (i-funcall make-nil))
-          (count 0))
-      (labels
-          ((add (key)
-             (multiple-value-bind
-                   (result count-change balance-needed-p)
-                 (tree-emplace <interface> tree comparator key t)
-               (declare (ignore balance-needed-p))
-               (setf tree result)
-               (incf count count-change))))
-        (loop :for key :in items
-              :do (add key)))
-      (values tree count))))
+  (let ((tree (i-make-nil <tree>))
+        (count 0))
+    (labels
+        ((add (key)
+           (multiple-value-bind
+                 (result count-change balance-needed-p)
+               (tree-emplace <tree> tree comparator key t)
+             (declare (ignore balance-needed-p))
+             (setf tree result)
+             (incf count count-change))))
+      (loop :for key :in items
+            :do (add key)))
+    (values tree count)))
 
-(define-specializable-function tree-lookup (<interface>) (tree comparator key)
+(define-specializable-function tree-lookup (<tree>) (tree comparator key)
   ;; Is it actually faster to have a redundant copy of the
   ;; traversal logic that can't mutate rather than using the
   ;; mutator function w/ a mutator action that does a
@@ -609,303 +611,279 @@
   ;; Hypothetically, the less and greater paths below could
   ;; be TCO'd out and we could avoid introducing stack frames
   ;; as we traverse.
-  (with-interface <interface>
-      (nil-type-p node-type-p node-1-type-p node-left node-n-values node-right
-                  map-p)
-    (cond
-      ((i-funcall nil-type-p tree)
-       (values nil nil))
-      ((i-funcall node-type-p tree)
-       (multiple-value-bind (here-key here-value) (representative-key <interface> tree)
-         (ecase (i-funcall comparator key here-key)
-           (:less
-            (tree-lookup <interface> (i-funcall node-left tree) comparator key))
-           (:greater
-            (tree-lookup <interface> (i-funcall node-right tree) comparator key))
-           (:equal
-            (values here-value t))
-           (:unequal
-            (if (i-funcall node-1-type-p tree)
-                (values nil nil)
-                (if (i-funcall map-p)
-                    ;; We have already looked at the first element!
-                    (list-map-lookup comparator (cdr (i-funcall node-n-values tree)) key)
-                    (let ((member-p (list-set-is-member comparator (cdr (i-funcall node-n-values tree)) key)))
-                      (values member-p member-p)))))))))))
+  (cond
+    ((i-nil-type-p <tree> tree)
+     (values nil nil))
+    ((i-node-type-p <tree> tree)
+     (multiple-value-bind (here-key here-value) (representative-key <tree> tree)
+       (ecase (i-comparator <tree> key here-key)
+         (:less
+          (tree-lookup <tree> (i-node-left <tree> tree) comparator key))
+         (:greater
+          (tree-lookup <tree> (i-node-right <tree> tree) comparator key))
+         (:equal
+          (values here-value t))
+         (:unequal
+          (if (i-node-1-type-p <tree> tree)
+              (values nil nil)
+              (if (i-map-p <tree>)
+                  ;; We have already looked at the first element!
+                  (list-map-lookup comparator (cdr (i-node-n-values <tree> tree)) key)
+                  (let ((member-p (list-set-is-member comparator (cdr (i-node-n-values <tree> tree)) key)))
+                    (values member-p member-p))))))))))
 
-(define-specializable-function tree-remove (<interface>) (tree comparator key)
-  (with-interface <interface>
-      (map-p)
-    (let (value value-p)
-      (multiple-value-bind
-            (new-tree count-change)
-          (tree-mutate <interface> tree comparator key
-                       (lambda (&optional (extracted-key nil found-p)
-                                  (extracted-value (if (i-funcall map-p) nil t)))
-                         (declare (ignore extracted-key))
-                         (setf value extracted-value)
-                         (setf value-p found-p)
-                         :remove))
-        (cassert (or (and (zerop count-change) (null value-p))
-                     (and (equal -1 count-change) (not (null value-p)))))
-        (values new-tree value value-p count-change)))))
+(define-specializable-function tree-remove (<tree>) (tree comparator key)
+  (let (value value-p)
+    (multiple-value-bind
+          (new-tree count-change)
+        (tree-mutate <tree> tree comparator key
+                     (lambda (&optional (extracted-key nil found-p)
+                                (extracted-value (if (i-map-p <tree>) nil t)))
+                       (declare (ignore extracted-key))
+                       (setf value extracted-value)
+                       (setf value-p found-p)
+                       :remove))
+      (cassert (or (and (zerop count-change) (null value-p))
+                   (and (equal -1 count-change) (not (null value-p)))))
+      (values new-tree value value-p count-change))))
 
-(define-specializable-function tree-decompose (<interface>) (tree)
-  (with-interface <interface>
-      (nil-type-p node-left remove-left-balancer map-p)
-    (when (i-funcall nil-type-p tree)
-      (return-from tree-decompose (values tree nil nil)))
+(define-specializable-function tree-decompose (<tree>) (tree)
+  (when (i-nil-type-p <tree> tree)
+    (return-from tree-decompose (values tree nil nil)))
 
-    (labels
-        ((visit (tree)
-           (unless (i-funcall nil-type-p (i-funcall node-left tree))
-             (multiple-value-bind
-                   (new-tree value valid-p balance-needed-p)
-                 (visit (i-funcall node-left tree))
-               (return-from visit
-                 (values (if balance-needed-p
-                             (i-funcall remove-left-balancer tree :left new-tree)
-                             (node-copy <interface> tree :left new-tree))
-                         value
-                         valid-p
-                         balance-needed-p))))
+  (labels
+      ((visit (tree)
+         (unless (i-nil-type-p <tree> (i-node-left <tree> tree))
+           (multiple-value-bind
+                 (new-tree value valid-p balance-needed-p)
+               (visit (i-node-left <tree> tree))
+             (return-from visit
+               (values (if balance-needed-p
+                           (i-remove-left-balancer <tree> tree :left new-tree)
+                           (node-copy <tree> tree :left new-tree))
+                       value
+                       valid-p
+                       balance-needed-p))))
 
-           (let (extracted-key
-                 extracted-value)
-             (multiple-value-bind
-                   (new-tree count-change balance-needed-p)
-                 (tree-mutate <interface> tree (constantly :equal) nil
-                              (lambda (key &optional (value t))
-                                (setf extracted-key key)
-                                (setf extracted-value value)
-                                :remove))
-               (assert (equal -1 count-change))
-               (values new-tree
-                       (if (i-funcall map-p)
-                           (cons extracted-key extracted-value)
-                           extracted-key)
-                       t
-                       balance-needed-p)))))
-      (visit tree))))
+         (let (extracted-key
+               extracted-value)
+           (multiple-value-bind
+                 (new-tree count-change balance-needed-p)
+               (tree-mutate <tree> tree (constantly :equal) nil
+                            (lambda (key &optional (value t))
+                              (setf extracted-key key)
+                              (setf extracted-value value)
+                              :remove))
+             (assert (equal -1 count-change))
+             (values new-tree
+                     (if (i-map-p <tree>)
+                         (cons extracted-key extracted-value)
+                         extracted-key)
+                     t
+                     balance-needed-p)))))
+    (visit tree)))
 
-(define-specializable-function tree-for-each (<interface>) (tree function)
-  (with-interface <interface>
-      (nil-type-p node-left n-type-values node-1-key
-                  node-1-type-p node-1-value node-n-type-p node-right
-                  map-p)
-    (when (i-funcall nil-type-p tree)
-      (return-from tree-for-each))
+(define-specializable-function tree-for-each (<tree>) (tree function)
+  (when (i-nil-type-p <tree> tree)
+    (return-from tree-for-each))
 
-    (tree-for-each <interface> (i-funcall node-left tree) function)
-    (cond
-      ((i-funcall node-1-type-p tree)
-       (if (i-funcall map-p)
-           (i-funcall function (cons (i-funcall node-1-key tree) (i-funcall node-1-value tree)))
-           (i-funcall function (i-funcall node-1-key tree))))
-      ((i-funcall node-n-type-p tree)
-       (dolist (value (i-funcall n-type-values tree))
-         (if (i-funcall map-p)
-             (i-funcall function (cons (car value) (cdr value)))
-             (i-funcall function value))))
+  (tree-for-each <tree> (i-node-left <tree> tree) function)
+  (cond
+    ((i-node-1-type-p <tree> tree)
+     (if (i-map-p <tree>)
+         (funcall function (cons (i-node-1-key <tree> tree) (i-node-1-value <tree> tree)))
+         (funcall function (i-node-1-key <tree> tree))))
+    ((i-node-n-type-p <tree> tree)
+     (dolist (value (i-n-type-values <tree> tree))
+       (if (i-map-p <tree>)
+           (funcall function (cons (car value) (cdr value)))
+           (funcall function value))))
 
-      (t
-       (error "Invalid tree node: ~W" tree)))
-    (tree-for-each <interface> (i-funcall node-right tree) function)))
+    (t
+     (error "Invalid tree node: ~W" tree)))
+  (tree-for-each <tree> (i-node-right <tree> tree) function))
 
-(define-specializable-function tree-to-list (<interface>) (tree)
+(define-specializable-function tree-to-list (<tree>) (tree)
   (let ((builder (make-impure-list-builder)))
     (tree-for-each
-     <interface> tree
+     <tree> tree
      (lambda (object) (impure-list-builder-add builder object)))
     (impure-list-builder-extract builder)))
 
-(define-specializable-function tree-map-members (<interface>) (tree comparator function)
-  (with-interface <interface>
-      (map-p)
-    (let ((builder (make-impure-list-builder)))
-      (tree-for-each
-       <interface> tree
-       (lambda (item)
-         (impure-list-builder-add builder (i-funcall function item))))
-      (if (i-funcall map-p)
-          (make-map-tree <interface> comparator :alist (impure-list-builder-extract builder))
-          (make-set-tree <interface> comparator :items (impure-list-builder-extract builder))))))
+(define-specializable-function tree-map-members (<tree>) (tree comparator function)
+  (let ((builder (make-impure-list-builder)))
+    (tree-for-each
+     <tree> tree
+     (lambda (item)
+       (impure-list-builder-add builder (funcall function item))))
+    (if (i-map-p <tree>)
+        (make-map-tree <tree> comparator :alist (impure-list-builder-extract builder))
+        (make-set-tree <tree> comparator :items (impure-list-builder-extract builder)))))
 
-(define-specializable-function tree-map-entries (<interface>) (tree function)
-  (with-interface <interface>
-      (nil-type-p node-1-type-p node-1-copy node-n-type-p node-n-copy node-left node-right
-                  node-1-key node-1-value node-n-values map-p)
-    (unless (i-funcall map-p)
-      (error "TREE-MAP-ENTRIES only works on maps"))
+(define-specializable-function tree-map-entries (<tree>) (tree function)
+  (unless (i-map-p <tree>)
+    (error "TREE-MAP-ENTRIES only works on maps"))
 
+  (cond
+    ((i-nil-type-p <tree> tree)
+     tree)
+
+    ((i-node-1-type-p <tree> tree)
+     (i-node-1-copy <tree> tree
+                    :left (tree-map-entries <tree> (i-node-left <tree> tree) function)
+                    :right (tree-map-entries <tree> (i-node-right <tree> tree) function)
+                    :value (funcall function
+                                    (i-node-1-key <tree> tree)
+                                    (i-node-1-value <tree> tree))))
+
+    ((i-node-n-type-p <tree> tree)
+     (i-node-n-copy <tree> tree
+                    :left (tree-map-entries <tree> (i-node-left <tree> tree) function)
+                    :right (tree-map-entries <tree> (i-node-right <tree> tree) function)
+                    :values (list-map-map-entries (i-node-n-values <tree> tree) function)))
+
+    (t
+     (error "Invalid tree: ~W" tree))))
+
+(define-specializable-function tree-node-value-iterator (<tree>) (tree)
+  (cond
+    ((i-node-1-type-p <tree> tree)
+     (singleton-iterator
+      (if (i-map-p <tree>)
+          (cons (i-node-1-key <tree> tree) (i-node-1-value <tree> tree))
+          (i-node-1-key <tree> tree))))
+
+    ((i-node-n-type-p <tree> tree)
+     (list-iterator (i-node-n-values <tree> tree)))
+
+    (t
+     (error "Invalid tree node: ~W" tree))))
+
+(define-specializable-function tree-iterator (<tree>) (tree)
+  (when (i-nil-type-p <tree> tree)
+    (return-from tree-iterator
+      (empty-iterator)))
+
+  (let (stack)
+    (labels
+        ((push-node (node)
+           (unless (i-nil-type-p <tree> node)
+             (push (list (i-node-left <tree> node)
+                         (tree-node-value-iterator <tree> node)
+                         (i-node-right <tree> node))
+                   stack))))
+      (push-node tree)
+      (lambda ()
+        (loop
+          (unless stack
+            (return (values nil nil)))
+
+          (let ((tip (car stack)))
+            (destructuring-bind (tip-left tip-node-iter tip-right) tip
+              (cond
+                (tip-left
+                 (push-node tip-left)
+                 (setf (first tip) nil))
+
+                (tip-node-iter
+                 (multiple-value-bind (value valid-p) (i-tip-node-iter <tree>)
+                   (if valid-p
+                       (return (values value valid-p))
+                       (setf (second tip) nil))))
+
+                (t
+                 (assert tip-right)
+                 ;; Instead of setting this element to nil, let's
+                 ;; just drop the whole frame.  We don't need it
+                 ;; any more!
+                 (pop stack)
+                 (push-node tip-right))))))))))
+
+(define-specializable-function tree-print-graphviz (<tree>) (tree stream id-vendor)
+  (let ((id (next-graphviz-id id-vendor))
+        (properties (make-hash-table :test #'equal)))
+
+    (format stream "ID~A [" id)
+
+    (setf (gethash "shape" properties) "box")
     (cond
-      ((i-funcall nil-type-p tree)
-       tree)
+      ((i-nil-type-p <tree> tree)
+       (setf (gethash "label" properties) nil)
+       (setf (gethash "shape" properties) "diamond"))
 
-      ((i-funcall node-1-type-p tree)
-       (i-funcall node-1-copy tree
-                  :left (tree-map-entries <interface> (i-funcall node-left tree) function)
-                  :right (tree-map-entries <interface> (i-funcall node-right tree) function)
-                  :value (i-funcall function
-                                    (i-funcall node-1-key tree)
-                                    (i-funcall node-1-value tree))))
+      ((i-node-1-type-p <tree> tree)
+       (setf (gethash "label" properties)
+             (if (i-map-p <tree>)
+                 (cons (i-node-1-key <tree> tree) (i-node-1-value <tree> tree))
+                 (i-node-1-key <tree> tree))))
 
-      ((i-funcall node-n-type-p tree)
-       (i-funcall node-n-copy tree
-                  :left (tree-map-entries <interface> (i-funcall node-left tree) function)
-                  :right (tree-map-entries <interface> (i-funcall node-right tree) function)
-                  :values (list-map-map-entries (i-funcall node-n-values tree) function)))
+      ((i-node-n-type-p <tree> tree)
+       (setf (gethash "label" properties) (i-node-n-values <tree> tree)))
+
+      (t
+       (error "Invalid tree: ~W" tree)))
+
+    (i-prepare-graphviz-properties <tree> tree properties)
+
+    (loop :for key :being :the :hash-keys :of properties
+            :using (:hash-value value) :do
+              (format stream " ~A=~A" (graphviz-quote key) (graphviz-quote value)))
+
+    (format stream " ]~%")
+
+    (unless (i-nil-type-p <tree> tree)
+      (let ((child-id (tree-print-graphviz <tree> (i-node-left <tree> tree) stream id-vendor)))
+        (format stream "ID~A -> ID~A~%" id child-id))
+      (let ((child-id (tree-print-graphviz <tree> (i-node-right <tree> tree) stream id-vendor)))
+        (format stream "ID~A -> ID~A~%" id child-id)))
+    id))
+
+(define-specializable-function check-tree-order (<tree>) (tree comparator)
+  (when (i-nil-type-p <tree> tree)
+    (return-from check-tree-order))
+
+  (let ((left (i-node-left <tree> tree))
+        (right (i-node-right <tree> tree))
+        (here-key (i-representative-key <tree> tree)))
+    (unless (i-nil-type-p <tree> left)
+      (cassert (eq :less (i-comparator <tree>
+                                       (i-representative-key <tree> left)
+                                       here-key))
+               nil "Left child must be less than its parent"))
+    (unless (i-nil-type-p <tree> right)
+      (cassert (eq :greater (i-comparator <tree>
+                                          (i-representative-key <tree> right)
+                                          here-key))
+               nil "Right child must be less than its parent"))
+
+    (check-tree-order <tree> left comparator)
+    (check-tree-order <tree> right comparator)))
+
+(define-specializable-function check-tree-count (<tree>) (tree)
+  (when (i-nil-type-p <tree> tree)
+    (return-from check-tree-count 0))
+
+  (let* ((left (i-node-left <tree> tree))
+         (left-count (check-tree-count <tree> left))
+         (right (i-node-right <tree> tree))
+         (right-count (check-tree-count <tree> right))
+         (children-count (+ left-count right-count)))
+    (cond
+      ((i-node-1-type-p <tree> tree)
+       (+ 1 children-count))
+
+      ((i-node-n-type-p <tree> tree)
+       (cassert (cdr (i-node-n-values <tree> tree))
+                nil "n-type nodes must have multiple values")
+       (+ (length (i-node-n-values <tree> tree))
+          children-count))
 
       (t
        (error "Invalid tree: ~W" tree)))))
 
-(define-specializable-function tree-node-value-iterator (<interface>) (tree)
-  (with-interface <interface>
-      (node-1-type-p node-n-type-p node-1-key node-1-value node-n-values
-                     map-p)
-    (cond
-      ((i-funcall node-1-type-p tree)
-       (singleton-iterator
-        (if (i-funcall map-p)
-            (cons (i-funcall node-1-key tree) (i-funcall node-1-value tree))
-            (i-funcall node-1-key tree))))
-
-      ((i-funcall node-n-type-p tree)
-       (list-iterator (i-funcall node-n-values tree)))
-
-      (t
-       (error "Invalid tree node: ~W" tree)))))
-
-(define-specializable-function tree-iterator (<interface>) (tree)
-  (with-interface <interface>
-      (nil-type-p node-left node-right)
-    (when (i-funcall nil-type-p tree)
-      (return-from tree-iterator
-        (empty-iterator)))
-
-    (let (stack)
-      (labels
-          ((push-node (node)
-             (unless (i-funcall nil-type-p node)
-               (push (list (i-funcall node-left node)
-                           (tree-node-value-iterator <interface> node)
-                           (i-funcall node-right node))
-                     stack))))
-        (push-node tree)
-        (lambda ()
-          (loop
-            (unless stack
-              (return (values nil nil)))
-
-            (let ((tip (car stack)))
-              (destructuring-bind (tip-left tip-node-iter tip-right) tip
-                (cond
-                  (tip-left
-                   (push-node tip-left)
-                   (setf (first tip) nil))
-
-                  (tip-node-iter
-                   (multiple-value-bind (value valid-p) (i-funcall tip-node-iter)
-                     (if valid-p
-                         (return (values value valid-p))
-                         (setf (second tip) nil))))
-
-                  (t
-                   (assert tip-right)
-                   ;; Instead of setting this element to nil, let's
-                   ;; just drop the whole frame.  We don't need it
-                   ;; any more!
-                   (pop stack)
-                   (push-node tip-right)))))))))))
-
-(define-specializable-function tree-print-graphviz (<interface>) (tree stream id-vendor)
-  (with-interface <interface>
-      (nil-type-p node-1-type-p node-n-type-p
-                  node-1-key node-1-value node-n-values
-                  prepare-graphviz-properties node-left node-right
-                  map-p)
-    (let ((id (next-graphviz-id id-vendor))
-          (properties (make-hash-table :test #'equal)))
-
-      (format stream "ID~A [" id)
-
-      (setf (gethash "shape" properties) "box")
-      (cond
-        ((i-funcall nil-type-p tree)
-         (setf (gethash "label" properties) nil)
-         (setf (gethash "shape" properties) "diamond"))
-
-        ((i-funcall node-1-type-p tree)
-         (setf (gethash "label" properties)
-               (if (i-funcall map-p)
-                   (cons (i-funcall node-1-key tree) (i-funcall node-1-value tree))
-                   (i-funcall node-1-key tree))))
-
-        ((i-funcall node-n-type-p tree)
-         (setf (gethash "label" properties) (i-funcall node-n-values tree)))
-
-        (t
-         (error "Invalid tree: ~W" tree)))
-
-      (i-funcall prepare-graphviz-properties tree properties)
-
-      (loop :for key :being :the :hash-keys :of properties
-              :using (:hash-value value) :do
-                (format stream " ~A=~A" (graphviz-quote key) (graphviz-quote value)))
-
-      (format stream " ]~%")
-
-      (unless (i-funcall nil-type-p tree)
-        (let ((child-id (tree-print-graphviz <interface> (i-funcall node-left tree) stream id-vendor)))
-          (format stream "ID~A -> ID~A~%" id child-id))
-        (let ((child-id (tree-print-graphviz <interface> (i-funcall node-right tree) stream id-vendor)))
-          (format stream "ID~A -> ID~A~%" id child-id)))
-      id)))
-
-(define-specializable-function check-tree-order (<interface>) (tree comparator)
-  (with-interface <interface>
-      (nil-type-p node-left node-right representative-key)
-    (when (i-funcall nil-type-p tree)
-      (return-from check-tree-order))
-
-    (let ((left (i-funcall node-left tree))
-          (right (i-funcall node-right tree))
-          (here-key (i-funcall representative-key tree)))
-      (unless (i-funcall nil-type-p left)
-        (cassert (eq :less (i-funcall comparator
-                                      (i-funcall representative-key left)
-                                      here-key))
-                 nil "Left child must be less than its parent"))
-      (unless (i-funcall nil-type-p right)
-        (cassert (eq :greater (i-funcall comparator
-                                         (i-funcall representative-key right)
-                                         here-key))
-                 nil "Right child must be less than its parent"))
-
-      (check-tree-order <interface> left comparator)
-      (check-tree-order <interface> right comparator))))
-
-(define-specializable-function check-tree-count (<interface>) (tree)
-  (with-interface <interface>
-      (nil-type-p node-1-type-p node-n-type-p node-left node-right
-                  node-n-values)
-    (when (i-funcall nil-type-p tree)
-      (return-from check-tree-count 0))
-
-    (let* ((left (i-funcall node-left tree))
-           (left-count (check-tree-count <interface> left))
-           (right (i-funcall node-right tree))
-           (right-count (check-tree-count <interface> right))
-           (children-count (+ left-count right-count)))
-      (cond
-        ((i-funcall node-1-type-p tree)
-         (+ 1 children-count))
-
-        ((i-funcall node-n-type-p tree)
-         (cassert (cdr (i-funcall node-n-values tree))
-                  nil "n-type nodes must have multiple values")
-         (+ (length (i-funcall node-n-values tree))
-            children-count))
-
-        (t
-         (error "Invalid tree: ~W" tree))))))
+(define-specializable-function rotate-left (<tree>) (root &optional
+                                                          (left-child (i-(interface-get <tree> 'node-left) <tree> root))
+                                                          (right-child (i-(interface-get <tree> 'node-right) <tree> root)))
+  (node-copy <tree> right-child
+             :left (node-copy root :left left-child :right (i-(interface-get <tree> ) <tree>))
+             :right right-child))
