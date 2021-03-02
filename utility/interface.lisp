@@ -24,7 +24,7 @@
   (:import-from :pfds.shcl.io/utility/immutable-structure
    #:define-immutable-structure)
   (:import-from :pfds.shcl.io/utility/forwarding
-   #:make-forwarding-lambda)
+   #:make-forwarding-lambda #:make-forwarding-method)
   (:import-from :alexandria)
   (:export
    #:define-interface
@@ -40,6 +40,7 @@
 
    #:define-interface-function-invoker
    #:define-interface-function
+   #:define-interface-methods
    #:declaim-signature
    #:proclaim-signature))
 (in-package :pfds.shcl.io/utility/interface)
@@ -392,6 +393,21 @@ it with care!"
        (define-compiler-macro ,wrapper-name (,interface &rest ,rest)
          `(i-funcall (interface-get ,,interface ',',interface-function-name) ,@,rest)))))
 
+(eval-when (:compile-toplevel :load-toplevel :execute)
+  (defun n-specializer (count generic-name class-name interface interface-function-name)
+    (let ((lambda-list (interface-function-lambda-list interface-function-name)))
+      (make-forwarding-method generic-name lambda-list `(interface-get ,interface ',interface-function-name)
+                              :specializers (loop :for i :below count :collect class-name))))
+
+  (defun single-specializer (generic-name class-name interface interface-function-name)
+    (n-specializer 1 generic-name class-name interface interface-function-name))
+
+  (defun double-specializer (generic-name class-name interface interface-function-name)
+    (n-specializer 2 generic-name class-name interface interface-function-name)))
+
+(defconstant +method-generator+ '+method-generator+)
+(defconstant +generic-name+ '+generic-name+)
+
 (defmacro define-interface-function (function-name lambda-list
                                      &key documentation
                                        (invoker (when (symbolp function-name)
@@ -415,3 +431,15 @@ it with care!"
      ,(when (and generic-name method-generator)
         `(setf (get+ ',function-name +method-generator+) ',method-generator))
      ',function-name))
+
+(defmacro define-interface-methods (instance class-name &environment env)
+  (setf instance (macroexpand instance env))
+  `(progn
+     ,@(loop :for interface-record :in (interface-functions instance)
+             :for interface-function-name = (car interface-record)
+             :for generator = (get+ interface-function-name +method-generator+)
+             :for generic-name = (get+ interface-function-name +generic-name+)
+             :when (and generator generic-name)
+               :collect
+               (funcall generator generic-name class-name instance interface-function-name))
+     ',class-name))

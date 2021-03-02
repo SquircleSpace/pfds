@@ -14,12 +14,15 @@
 
 (uiop:define-package :pfds.shcl.io/utility/specialization
   (:use :common-lisp)
-  (:import-from :pfds.shcl.io/utility/misc #:get+ #:fully-expand)
+  (:import-from :pfds.shcl.io/utility/misc #:get+ #:fully-expand #:intern-conc)
   (:import-from :alexandria)
   (:export
    #:define-specializable-function
    #:mutually-recursive-specializable-functions
-   #:specialize))
+   #:specialize
+   #:specialize*
+   #:named-specialize*
+   #:find-specialization))
 (in-package :pfds.shcl.io/utility/specialization)
 
 (defclass specialization-record ()
@@ -198,13 +201,13 @@
          ,@(nreverse post-forms)))))
 
 (eval-when (:compile-toplevel :load-toplevel :execute)
-  (defun %recursive-specialize (function-name interface-arguments environment seen-table)
+  (defun %recursive-specialize (function-name interface-arguments environment seen-table name-table)
     (let ((target (cons function-name interface-arguments)))
       (when (nth-value 1 (gethash (cons function-name interface-arguments) seen-table))
         (return-from %recursive-specialize))
 
       (setf (gethash target seen-table)
-            `(specialize-1 ,function-name ,@interface-arguments)))
+            `(specialize-1 ,function-name ,(gethash function-name name-table) ,@interface-arguments)))
 
     (let* ((record (or (specialization-record function-name)
                        (error "Couldn't find a specializable function named ~W" function-name)))
@@ -222,14 +225,18 @@
         (loop :for dependency :in dependencies
               :for mapped-arguments = (build-args (cdr dependency))
               :when mapped-arguments :do
-                (%recursive-specialize (car dependency) mapped-arguments environment seen-table)))))
+                (%recursive-specialize (car dependency) mapped-arguments environment seen-table name-table)))))
+
+  (defun seen-table-generate (table)
+    `(progn
+       ,@(loop :for form :being :the :hash-values :of table
+               :collect form)))
 
   (defun recursive-specialize (name interface-arguments &optional environment)
     (let ((table (make-hash-table :test #'equal)))
-      (%recursive-specialize name interface-arguments environment table)
+      (%recursive-specialize name interface-arguments environment table (make-hash-table))
       `(progn
-         ,@(loop :for form :being :the :hash-values :of table
-                 :collect form)
+         ,(seen-table-generate table)
          ',name))))
 
 (defun record-specialization (name arguments target)
@@ -240,7 +247,32 @@
 (defmacro specialize (name &rest interface-arguments &environment env)
   (recursive-specialize name interface-arguments env))
 
-(defmacro specialize-1 (name &rest interface-arguments &environment env)
+(defmacro specialize* (&body records)
+  `(named-specialize*
+     ,@(loop :for record :in records
+             :collect `(nil ,record))))
+
+(defmacro named-specialize* (&body records &environment env)
+  (let (last-name
+        (table (make-hash-table :test #'equal))
+        (preferred-names (make-hash-table :test #'equal)))
+    (dolist (record records)
+      (destructuring-bind (preferred-name (function-name &rest arguments)) record
+        (declare (ignore arguments))
+        (when (nth-value 1 (gethash function-name preferred-names))
+          (error "Function is specialized twice: ~W" function-name))
+        (when preferred-name
+          (setf (gethash function-name preferred-names) preferred-name))
+        (setf last-name preferred-name)))
+    (dolist (record records)
+      (destructuring-bind (preferred-name (name &rest arguments)) record
+        (declare (ignore preferred-name))
+        (%recursive-specialize name arguments env table preferred-names)))
+    `(progn
+       ,(seen-table-generate table)
+       ',last-name)))
+
+(defmacro specialize-1 (name &optional preferred-name &rest interface-arguments &environment env)
   (dolist (arg interface-arguments)
     (unless (or (constantp arg env)
                 (constantp (macroexpand arg env) env))
@@ -248,7 +280,7 @@
   (let* ((specialization-record (or (specialization-record name) (error "~W isn't specializable" name)))
          (provided-length (length interface-arguments))
          (expected-length (length (slot-value specialization-record '%interfaces)))
-         (specialization-name (gensym (format nil "~A-~A" name interface-arguments)))
+         (specialization-name (or preferred-name (gensym (format nil "~A-~A" name interface-arguments))))
          (specialization-defun (make-specialization-defun
                                 specialization-name
                                 (slot-value specialization-record '%name)

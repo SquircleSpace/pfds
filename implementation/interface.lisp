@@ -38,8 +38,6 @@
    #:make-forwarding-method)
   (:import-from :alexandria)
   (:export
-   #:define-interface-methods
-
    #:collection-to-list
 
    #:<<comparable>>
@@ -210,33 +208,6 @@
    #:i-make-seq))
 (in-package :pfds.shcl.io/implementation/interface)
 
-(eval-when (:compile-toplevel :load-toplevel :execute)
-  (defun n-specializer (count generic-name class-name interface interface-function-name)
-    (let ((lambda-list (interface-function-lambda-list interface-function-name)))
-      (make-forwarding-method generic-name lambda-list `(interface-get ,interface ',interface-function-name)
-                              :specializers (loop :for i :below count :collect class-name))))
-
-  (defun single-specializer (generic-name class-name interface interface-function-name)
-    (n-specializer 1 generic-name class-name interface interface-function-name))
-
-  (defun double-specializer (generic-name class-name interface interface-function-name)
-    (n-specializer 2 generic-name class-name interface interface-function-name)))
-
-(defconstant +method-generator+ '+method-generator+)
-(defconstant +generic-name+ '+generic-name+)
-
-(defmacro define-interface-methods (instance class-name &environment env)
-  (setf instance (macroexpand instance env))
-  `(progn
-     ,@(loop :for interface-record :in (interface-functions instance)
-             :for interface-function-name = (car interface-record)
-             :for generator = (get+ interface-function-name +method-generator+)
-             :for generic-name = (get+ interface-function-name +generic-name+)
-             :when (and generator generic-name)
-               :collect
-               (funcall generator generic-name class-name instance interface-function-name))
-     ',class-name))
-
 (define-interface-function compare (left right)
   :documentation
   "Compare and determine ordering between two objects of the same type.
@@ -261,9 +232,9 @@ This function can return :LESS, :GREATER, :EQUAL, or :UNEQUAL."
   (let ((id-vendor (gensym "ID-VENDOR")))
     (setf (symbol-value id-vendor) 0)
     (format stream "digraph {~%")
-    (when interface
-      (i-print-graphviz interface object stream id-vendor)
-      (g-print-graphviz object stream id-vendor))
+    (if interface
+        (i-print-graphviz interface object stream id-vendor)
+        (g-print-graphviz object stream id-vendor))
     (format stream "}~%"))
   (values))
 

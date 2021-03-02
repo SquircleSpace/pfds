@@ -16,8 +16,11 @@
   (:use :common-lisp)
   (:use :pfds.shcl.io/utility/interface)
   (:use :pfds.shcl.io/implementation/interface)
+  (:import-from :pfds.shcl.io/utility/specialization
+   #:define-specializable-function
+   #:named-specialize*)
   (:import-from :pfds.shcl.io/utility/iterator-tools
-   #:compare-sets #:compare-maps #:iterator-flatten #:compare-collection-contents)
+   #:compare-ordered-sets #:compare-maps #:iterator-flatten #:compare-collection-contents)
   (:import-from :pfds.shcl.io/utility/compare
    #:compare-objects #:compare)
   (:import-from :pfds.shcl.io/utility/immutable-structure
@@ -26,8 +29,7 @@
    #:intern-conc #:cassert)
   (:import-from :pfds.shcl.io/utility/printer
    #:print-map #:print-set #:print-sequence)
-  (:import-from :pfds.shcl.io/utility/tree
-   #:define-tree #:node-left #:node-right #:nil-tree-p)
+  (:use :pfds.shcl.io/utility/tree)
   (:export
    #:make-weight-balanced-set
    #:weight-balanced-set-p
@@ -57,161 +59,200 @@
 (defun alpha-balance ()
   2)
 
-(defgeneric tree-size (tree))
+(define-interface-function tree-weight (tree)
+  :define-generic nil)
 
-(defun check-wb-invariants (tree)
-  (when (nil-tree-p tree)
-    (return-from check-wb-invariants))
+(define-specializable-function check-balance (<tree>) (tree)
+  (when (i-nil-type-p <tree> tree)
+    (return-from check-balance))
 
-  (let* ((left (node-left tree))
-         (left-size (tree-size left))
-         (right (node-right tree))
-         (right-size (tree-size right)))
+  (let* ((left (i-node-left <tree> tree))
+         (left-size (i-tree-weight <tree> left))
+         (right (i-node-right <tree> tree))
+         (right-size (i-tree-weight <tree> right)))
     (when (<= 2 (+ left-size right-size))
       (cassert (<= right-size (* (omega-balance) left-size)))
       (cassert (<= left-size (* (omega-balance) right-size))))
-    (cassert (equal (tree-size tree)
+    (cassert (equal (i-tree-weight <tree> tree)
                     (+ 1 left-size right-size)))
-    (check-wb-invariants left)
-    (check-wb-invariants right)))
+    (check-balance <tree> left)
+    (check-balance <tree> right)))
 
-(defmacro define-balance-operations (base-name)
-  (let ((copy-node-base (intern-conc *package* "COPY-" base-name "-NODE"))
-        (nil-type (intern-conc *package* base-name "-NIL"))
-        (node-type (intern-conc *package* base-name "-NODE"))
-        (node-type-right (intern-conc *package* base-name "-NODE-RIGHT"))
-        (node-type-left (intern-conc *package* base-name "-NODE-LEFT"))
-        (node-type-size (intern-conc *package* base-name "-NODE-SIZE"))
-        (balance (intern-conc *package* base-name "-BALANCE"))
-        (rotate-left (gensym "ROTATE-LEFT"))
-        (rotate-right (gensym "ROTATE-RIGHT"))
-        (rotate-double-left (gensym "ROTATE-DOUBLE-LEFT"))
-        (rotate-double-right (gensym "ROTATE-DOUBLE-RIGHT"))
-        (size (gensym "SIZE"))
-        (copy-node+ (gensym "COPY-NODE+")))
-    `(progn
-       (declaim (inline ,size))
-       (defun ,size (tree)
-         (etypecase tree
-           (,nil-type
-            0)
-           (,node-type
-            (,node-type-size tree))))
+(define-specializable-function balance (<tree>) (tree left right)
+  (let ((left-size (i-tree-weight <tree> left))
+        (right-size (i-tree-weight <tree> right)))
+    (cond
+      ((< (+ left-size right-size) 2)
+       (node-copy <tree> tree left right))
 
-       (declaim (inline ,copy-node+))
-       (defun ,copy-node+ (tree &key (left (,node-type-left tree)) (right (,node-type-right tree)))
-         (,copy-node-base tree :left left :right right :size (+ 1 (,size left) (,size right))))
+      ((> right-size (* (omega-balance) left-size))
+       (let ((right-left-size (i-tree-weight <tree> (i-node-left <tree> right)))
+             (right-right-size (i-tree-weight <tree> (i-node-right <tree> right))))
+         (if (< right-left-size (* (alpha-balance) right-right-size))
+             (tree-rotate-left <tree> tree left right)
+             (tree-rotate-double-left <tree> tree left right))))
 
-       (defun ,rotate-left (tree left right)
-         (,copy-node+ right :left (,copy-node+ tree :left left :right (,node-type-left right))))
+      ((> left-size (* (omega-balance) right-size))
+       (let ((left-left-size (i-tree-weight <tree> (i-node-left <tree> left)))
+             (left-right-size (i-tree-weight <tree> (i-node-right <tree> left))))
+         (if (< left-right-size (* (alpha-balance) left-left-size))
+             (tree-rotate-right <tree> tree left right)
+             (tree-rotate-double-right <tree> tree left right))))
 
-       (defun ,rotate-right (tree left right)
-         (,copy-node+ left :right (,copy-node+ tree :left (,node-type-right left) :right right)))
+      (t
+       (node-copy <tree> tree left right)))))
 
-       (defun ,rotate-double-left (tree left right)
-         (let* ((right-left (,node-type-left right))
-                (right-left-left (,node-type-left right-left))
-                (right-left-right (,node-type-right right-left)))
-           (,copy-node+ right-left
-                              :left (,copy-node+ tree :left left :right right-left-left)
-                              :right (,copy-node+ right :left right-left-right))))
+(define-tree-type (wb-set :map-p nil)
+  (weight 1 :type (integer 1)))
 
-       (defun ,rotate-double-right (tree left right)
-         (let* ((left-right (,node-type-right left))
-                (left-right-right (,node-type-right left-right))
-                (left-right-left (,node-type-left left-right)))
-           (,copy-node+ left-right
-                              :left (,copy-node+ left :right left-right-left)
-                              :right (,copy-node+ tree :left left-right-right :right right))))
+(defun wb-set-weight (tree)
+  (etypecase tree
+    (wb-set-nil
+     0)
+    (wb-set-node
+     (wb-set-node-weight tree))))
 
-       (defun ,balance (tree &key (left (,node-type-left tree)) (right (,node-type-right tree)))
-         (let ((left-size (,size left))
-               (right-size (,size right)))
-           (cond
-             ((< (+ left-size right-size) 2)
-              (,copy-node+ tree :left left :right right))
+(define-interface <<wb-set>> (<<base-wb-set>> <<rotations>>)
+  tree-weight)
 
-             ((> right-size (* (omega-balance) left-size))
-              (let ((right-left-size (,size (,node-type-left right)))
-                    (right-right-size (,size (,node-type-right right))))
-                (if (< right-left-size (* (alpha-balance) right-right-size))
-                    (,rotate-left tree left right)
-                    (,rotate-double-left tree left right))))
+(defun copy-wb-set-node-1+ (node &key (left (wb-set-node-left node))
+                                   (right (wb-set-node-right node))
+                                   (key (wb-set-node-1-key node)))
+  (copy-wb-set-node-1
+   node
+   :left left
+   :right right
+   :key key
+   :weight (+ 1
+              (wb-set-weight left)
+              (wb-set-weight right))))
 
-             ((> left-size (* (omega-balance) right-size))
-              (let ((left-left-size (,size (,node-type-left left)))
-                    (left-right-size (,size (,node-type-right left))))
-                (if (< left-right-size (* (alpha-balance) left-left-size))
-                    (,rotate-right tree left right)
-                    (,rotate-double-right tree left right))))
+(defun copy-wb-set-node-n+ (node &key (left (wb-set-node-left node))
+                                   (right (wb-set-node-right node))
+                                   (values (wb-set-node-n-values node)))
+  (copy-wb-set-node-n
+   node
+   :left left
+   :right right
+   :values values
+   :weight (+ 1
+              (wb-set-weight left)
+              (wb-set-weight right))))
 
-             (t
-              (,copy-node+ tree :left left :right right))))))))
+(define-interface-instance <wb-set> <<wb-set>>
+  'node-1-copy 'copy-wb-set-node-1+
+  'node-n-copy 'copy-wb-set-node-n+
 
-(define-tree wb-set (:map-p nil
-                     :insert-left-balancer wb-set-balance
-                     :insert-right-balancer wb-set-balance
-                     :remove-left-balancer wb-set-balance
-                     :remove-right-balancer wb-set-balance)
-  (size 1 :type (integer 1)))
+  'insert-left-balancer 'wb-set-balance
+  'insert-right-balancer 'wb-set-balance
+  'remove-left-balancer 'wb-set-balance
+  'remove-right-balancer 'wb-set-balance
 
-(define-balance-operations wb-set)
+  'mutate 'wb-set-mutate
+
+  'rotate-left 'wb-set-rotate-left
+  'rotate-right 'wb-set-rotate-right
+  'rotate-double-left 'wb-set-rotate-double-left
+  'rotate-double-right 'wb-set-rotate-double-right
+
+  'tree-weight 'wb-set-weight)
+
+(named-specialize*
+  (wb-set-balance (balance <wb-set>))
+  (wb-set-mutate (tree-mutate <wb-set>))
+  (wb-set-rotate-left (tree-rotate-left <wb-set>))
+  (wb-set-rotate-right (tree-rotate-right <wb-set>))
+  (wb-set-rotate-double-left (tree-rotate-double-left <wb-set>))
+  (wb-set-rotate-double-right (tree-rotate-double-right <wb-set>))
+  (make-wb-set (make-set-tree <wb-set>))
+  (wb-set-to-list (tree-to-list <wb-set>))
+  (wb-set-for-each (tree-for-each <wb-set>))
+  (wb-set-map-members (tree-map-members <wb-set>))
+  (wb-set-iterator (tree-iterator <wb-set>))
+  (wb-set-check-balance (check-balance <wb-set>))
+  (wb-set-check-tree-order (check-tree-order <wb-set>))
+  (wb-set-check-tree-count (check-tree-count <wb-set>)))
 
 (define-immutable-structure (weight-balanced-set (:constructor %make-weight-balanced-set))
-  (tree (wb-set-nil) :type wb-set)
-  ;; The nodes of the tree store the "weight", not that count!  Weight
-  ;; is a measure of the size of the tree and ignores multiplicity due
-  ;; to unequal items.
+  (tree (make-wb-set-nil) :type wb-set)
+  ;; The nodes of the tree store the "weight", not the element count!
+  ;; Weight is a measure of the size of the tree itself and ignores
+  ;; multiplicity due to unequal items.
   (size 0 :type (integer 0))
   (comparator (error "comparator is required")))
 
-(declare-interface-conformance weight-balanced-set ordered-set)
+(define-interface <<weight-balanced-set>> (<<ordered-set>> <<tree-wrapper>>))
+
+(define-simple-interface-instance <weight-balanced-set> <<weight-balanced-set>> weight-balanced-set-
+  'make-wrapper '%make-weight-balanced-set
+  'copy-wrapper 'copy-weight-balanced-set
+  'make-ordered-set 'make-weight-balanced-set
+  'representative-empty 'make-weight-balanced-set)
+
+(named-specialize*
+  (make-weight-balanced-set (wrapper-make-set <weight-balanced-set> <wb-set>))
+  (weight-balanced-set-to-list (wrapper-to-list <weight-balanced-set> <wb-set>))
+  (weight-balanced-set-for-each (wrapper-for-each <weight-balanced-set> <wb-set>))
+  (weight-balanced-set-map-members (wrapper-map-members <weight-balanced-set> <wb-set>))
+  (weight-balanced-set-iterator (wrapper-iterator <weight-balanced-set> <wb-set>))
+  (weight-balanced-set-compare (wrapper-set-compare <weight-balanced-set>))
+  (weight-balanced-set-is-empty (wrapper-is-empty <weight-balanced-set> <wb-set>))
+  (weight-balanced-set-empty (wrapper-empty <weight-balanced-set> <wb-set>))
+  (weight-balanced-set-check-invariants-base (wrapper-check-invariants <weight-balanced-set> <wb-set>))
+  (weight-balanced-set-with-member (wrapper-with-member <weight-balanced-set> <wb-set>))
+  (weight-balanced-set-decompose (wrapper-decompose <weight-balanced-set> <wb-set>))
+  (weight-balanced-set-without-member (wrapper-without-member <weight-balanced-set> <wb-set>))
+  (weight-balanced-set-is-member (wrapper-is-member <weight-balanced-set> <wb-set>))
+  (weight-balanced-set-print-graphviz (wrapper-print-graphviz <weight-balanced-set> <wb-set>)))
+
+(define-interface-methods <weight-balanced-set> weight-balanced-set)
+
+(defmethod print-object ((set weight-balanced-set) stream)
+  (if *print-readably*
+      (call-next-method)
+      (print-set <weight-balanced-set> set stream)))
+
+(defun weight-balanced-set-check-invariants (set)
+  (weight-balanced-set-check-invariants-base set)
+  (wb-set-check-balance (weight-balanced-set-tree set)))
 
 (defun make-weight-balanced-set (comparator &key items)
-  (multiple-value-bind (tree size) (make-wb-set comparator :items items)
+  (multiple-value-bind (tree size) (wb-set-make-set-tree comparator :items items)
     (%make-weight-balanced-set :comparator comparator :tree tree :size size)))
 
-(defun weight-balanced-set (comparator &rest items)
-  (make-weight-balanced-set comparator :items items))
+(defun weight-balanced-set (&rest items)
+  (make-weight-balanced-set #'compare :items items))
 
-(defmethod to-list ((set weight-balanced-set))
-  (wb-set-to-list (weight-balanced-set-tree set)))
+(defun weight-balanced-set-to-list (set)
+  (wb-set-tree-to-list (weight-balanced-set-tree set)))
 
-(defmethod for-each ((set weight-balanced-set) function)
-  (do-wb-set (key (weight-balanced-set-tree set))
-    (funcall function key)))
+(defun weight-balanced-set-for-each (set function)
+  (wb-set-tree-for-each (weight-balanced-set-tree set) function))
 
-(defmethod map-members ((set weight-balanced-set) function)
-  (multiple-value-bind (tree size) (wb-set-map-members (weight-balanced-set-comparator set)
-                                                       (weight-balanced-set-tree set)
-                                                       function)
+(defun weight-balanced-set-map-members (set function)
+  (multiple-value-bind (tree size) (wb-set-tree-map-members
+                                    (weight-balanced-set-tree set)
+                                    (weight-balanced-set-comparator set)
+                                    function)
     (copy-weight-balanced-set set :tree tree :size size)))
 
-(defmethod comparator ((set weight-balanced-set))
-  (weight-balanced-set-comparator set))
+(defun weight-balanced-set-iterator (set)
+  (wb-set-tree-iterator (weight-balanced-set-tree set)))
 
-(defmethod iterator ((set weight-balanced-set))
-  (iterator (weight-balanced-set-tree set)))
+(defun weight-balanced-set-compare (left right)
+  (weight-balanced-set-compare-ordered-sets left right))
 
-(defmethod compare-objects ((left weight-balanced-set) (right weight-balanced-set))
-  (compare-sets left (weight-balanced-set-comparator left)
-                right (weight-balanced-set-comparator right)
-                #'compare))
-
-(defmethod is-empty ((set weight-balanced-set))
+(defun weight-balanced-set-is-empty (set)
   (wb-set-nil-p (weight-balanced-set-tree set)))
 
-(defmethod empty ((set weight-balanced-set))
-  (copy-weight-balanced-set set :tree (wb-set-nil) :size 0))
+(defun weight-balanced-set-empty (set)
+  (copy-weight-balanced-set set :tree (make-wb-set-nil) :size 0))
 
-(defmethod size ((set weight-balanced-set))
-  (weight-balanced-set-size set))
-
-(defmethod tree-size ((empty wb-set-nil))
-  0)
-
-(defmethod tree-size ((node wb-set-node))
-  (wb-set-node-size node))
+(defun weight-balanced-set-check-invariants (set)
+  (wb-set-check-wb-invariants (weight-balanced-set-tree set))
+  (wb-set-check-tree-order (weight-balanced-set-tree set) (weight-balanced-set-comparator set))
+  (cassert (equal (wb-set-check-tree-count set)
+                  (weight-balanced-set-size set))))
 
 (defmethod check-invariants ((set weight-balanced-set))
   (check-wb-set (weight-balanced-set-tree set) (weight-balanced-set-comparator set))
