@@ -30,7 +30,7 @@
    #:do-iterator
    #:compare-iterator-contents
    #:compare-collection-contents #:compare-heaps #:compare-ordered-sets
-   #:compare-maps))
+   #:compare-ordered-maps))
 (in-package :pfds.shcl.io/utility/iterator-tools)
 
 (defun list-iterator (list)

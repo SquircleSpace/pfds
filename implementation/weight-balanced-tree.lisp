@@ -31,13 +31,13 @@
    #:print-map #:print-set #:print-sequence)
   (:use :pfds.shcl.io/utility/tree)
   (:export
-   #:make-weight-balanced-set
-   #:weight-balanced-set-p
+   #:<weight-balanced-set>
    #:weight-balanced-set
+   #:weight-balanced-set-p
 
-   #:make-weight-balanced-map
-   #:weight-balanced-map-p
+   #:<weight-balanced-map>
    #:weight-balanced-map
+   #:weight-balanced-map-p
 
    #:make-weight-balanced-sequence
    #:weight-balanced-sequence
@@ -216,198 +216,132 @@
   (weight-balanced-set-check-invariants-base set)
   (wb-set-check-balance (weight-balanced-set-tree set)))
 
-(defun make-weight-balanced-set (comparator &key items)
-  (multiple-value-bind (tree size) (wb-set-make-set-tree comparator :items items)
-    (%make-weight-balanced-set :comparator comparator :tree tree :size size)))
-
 (defun weight-balanced-set (&rest items)
   (make-weight-balanced-set #'compare :items items))
 
-(defun weight-balanced-set-to-list (set)
-  (wb-set-tree-to-list (weight-balanced-set-tree set)))
+(define-tree-type (wb-map :map-p t)
+  (weight 1 :type (integer 1)))
 
-(defun weight-balanced-set-for-each (set function)
-  (wb-set-tree-for-each (weight-balanced-set-tree set) function))
+(defun wb-map-weight (tree)
+  (etypecase tree
+    (wb-map-nil
+     0)
+    (wb-map-node
+     (wb-map-node-weight tree))))
 
-(defun weight-balanced-set-map-members (set function)
-  (multiple-value-bind (tree size) (wb-set-tree-map-members
-                                    (weight-balanced-set-tree set)
-                                    (weight-balanced-set-comparator set)
-                                    function)
-    (copy-weight-balanced-set set :tree tree :size size)))
+(define-interface <<wb-map>> (<<base-wb-map>> <<rotations>>)
+  tree-weight)
 
-(defun weight-balanced-set-iterator (set)
-  (wb-set-tree-iterator (weight-balanced-set-tree set)))
+(defun copy-wb-map-node-1+ (node &key (left (wb-map-node-left node))
+                                   (right (wb-map-node-right node))
+                                   (key (wb-map-node-1-key node)))
+  (copy-wb-map-node-1
+   node
+   :left left
+   :right right
+   :key key
+   :weight (+ 1
+              (wb-map-weight left)
+              (wb-map-weight right))))
 
-(defun weight-balanced-set-compare (left right)
-  (weight-balanced-set-compare-ordered-sets left right))
+(defun copy-wb-map-node-n+ (node &key (left (wb-map-node-left node))
+                                   (right (wb-map-node-right node))
+                                   (values (wb-map-node-n-values node)))
+  (copy-wb-map-node-n
+   node
+   :left left
+   :right right
+   :values values
+   :weight (+ 1
+              (wb-map-weight left)
+              (wb-map-weight right))))
 
-(defun weight-balanced-set-is-empty (set)
-  (wb-set-nil-p (weight-balanced-set-tree set)))
+(define-interface-instance <wb-map> <<wb-map>>
+  'node-1-copy 'copy-wb-map-node-1+
+  'node-n-copy 'copy-wb-map-node-n+
 
-(defun weight-balanced-set-empty (set)
-  (copy-weight-balanced-set set :tree (make-wb-set-nil) :size 0))
+  'insert-left-balancer 'wb-map-balance
+  'insert-right-balancer 'wb-map-balance
+  'remove-left-balancer 'wb-map-balance
+  'remove-right-balancer 'wb-map-balance
 
-(defun weight-balanced-set-check-invariants (set)
-  (wb-set-check-wb-invariants (weight-balanced-set-tree set))
-  (wb-set-check-tree-order (weight-balanced-set-tree set) (weight-balanced-set-comparator set))
-  (cassert (equal (wb-set-check-tree-count set)
-                  (weight-balanced-set-size set))))
+  'mutate 'wb-map-mutate
 
-(defmethod check-invariants ((set weight-balanced-set))
-  (check-wb-set (weight-balanced-set-tree set) (weight-balanced-set-comparator set))
-  (check-wb-invariants (weight-balanced-set-tree set)))
+  'rotate-left 'wb-map-rotate-left
+  'rotate-right 'wb-map-rotate-right
+  'rotate-double-left 'wb-map-rotate-double-left
+  'rotate-double-right 'wb-map-rotate-double-right
 
-(defmethod print-object ((set weight-balanced-set) stream)
-  (if *print-readably*
-      (call-next-method)
-      (print-set set stream)))
+  'tree-weight 'wb-map-weight)
 
-(defmethod with-member ((set weight-balanced-set) item)
-  (multiple-value-bind
-        (tree count-change)
-      (wb-set-insert (weight-balanced-set-comparator set) (weight-balanced-set-tree set) item)
-    (copy-weight-balanced-set set :tree tree :size (+ count-change (weight-balanced-set-size set)))))
-
-(defmethod decompose ((set weight-balanced-set))
-  (multiple-value-bind
-        (new-tree value valid-p)
-      (wb-set-decompose (weight-balanced-set-tree set))
-    (values (copy-weight-balanced-set set :tree new-tree :size (+ (if valid-p -1 0) (weight-balanced-set-size set)))
-            value
-            valid-p)))
-
-(defmethod without-member ((set weight-balanced-set) item)
-  (multiple-value-bind
-        (tree value valid-p count-change)
-      (wb-set-remove (weight-balanced-set-comparator set) (weight-balanced-set-tree set) item)
-    (declare (ignore value))
-    (values (copy-weight-balanced-set set :tree tree :size (+ count-change (weight-balanced-set-size set)))
-            valid-p)))
-
-(defmethod is-member ((set weight-balanced-set) item)
-  (wb-set-lookup (weight-balanced-set-comparator set) (weight-balanced-set-tree set) item))
-
-(defmethod print-graphviz ((set weight-balanced-set) stream id-vendor)
-  (print-graphviz (weight-balanced-set-tree set) stream id-vendor))
-
-(define-tree wb-map (:map-p t
-                     :insert-left-balancer wb-map-balance
-                     :insert-right-balancer wb-map-balance
-                     :remove-left-balancer wb-map-balance
-                     :remove-right-balancer wb-map-balance)
-  (size 1 :type (integer 1)))
-
-(define-balance-operations wb-map)
+(named-specialize*
+  (wb-map-balance (balance <wb-map>))
+  (wb-map-mutate (tree-mutate <wb-map>))
+  (wb-map-rotate-left (tree-rotate-left <wb-map>))
+  (wb-map-rotate-right (tree-rotate-right <wb-map>))
+  (wb-map-rotate-double-left (tree-rotate-double-left <wb-map>))
+  (wb-map-rotate-double-right (tree-rotate-double-right <wb-map>))
+  (make-wb-map (make-map-tree <wb-map>))
+  (wb-map-to-list (tree-to-list <wb-map>))
+  (wb-map-for-each (tree-for-each <wb-map>))
+  (wb-map-map-members (tree-map-members <wb-map>))
+  (wb-map-iterator (tree-iterator <wb-map>))
+  (wb-map-check-balance (check-balance <wb-map>))
+  (wb-map-check-tree-order (check-tree-order <wb-map>))
+  (wb-map-check-tree-count (check-tree-count <wb-map>)))
 
 (define-immutable-structure (weight-balanced-map (:constructor %make-weight-balanced-map))
-  (tree (wb-map-nil) :type wb-map)
+  (tree (make-wb-map-nil) :type wb-map)
+  ;; The nodes of the tree store the "weight", not the element count!
+  ;; Weight is a measure of the size of the tree itself and ignores
+  ;; multiplicity due to unequal items.
   (size 0 :type (integer 0))
   (comparator (error "comparator is required")))
 
-(declare-interface-conformance weight-balanced-map ordered-map)
+(define-interface <<weight-balanced-map>> (<<ordered-map>> <<tree-wrapper>>))
 
-(defun make-weight-balanced-map (comparator &key alist plist)
-  (multiple-value-bind (tree size) (make-wb-map comparator :alist alist :plist plist)
-    (%make-weight-balanced-map :comparator comparator :tree tree :size size)))
+(define-simple-interface-instance <weight-balanced-map> <<weight-balanced-map>> weight-balanced-map-
+  'make-wrapper '%make-weight-balanced-map
+  'copy-wrapper 'copy-weight-balanced-map
+  'make-ordered-map 'make-weight-balanced-map
+  'representative-empty 'make-weight-balanced-map)
 
-(defun weight-balanced-map (comparator &rest plist)
-  (make-weight-balanced-map comparator :plist plist))
+(named-specialize*
+  (make-weight-balanced-map (wrapper-make-map <weight-balanced-map> <wb-map>))
+  (weight-balanced-map-to-list (wrapper-to-list <weight-balanced-map> <wb-map>))
+  (weight-balanced-map-for-each (wrapper-for-each <weight-balanced-map> <wb-map>))
+  (weight-balanced-map-map-members (wrapper-map-members <weight-balanced-map> <wb-map>))
+  (weight-balanced-map-iterator (wrapper-iterator <weight-balanced-map> <wb-map>))
+  (weight-balanced-map-compare (wrapper-map-compare <weight-balanced-map>))
+  (weight-balanced-map-is-empty (wrapper-is-empty <weight-balanced-map> <wb-map>))
+  (weight-balanced-map-empty (wrapper-empty <weight-balanced-map> <wb-map>))
+  (weight-balanced-map-check-invariants-base (wrapper-check-invariants <weight-balanced-map> <wb-map>))
+  (weight-balanced-map-decompose (wrapper-decompose <weight-balanced-map> <wb-map>))
+  (weight-balanced-map-print-graphviz (wrapper-print-graphviz <weight-balanced-map> <wb-map>))
+  (weight-balanced-map-with-entry (wrapper-with-entry <weight-balanced-map> <wb-map>))
+  (weight-balanced-map-lookup-entry (wrapper-lookup-entry <weight-balanced-map> <wb-map>))
+  (weight-balanced-map-without-entry (wrapper-without-entry <weight-balanced-map> <wb-map>))
+  (weight-balanced-map-for-each-entry (wrapper-for-each-entry <weight-balanced-map> <wb-map>))
+  (weight-balanced-map-map-entries (wrapper-map-entries <weight-balanced-map> <wb-map>)))
 
-(defmethod to-list ((map weight-balanced-map))
-  (wb-map-to-list (weight-balanced-map-tree map)))
-
-(defmethod for-each ((map weight-balanced-map) function)
-  (do-wb-map (key value (weight-balanced-map-tree map))
-    (funcall function (cons key value))))
-
-(defmethod for-each-entry ((map weight-balanced-map) function)
-  (do-wb-map (key value (weight-balanced-map-tree map))
-    (funcall function key value)))
-
-(defmethod map-entries ((map weight-balanced-map) function)
-  (copy-weight-balanced-map map :tree (wb-map-map-entries (weight-balanced-map-tree map) function)))
-
-(defmethod map-members ((map weight-balanced-map) function)
-  (multiple-value-bind (tree size) (wb-map-map-members (weight-balanced-map-comparator map)
-                                                       (weight-balanced-map-tree map)
-                                                       function)
-    (copy-weight-balanced-map map :tree tree :size size)))
-
-(defmethod with-member ((map weight-balanced-map) pair)
-  (check-type pair cons)
-  (multiple-value-bind (tree count-change)
-      (wb-map-insert (weight-balanced-map-comparator map)
-                     (weight-balanced-map-tree map)
-                     (car pair)
-                     (cdr pair))
-    (copy-weight-balanced-map map :tree tree :size (+ count-change (weight-balanced-map-size map)))))
-
-(defmethod member-type ((map weight-balanced-map))
-  '(cons t t))
-
-(defmethod decompose ((map weight-balanced-map))
-  (multiple-value-bind
-        (new-tree value valid-p)
-      (wb-map-decompose (weight-balanced-map-tree map))
-    (values (copy-weight-balanced-map map :tree new-tree :size (+ (if valid-p -1 0) (weight-balanced-map-size map)))
-            value
-            valid-p)))
-
-(defmethod comparator ((map weight-balanced-map))
-  (weight-balanced-map-comparator map))
-
-(defmethod iterator ((map weight-balanced-map))
-  (iterator (weight-balanced-map-tree map)))
-
-(defmethod compare-objects ((left weight-balanced-map) (right weight-balanced-map))
-  (compare-maps left (weight-balanced-map-comparator left)
-                right (weight-balanced-map-comparator right)
-                #'compare #'compare))
-
-(defmethod is-empty ((map weight-balanced-map))
-  (wb-map-nil-p (weight-balanced-map-tree map)))
-
-(defmethod empty ((map weight-balanced-map))
-  (copy-weight-balanced-map map :tree (wb-map-nil) :size 0))
-
-(defmethod size ((map weight-balanced-map))
-  (weight-balanced-map-size map))
-
-(defmethod tree-size ((empty wb-map-nil))
-  0)
-
-(defmethod tree-size ((node wb-map-node))
-  (wb-map-node-size node))
-
-(defmethod check-invariants ((map weight-balanced-map))
-  (check-wb-map (weight-balanced-map-tree map) (weight-balanced-map-comparator map))
-  (check-wb-invariants (weight-balanced-map-tree map)))
+(define-interface-methods <weight-balanced-map> weight-balanced-map)
 
 (defmethod print-object ((map weight-balanced-map) stream)
   (if *print-readably*
       (call-next-method)
-      (print-map map stream)))
+      (print-map <weight-balanced-map> map stream)))
 
-(defmethod with-entry ((map weight-balanced-map) key value)
-  (multiple-value-bind
-        (tree count-change)
-      (wb-map-insert (weight-balanced-map-comparator map) (weight-balanced-map-tree map) key value)
-    (copy-weight-balanced-map map :tree tree :size (+ count-change (weight-balanced-map-size map)))))
+(defun weight-balanced-map-check-invariants (map)
+  (weight-balanced-map-check-invariants-base map)
+  (wb-map-check-balance (weight-balanced-map-tree map)))
 
-(defmethod without-entry ((map weight-balanced-map) key)
-  (multiple-value-bind
-        (new-tree value valid-p count-change)
-      (wb-map-remove (weight-balanced-map-comparator map) (weight-balanced-map-tree map) key)
-    (values (copy-weight-balanced-map map :tree new-tree :size (+ count-change (weight-balanced-map-size map)))
-            value
-            valid-p)))
+(defun weight-balanced-map (&rest plist)
+  (make-weight-balanced-map :plist plist))
 
-(defmethod lookup-entry ((map weight-balanced-map) key)
-  (wb-map-lookup (weight-balanced-map-comparator map) (weight-balanced-map-tree map) key))
-
-(defmethod print-graphviz ((map weight-balanced-map) stream id-vendor)
-  (print-graphviz (weight-balanced-map-tree map) stream id-vendor))
+;; Weight balanced sequences are weird because they don't use tree
+;; nodes all the way down.  That isn't a feature that the
+;; DEFINE-TREE-TYPE macro can do for us (yet?).  So... we're on our
+;; own to re-implement a bunch of the stuff from the tree module.
 
 (defvar *max-array-length* 32)
 
@@ -420,22 +354,22 @@
 (define-immutable-structure (wb-seq-node (:constructor %make-wb-seq-node))
   (left nil :type non-empty-wb-seq)
   (right nil :type non-empty-wb-seq)
-  (size 1 :type (integer 1)))
+  (weight 1 :type (integer 1)))
 
-(defun wb-seq-size (tree)
+(defun wb-seq-weight (tree)
   (etypecase tree
     (null
      0)
     (wb-seq-node
-     (wb-seq-node-size tree))
+     (wb-seq-node-weight tree))
     (array
      (length tree))))
 
 (defun make-wb-seq-node (&key left right)
   (%make-wb-seq-node :left left
                      :right right
-                     :size (+ (wb-seq-size left)
-                              (wb-seq-size right))))
+                     :weight (+ (wb-seq-weight left)
+                                (wb-seq-weight right))))
 
 (defun wb-seq-concat-arrays (left right)
   (if (and (or (stringp left) (null left))
@@ -493,10 +427,12 @@
               (store item)))
           (%make-wb-seq-node :left new-left
                              :right new-right
-                             :size total-items))))))
+                             :weight total-items))))))
 
 (defun wb-seq-rotate-left (left right)
-  (make-wb-seq-node :left (make-wb-seq left (wb-seq-node-left right))
+  ;; Balance the new child.  Not because we NEED to, but because it
+  ;; gives us a convenient way to concatenate arrays.
+  (make-wb-seq-node :left (make-balanced-wb-seq left (wb-seq-node-left right))
                     :right (wb-seq-node-right right)))
 
 (defun wb-seq-rotate-double-left (left right)
@@ -506,12 +442,16 @@
                          right-left))
          (right-left-left (wb-seq-node-left right-left))
          (right-left-right (wb-seq-node-right right-left)))
-    (make-wb-seq-node :left (make-wb-seq left right-left-left)
-                      :right (make-wb-seq right-left-right (wb-seq-node-right right)))))
+    ;; Balance the new children Not because we NEED to, but because it
+    ;; gives us a convenient way to concatenate arrays.
+    (make-wb-seq-node :left (make-balanced-wb-seq left right-left-left)
+                      :right (make-balanced-wb-seq right-left-right (wb-seq-node-right right)))))
 
 (defun wb-seq-rotate-right (left right)
+  ;; Balance the new child.  Not because we NEED to, but because it
+  ;; gives us a convenient way to concatenate arrays.
   (make-wb-seq-node :left (wb-seq-node-left left)
-                    :right (make-wb-seq (wb-seq-node-right left) right)))
+                    :right (make-balanced-wb-seq (wb-seq-node-right left) right)))
 
 (defun wb-seq-rotate-double-right (left right)
   (let* ((left-right (wb-seq-node-right left))
@@ -520,48 +460,50 @@
                          left-right))
          (left-right-right (wb-seq-node-right left-right))
          (left-right-left (wb-seq-node-left left-right)))
-    (make-wb-seq-node :left (make-wb-seq (wb-seq-node-left left) left-right-left)
-                      :right (make-wb-seq left-right-right right))))
+    ;; Balance the new children.  Not because we NEED to, but
+    ;; because it gives us a convenient way to concatenate arrays.
+    (make-wb-seq-node :left (make-balanced-wb-seq (wb-seq-node-left left) left-right-left)
+                      :right (make-balanced-wb-seq left-right-right right))))
 
-(defun make-wb-seq (left right)
-  (let* ((left-size (wb-seq-size left))
-         (right-size (wb-seq-size right))
-         (total-items (+ left-size right-size)))
+(defun make-balanced-wb-seq (left right)
+  (let* ((left-weight (wb-seq-weight left))
+         (right-weight (wb-seq-weight right))
+         (total-items (+ left-weight right-weight)))
     (cond
-      ((zerop right-size)
+      ((zerop right-weight)
        left)
-      ((zerop left-size)
+      ((zerop left-weight)
        right)
 
       ((and (arrayp left) (arrayp right))
        (cond
          ((<= total-items *max-array-length*)
           (wb-seq-concat-arrays left right))
-         ((or (> right-size (* (omega-balance) left-size))
-              (> left-size (* (omega-balance) right-size)))
+         ((or (> right-weight (* (omega-balance) left-weight))
+              (> left-weight (* (omega-balance) right-weight)))
           (make-wb-seq-node-splitting-arrays left right))
          (t
-          (%make-wb-seq-node :left left :right right :size total-items))))
+          (%make-wb-seq-node :left left :right right :weight total-items))))
 
-      ((> right-size (* (omega-balance) left-size))
-       (let ((right-left-size (wb-seq-size (wb-seq-node-left right)))
-             (right-right-size (wb-seq-size (wb-seq-node-right right))))
-         (if (< right-left-size (* (alpha-balance) right-right-size))
+      ((> right-weight (* (omega-balance) left-weight))
+       (let ((right-left-weight (wb-seq-weight (wb-seq-node-left right)))
+             (right-right-weight (wb-seq-weight (wb-seq-node-right right))))
+         (if (< right-left-weight (* (alpha-balance) right-right-weight))
              (wb-seq-rotate-left left right)
              (wb-seq-rotate-double-left left right))))
 
-      ((> left-size (* (omega-balance) right-size))
-       (let ((left-left-size (wb-seq-size (wb-seq-node-left left)))
-             (left-right-size (wb-seq-size (wb-seq-node-right left))))
-         (if (< left-right-size (* (alpha-balance) left-left-size))
+      ((> left-weight (* (omega-balance) right-weight))
+       (let ((left-left-weight (wb-seq-weight (wb-seq-node-left left)))
+             (left-right-weight (wb-seq-weight (wb-seq-node-right left))))
+         (if (< left-right-weight (* (alpha-balance) left-left-weight))
              (wb-seq-rotate-right left right)
              (wb-seq-rotate-double-right left right))))
 
       (t
-       (%make-wb-seq-node :left left :right right :size total-items)))))
+       (%make-wb-seq-node :left left :right right :weight total-items)))))
 
-(defun wb-seq-left-size (tree)
-  (wb-seq-size (wb-seq-node-left tree)))
+(defun wb-seq-left-weight (tree)
+  (wb-seq-weight (wb-seq-node-left tree)))
 
 (defun wb-seq-store (tree index value)
   (cond
@@ -585,20 +527,20 @@
               (maybe-stringify result)
               result)))))
     (t
-     (let ((left-weight (wb-seq-left-size tree)))
+     (let ((left-weight (wb-seq-left-weight tree)))
        (cond
          ((< index left-weight)
           (let* ((old-left (wb-seq-node-left tree))
                  (new-left (wb-seq-store old-left index value)))
             (if (eq new-left old-left)
                 tree
-                (make-wb-seq new-left (wb-seq-node-right tree)))))
+                (make-balanced-wb-seq new-left (wb-seq-node-right tree)))))
          (t
           (let* ((old-right (wb-seq-node-right tree))
                  (new-right (wb-seq-store old-right (- index left-weight) value)))
             (if (eq old-right new-right)
                 tree
-                (make-wb-seq (wb-seq-node-left tree) new-right)))))))))
+                (make-balanced-wb-seq (wb-seq-node-left tree) new-right)))))))))
 
 (defun wb-seq-concatenate (left right)
   (cond
@@ -608,23 +550,23 @@
      left)
 
     ((and (wb-seq-node-p left)
-          (> (wb-seq-size left) (* (omega-balance) (wb-seq-size right))))
-     (make-wb-seq (wb-seq-node-left left)
-                  (wb-seq-concatenate (wb-seq-node-right left) right)))
+          (> (wb-seq-weight left) (* (omega-balance) (wb-seq-weight right))))
+     (make-balanced-wb-seq (wb-seq-node-left left)
+                           (wb-seq-concatenate (wb-seq-node-right left) right)))
 
     ((and (wb-seq-node-p right)
-          (> (wb-seq-size right) (* (omega-balance) (wb-seq-size left))))
-     (make-wb-seq (wb-seq-concatenate left (wb-seq-node-left right))
-                  (wb-seq-node-right right)))
+          (> (wb-seq-weight right) (* (omega-balance) (wb-seq-weight left))))
+     (make-balanced-wb-seq (wb-seq-concatenate left (wb-seq-node-left right))
+                           (wb-seq-node-right right)))
 
     (t
-     (make-wb-seq left right))))
+     (make-balanced-wb-seq left right))))
 
 (defun wb-seq-with-first (sequence object)
   (wb-seq-insert sequence 0 object))
 
 (defun wb-seq-with-last (sequence object)
-  (wb-seq-insert sequence (wb-seq-size sequence) object))
+  (wb-seq-insert sequence (wb-seq-weight sequence) object))
 
 (defun wb-seq-remove (tree index)
   (etypecase tree
@@ -646,12 +588,12 @@
           (values (maybe-stringify new-array) (aref tree index))))))
 
     (wb-seq-node
-     (let ((left-size (wb-seq-left-size tree)))
-       (if (>= index left-size)
-           (multiple-value-bind (new-right removed-value) (wb-seq-remove (wb-seq-node-right tree) (- index left-size))
-             (values (make-wb-seq (wb-seq-node-left tree) new-right) removed-value t))
+     (let ((left-weight (wb-seq-left-weight tree)))
+       (if (>= index left-weight)
+           (multiple-value-bind (new-right removed-value) (wb-seq-remove (wb-seq-node-right tree) (- index left-weight))
+             (values (make-balanced-wb-seq (wb-seq-node-left tree) new-right) removed-value t))
            (multiple-value-bind (new-left removed-value) (wb-seq-remove (wb-seq-node-left tree) index)
-             (values (make-wb-seq new-left (wb-seq-node-right tree)) removed-value t)))))))
+             (values (make-balanced-wb-seq new-left (wb-seq-node-right tree)) removed-value t)))))))
 
 (defun array-insert (array before-index object)
   (cond
@@ -700,42 +642,42 @@
      (array-insert tree before-index object))
 
     (wb-seq-node
-     (let ((left-size (wb-seq-left-size tree)))
-       (if (>= before-index left-size)
-           (make-wb-seq (wb-seq-node-left tree)
-                        (wb-seq-insert (wb-seq-node-right tree) (- before-index left-size) object))
-           (make-wb-seq (wb-seq-insert (wb-seq-node-left tree) before-index object)
-                        (wb-seq-node-right tree)))))))
+     (let ((left-weight (wb-seq-left-weight tree)))
+       (if (>= before-index left-weight)
+           (make-balanced-wb-seq (wb-seq-node-left tree)
+                                 (wb-seq-insert (wb-seq-node-right tree) (- before-index left-weight) object))
+           (make-balanced-wb-seq (wb-seq-insert (wb-seq-node-left tree) before-index object)
+                                 (wb-seq-node-right tree)))))))
 
 (defun wb-seq-lookup (tree index)
   (etypecase tree
     (wb-seq-node
-     (let ((left-size (wb-seq-left-size tree)))
-       (if (>= index left-size)
-           (wb-seq-lookup (wb-seq-node-right tree) (- index left-size))
+     (let ((left-weight (wb-seq-left-weight tree)))
+       (if (>= index left-weight)
+           (wb-seq-lookup (wb-seq-node-right tree) (- index left-weight))
            (wb-seq-lookup (wb-seq-node-left tree) index))))
     (array
      (values (aref tree index) t))))
 
 (defun wb-seq-subseq (tree min max)
-  (let ((here-size (wb-seq-size tree)))
+  (let ((here-weight (wb-seq-weight tree)))
     (when (and (equal 0 min)
-               (equal here-size max))
+               (equal here-weight max))
       (return-from wb-seq-subseq tree)))
 
   (etypecase tree
     (wb-seq-node
-     (let* ((left-size (wb-seq-left-size tree))
-            (left-touched-p (< min left-size))
-            (right-touched-p (> max left-size)))
+     (let* ((left-weight (wb-seq-left-weight tree))
+            (left-touched-p (< min left-weight))
+            (right-touched-p (> max left-weight)))
        (cond
          ((and left-touched-p right-touched-p)
-          (wb-seq-concatenate (wb-seq-subseq (wb-seq-node-left tree) min left-size)
-                              (wb-seq-subseq (wb-seq-node-right tree) 0 (- max left-size))))
+          (wb-seq-concatenate (wb-seq-subseq (wb-seq-node-left tree) min left-weight)
+                              (wb-seq-subseq (wb-seq-node-right tree) 0 (- max left-weight))))
          (left-touched-p
           (wb-seq-subseq (wb-seq-node-left tree) min max))
          (right-touched-p
-          (wb-seq-subseq (wb-seq-node-right tree) (- min left-size) (- max left-size))))))
+          (wb-seq-subseq (wb-seq-node-right tree) (- min left-weight) (- max left-weight))))))
     (array
      (subseq tree min max))))
 
@@ -745,7 +687,7 @@
      (let ((left (wb-seq-node-left tree))
            (right (wb-seq-node-right tree)))
        (wb-seq-for-each left function offset)
-       (wb-seq-for-each right function (+ offset (wb-seq-size left)))))
+       (wb-seq-for-each right function (+ offset (wb-seq-weight left)))))
     (array
      (loop :for object :across tree
            :for index :from offset
@@ -758,7 +700,7 @@
      (let* ((left (wb-seq-node-left tree))
             (new-left (wb-seq-map-entries left function offset))
             (right (wb-seq-node-right tree))
-            (new-right (wb-seq-map-entries right function (+ offset (wb-seq-size left)))))
+            (new-right (wb-seq-map-entries right function (+ offset (wb-seq-weight left)))))
        (copy-wb-seq-node tree :left new-left :right new-right)))
 
     (array
@@ -781,9 +723,9 @@
 (define-immutable-structure (weight-balanced-sequence (:constructor %make-weight-balanced-sequnce))
   (tree nil :type wb-seq))
 
-(declare-interface-conformance weight-balanced-sequence sequence)
-
 (defvar *empty-weight-balanced-sequence* (%make-weight-balanced-sequnce))
+
+#<MORE>
 
 (defmethod for-each ((seq weight-balanced-sequence) function)
   (wb-seq-for-each (weight-balanced-sequence-tree seq)
@@ -806,7 +748,7 @@
     (copy-weight-balanced-sequence seq :tree (wb-seq-map-entries (weight-balanced-sequence-tree seq) #'wrapper 0))))
 
 (defmethod size ((seq weight-balanced-sequence))
-  (wb-seq-size (weight-balanced-sequence-tree seq)))
+  (wb-seq-weight (weight-balanced-sequence-tree seq)))
 
 (defmethod is-empty ((seq weight-balanced-sequence))
   (null (weight-balanced-sequence-tree seq)))
@@ -818,7 +760,7 @@
   (%make-weight-balanced-sequnce :tree (wb-seq-with-last (weight-balanced-sequence-tree seq) item)))
 
 (defmethod decompose ((seq weight-balanced-sequence))
-  (weight-balanced-sequence-remove-entry seq (1- (wb-seq-size (weight-balanced-sequence-tree seq)))))
+  (weight-balanced-sequence-remove-entry seq (1- (wb-seq-weight (weight-balanced-sequence-tree seq)))))
 
 (defun array-iterator (array)
   (let ((offset 0))
@@ -902,16 +844,16 @@
   (make-weight-balanced-sequence :items items))
 
 (defmethod with-entry ((seq weight-balanced-sequence) index value)
-  (if (equal index (wb-seq-size (weight-balanced-sequence-tree seq)))
+  (if (equal index (wb-seq-weight (weight-balanced-sequence-tree seq)))
       (%make-weight-balanced-sequnce :tree (wb-seq-with-last (weight-balanced-sequence-tree seq) value))
       (copy-weight-balanced-sequence seq :tree (wb-seq-store (weight-balanced-sequence-tree seq) index value))))
 
 (defun weight-balanced-sequence-remove-entry (seq index)
   (let* ((tree (weight-balanced-sequence-tree seq))
-         (size (wb-seq-size tree)))
+         (weight (wb-seq-weight tree)))
     (cond
       ((or (< index 0)
-           (>= index size))
+           (>= index weight))
        (values seq nil nil))
 
       (t
@@ -925,13 +867,13 @@
 
 (declaim (inline weight-balanced-sequence-size))
 (defun weight-balanced-sequence-size (seq)
-  (wb-seq-size (weight-balanced-sequence-tree seq)))
+  (wb-seq-weight (weight-balanced-sequence-tree seq)))
 
 (defun weight-balanced-sequence-lookup-entry (seq index)
   (let* ((tree (weight-balanced-sequence-tree seq))
-         (size (wb-seq-size tree)))
+         (weight (wb-seq-weight tree)))
     (if (or (> 0 index)
-            (>= index size))
+            (>= index weight))
         (values nil nil)
         (wb-seq-lookup tree index))))
 
@@ -948,7 +890,7 @@
   (weight-balanced-sequence-lookup-entry seq (1- (weight-balanced-sequence-size seq))))
 
 (defmethod without-top ((seq weight-balanced-sequence))
-  (weight-balanced-sequence-remove-entry seq (1- (wb-seq-size (weight-balanced-sequence-tree seq)))))
+  (weight-balanced-sequence-remove-entry seq (1- (wb-seq-weight (weight-balanced-sequence-tree seq)))))
 
 (defmethod with-first ((seq weight-balanced-sequence) value)
   (%make-weight-balanced-sequnce :tree (wb-seq-with-first (weight-balanced-sequence-tree seq) value)))
@@ -960,7 +902,7 @@
   (weight-balanced-sequence-remove-entry seq 0))
 
 (defmethod without-last ((seq weight-balanced-sequence))
-  (weight-balanced-sequence-remove-entry seq (1- (wb-seq-size (weight-balanced-sequence-tree seq)))))
+  (weight-balanced-sequence-remove-entry seq (1- (wb-seq-weight (weight-balanced-sequence-tree seq)))))
 
 (defmethod peek-first ((seq weight-balanced-sequence))
   (weight-balanced-sequence-lookup-entry seq 0))
@@ -974,7 +916,7 @@
 (defmethod insert ((seq weight-balanced-sequence) before-index object)
   (check-type before-index (integer 0))
   (let ((tree (weight-balanced-sequence-tree seq)))
-    (when (> before-index (wb-seq-size tree))
+    (when (> before-index (wb-seq-weight tree))
       (error "before-index is out of bounds: ~A" before-index))
     (%make-weight-balanced-sequnce :tree (wb-seq-insert tree before-index object))))
 
@@ -997,7 +939,7 @@
   (check-type min (integer 0))
   (check-type max (or null (integer 0)))
   (let* ((tree (weight-balanced-sequence-tree seq))
-         (count (wb-seq-size tree)))
+         (count (wb-seq-weight tree)))
     (unless max
       (setf max count))
 
@@ -1028,7 +970,7 @@
   (weight-balanced-sequence-remove-entry seq 0))
 
 (defmethod without-back ((seq weight-balanced-sequence))
-  (weight-balanced-sequence-remove-entry seq (1- (wb-seq-size (weight-balanced-sequence-tree seq)))))
+  (weight-balanced-sequence-remove-entry seq (1- (wb-seq-weight (weight-balanced-sequence-tree seq)))))
 
 (defmethod without-front ((seq weight-balanced-sequence))
   (weight-balanced-sequence-remove-entry seq 0))
@@ -1046,7 +988,7 @@
        (format stream "ID~A [label=\"~A\"]~%" id nil)
        id)
       (wb-seq-node
-       (format stream "ID~A [label=\"~A\"]~%" id (wb-seq-size tree))
+       (format stream "ID~A [label=\"~A\"]~%" id (wb-seq-weight tree))
        (let ((child-id (wb-seq-print-graphviz (wb-seq-node-left tree) stream id-vendor)))
          (format stream "ID~A -> ID~A~%" id child-id))
        (let ((child-id (wb-seq-print-graphviz (wb-seq-node-right tree) stream id-vendor)))
@@ -1066,13 +1008,13 @@
      (cassert (eq tree (maybe-stringify tree))))
     (wb-seq-node
      (let* ((left (wb-seq-node-left tree))
-            (left-size (wb-seq-size left))
+            (left-weight (wb-seq-weight left))
             (right (wb-seq-node-right tree))
-            (right-size (wb-seq-size right)))
-       (cassert (<= right-size (* (omega-balance) left-size)))
-       (cassert (<= left-size (* (omega-balance) right-size)))
-       (cassert (equal (wb-seq-size tree)
-                       (+ left-size right-size)))
+            (right-weight (wb-seq-weight right)))
+       (cassert (<= right-weight (* (omega-balance) left-weight)))
+       (cassert (<= left-weight (* (omega-balance) right-weight)))
+       (cassert (equal (wb-seq-weight tree)
+                       (+ left-weight right-weight)))
        (check-wb-seq-invariants left)
        (check-wb-seq-invariants right)))))
 

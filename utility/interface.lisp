@@ -40,6 +40,8 @@
 
    #:define-interface-function-invoker
    #:define-interface-function
+   #:single-specializer
+   #:double-specializer
    #:define-interface-methods
    #:declaim-signature
    #:proclaim-signature))

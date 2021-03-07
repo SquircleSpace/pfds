@@ -18,7 +18,8 @@
   (:use :pfds.shcl.io/implementation/interface)
   (:import-from :pfds.shcl.io/utility/iterator-tools
    #:list-iterator #:singleton-iterator
-   #:empty-iterator #:compare-ordered-sets)
+   #:empty-iterator #:compare-ordered-sets
+   #:compare-ordered-maps)
   (:import-from :pfds.shcl.io/utility/compare
    #:compare)
   (:import-from :pfds.shcl.io/utility/specialization
@@ -145,11 +146,13 @@
    #:tree-rotate-double-right
 
    #:wrapper-make-set
+   #:wrapper-make-map
    #:wrapper-to-list
    #:wrapper-for-each
    #:wrapper-map-members
    #:wrapper-iterator
    #:wrapper-set-compare
+   #:wrapper-map-compare
    #:wrapper-is-empty
    #:wrapper-empty
    #:wrapper-check-invariants
@@ -157,7 +160,12 @@
    #:wrapper-decompose
    #:wrapper-without-member
    #:wrapper-is-member
-   #:wrapper-print-graphviz))
+   #:wrapper-print-graphviz
+   #:wrapper-with-entry
+   #:wrapper-without-entry
+   #:wrapper-lookup-entry
+   #:wrapper-for-each-entry
+   #:wrapper-map-entries))
 (in-package :pfds.shcl.io/utility/tree)
 
 (declaim (inline always-t))
@@ -868,6 +876,21 @@
                      balance-needed-p)))))
     (visit tree)))
 
+(define-specializable-function tree-for-each-entry (<tree>) (tree function)
+  (when (i-nil-type-p <tree> tree)
+    (return-from tree-for-each-entry))
+
+  (tree-for-each-entry <tree> (i-node-left <tree> tree) function)
+  (cond
+    ((i-node-1-type-p <tree> tree)
+     (funcall function (i-node-1-key <tree> tree) (i-node-1-value <tree> tree)))
+    ((i-node-n-type-p <tree> tree)
+     (dolist (pair (i-node-n-values <tree> tree))
+       (funcall function (car pair) (cdr pair))))
+    (t
+     (error "Invalid tree node: ~W" tree)))
+  (tree-for-each-entry <tree> (i-node-right <tree> tree) function))
+
 (define-specializable-function tree-for-each (<tree>) (tree function)
   (when (i-nil-type-p <tree> tree)
     (return-from tree-for-each))
@@ -1117,6 +1140,10 @@
   (multiple-value-bind (tree size) (make-set-tree <tree> comparator :items items)
     (i-make-wrapper <wrapper> :comparator comparator :tree tree :size size)))
 
+(define-specializable-function wrapper-make-map (<wrapper> <tree>) (&key (comparator 'compare) plist alist)
+  (multiple-value-bind (tree size) (make-map-tree <tree> comparator :plist plist :alist alist)
+    (i-make-wrapper <wrapper> :comparator comparator :tree tree :size size)))
+
 (define-specializable-function wrapper-to-list (<wrapper> <tree>) (collection)
   (tree-to-list <tree> (i-tree <wrapper> collection)))
 
@@ -1135,6 +1162,9 @@
 
 (define-specializable-function wrapper-set-compare (<wrapper>) (left right)
   (compare-ordered-sets <wrapper> left right))
+
+(define-specializable-function wrapper-map-compare (<wrapper>) (left right)
+  (compare-ordered-maps <wrapper> left right))
 
 (define-specializable-function wrapper-is-empty (<wrapper> <tree>) (collection)
   (i-nil-type-p <tree> (i-tree <wrapper> collection)))
@@ -1187,6 +1217,42 @@
                (i-tree <wrapper> collection)
                (i-comparator <wrapper> collection)
                item))
+
+(define-specializable-function wrapper-with-entry (<wrapper> <tree>) (collection key value)
+  (multiple-value-bind
+        (tree count-change)
+      (tree-insert <tree>
+                   (i-tree <wrapper> collection)
+                   (i-comparator <wrapper> collection)
+                   key
+                   value)
+    (i-copy-wrapper <wrapper> collection
+                    :tree tree
+                    :size (+ count-change (i-size <wrapper> collection)))))
+
+(define-specializable-function wrapper-lookup-entry (<wrapper> <tree>) (collection key)
+  (tree-lookup <tree>
+               (i-tree <wrapper> collection)
+               (i-comparator <wrapper> collection)
+               key))
+
+(define-specializable-function wrapper-without-entry (<wrapper> <tree>) (collection key)
+  (multiple-value-bind
+        (tree count-change)
+      (tree-remove <tree>
+                   (i-tree <wrapper> collection)
+                   (i-comparator <wrapper> collection)
+                   key)
+    (i-copy-wrapper <wrapper> collection
+                    :tree tree
+                    :size (+ count-change (i-size <wrapper> collection)))))
+
+(define-specializable-function wrapper-for-each-entry (<wrapper> <tree>) (collection function)
+  (tree-for-each-entry <tree> (i-tree <wrapper> collection) function))
+
+(define-specializable-function wrapper-map-entries (<wrapper> <tree>) (collection function)
+  (i-copy-wrapper <wrapper> collection
+                  :tree (tree-map-entries <tree> (i-tree <wrapper> collection) function)))
 
 (define-specializable-function wrapper-print-graphviz (<wrapper> <tree>) (collection stream id-vendor)
   (tree-print-graphviz <tree> (i-tree <wrapper> collection) stream id-vendor))

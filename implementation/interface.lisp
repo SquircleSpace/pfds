@@ -21,7 +21,9 @@
    #:define-interface-function-invoker
    #:define-interface-function
    #:declaim-signature
-   #:interface-function-lambda-list)
+   #:interface-function-lambda-list
+   #:single-specializer
+   #:double-specializer)
   (:import-from :pfds.shcl.io/utility/impure-list-builder
    #:make-impure-list-builder #:impure-list-builder-add
    #:impure-list-builder-extract)
