@@ -29,6 +29,8 @@
    #:intern-conc #:cassert)
   (:import-from :pfds.shcl.io/utility/printer
    #:print-map #:print-set #:print-sequence)
+  (:import-from :pfds.shcl.io/utility/impure-queue
+   #:make-impure-queue #:enqueue #:dequeue #:impure-queue-count)
   (:use :pfds.shcl.io/utility/tree)
   (:export
    #:<weight-balanced-set>
@@ -39,7 +41,7 @@
    #:weight-balanced-map
    #:weight-balanced-map-p
 
-   #:make-weight-balanced-sequence
+   #:<weight-balanced-sequence>
    #:weight-balanced-sequence
    #:weight-balanced-sequence-p))
 (in-package :pfds.shcl.io/implementation/weight-balanced-tree)
@@ -343,7 +345,7 @@
 ;; DEFINE-TREE-TYPE macro can do for us (yet?).  So... we're on our
 ;; own to re-implement a bunch of the stuff from the tree module.
 
-(defvar *max-array-length* 32)
+(define-symbol-macro +max-array-length+ 32)
 
 (deftype wb-seq ()
   '(or null wb-seq-node simple-array string))
@@ -477,7 +479,7 @@
 
       ((and (arrayp left) (arrayp right))
        (cond
-         ((<= total-items *max-array-length*)
+         ((<= total-items +max-array-length+)
           (wb-seq-concat-arrays left right))
          ((or (> right-weight (* (omega-balance) left-weight))
               (> left-weight (* (omega-balance) right-weight)))
@@ -597,7 +599,7 @@
 
 (defun array-insert (array before-index object)
   (cond
-    ((<= (1+ (length array)) *max-array-length*)
+    ((<= (1+ (length array)) +max-array-length+)
      (let ((result (make-array (1+ (length array)) :element-type (if (and (stringp array) (characterp object))
                                                                      'character
                                                                      t))))
@@ -609,8 +611,8 @@
        result))
 
     (t
-     (assert (equal *max-array-length* (length array)))
-     (let* ((split-point (floor *max-array-length* 2))
+     (assert (equal +max-array-length+ (length array)))
+     (let* ((split-point (floor +max-array-length+ 2))
             (first-half (subseq array 0 split-point))
             (second-half (subseq array split-point)))
        (cond
@@ -681,13 +683,13 @@
     (array
      (subseq tree min max))))
 
-(defun wb-seq-for-each (tree function offset)
+(defun wb-seq-for-each-entry (tree function offset)
   (etypecase tree
     (wb-seq-node
      (let ((left (wb-seq-node-left tree))
            (right (wb-seq-node-right tree)))
-       (wb-seq-for-each left function offset)
-       (wb-seq-for-each right function (+ offset (wb-seq-weight left)))))
+       (wb-seq-for-each-entry left function offset)
+       (wb-seq-for-each-entry right function (+ offset (wb-seq-weight left)))))
     (array
      (loop :for object :across tree
            :for index :from offset
@@ -723,43 +725,66 @@
 (define-immutable-structure (weight-balanced-sequence (:constructor %make-weight-balanced-sequnce))
   (tree nil :type wb-seq))
 
+(define-simple-interface-instance <weight-balanced-sequence> <<seq>> weight-balanced-sequence-
+  'make-stack 'make-weight-balanced-sequence
+  'make-queue 'make-weight-balanced-sequence
+  'make-deque 'make-weight-balanced-sequence
+  'make-seq 'make-weight-balanced-sequence)
+
 (defvar *empty-weight-balanced-sequence* (%make-weight-balanced-sequnce))
 
-#<MORE>
+(defun weight-balanced-sequence-for-each (seq function)
+  (wb-seq-for-each-entry
+   (weight-balanced-sequence-tree seq)
+   (lambda (k v)
+     (declare (ignore k))
+     (funcall function v))
+   0))
 
-(defmethod for-each ((seq weight-balanced-sequence) function)
-  (wb-seq-for-each (weight-balanced-sequence-tree seq)
-                   (lambda (k v)
-                     (declare (ignore k))
-                     (funcall function v))
-                   0))
+(defun weight-balanced-sequence-for-each-entry (seq function)
+  (wb-seq-for-each-entry (weight-balanced-sequence-tree seq) function 0))
 
-(defmethod for-each-entry ((seq weight-balanced-sequence) function)
-  (wb-seq-for-each (weight-balanced-sequence-tree seq) function 0))
-
-(defmethod map-entries ((seq weight-balanced-sequence) function)
+(defun weight-balanced-sequence-map-entries (seq function)
   (copy-weight-balanced-sequence seq :tree (wb-seq-map-entries (weight-balanced-sequence-tree seq) function 0)))
 
-(defmethod map-members ((seq weight-balanced-sequence) function)
+(defun weight-balanced-sequence-map-members (seq function)
   (labels
       ((wrapper (k v)
          (declare (ignore k))
          (funcall function v)))
     (copy-weight-balanced-sequence seq :tree (wb-seq-map-entries (weight-balanced-sequence-tree seq) #'wrapper 0))))
 
-(defmethod size ((seq weight-balanced-sequence))
+(defun weight-balanced-sequence-size (seq)
   (wb-seq-weight (weight-balanced-sequence-tree seq)))
 
-(defmethod is-empty ((seq weight-balanced-sequence))
+(defun weight-balanced-sequence-is-empty (seq)
   (null (weight-balanced-sequence-tree seq)))
 
-(defmethod empty ((seq weight-balanced-sequence))
+(defun weight-balanced-sequence-empty (seq)
+  (declare (ignore seq))
   *empty-weight-balanced-sequence*)
 
-(defmethod with-member ((seq weight-balanced-sequence) item)
+(defun weight-balanced-sequence-with-member (seq item)
   (%make-weight-balanced-sequnce :tree (wb-seq-with-last (weight-balanced-sequence-tree seq) item)))
 
-(defmethod decompose ((seq weight-balanced-sequence))
+(defun weight-balanced-sequence-remove-entry (seq index)
+  (let* ((tree (weight-balanced-sequence-tree seq))
+         (weight (wb-seq-weight tree)))
+    (cond
+      ((or (< index 0)
+           (>= index weight))
+       (values seq nil nil))
+
+      (t
+       (multiple-value-bind (new-tree removed-value) (wb-seq-remove tree index)
+         (values
+          (if new-tree
+              (%make-weight-balanced-sequnce :tree new-tree)
+              *empty-weight-balanced-sequence*)
+          removed-value
+          t))))))
+
+(defun weight-balanced-sequence-decompose (seq)
   (weight-balanced-sequence-remove-entry seq (1- (wb-seq-weight (weight-balanced-sequence-tree seq)))))
 
 (defun array-iterator (array)
@@ -808,27 +833,27 @@
     (wb-seq-node
      (iterator-flatten (%wb-seq-iterator tree)))))
 
-(defmethod iterator ((seq weight-balanced-sequence))
+(defun weight-balanced-sequence-iterator (seq)
   (wb-seq-iterator (weight-balanced-sequence-tree seq)))
 
 (defmethod print-object ((seq weight-balanced-sequence) stream)
   (if *print-readably*
       (call-next-method)
-      (print-sequence seq stream)))
+      (print-sequence <weight-balanced-sequence> seq stream)))
 
 (defun make-weight-balanced-sequence (&key items)
   (unless items
     (return-from make-weight-balanced-sequence
       *empty-weight-balanced-sequence*))
   (let (tree
-        (wip-node (make-array *max-array-length* :fill-pointer 0))
+        (wip-node (make-array +max-array-length+ :fill-pointer 0))
         (wip-node-string-p t))
     (dolist (item items)
-      (when (>= (length wip-node) *max-array-length*)
+      (when (>= (length wip-node) +max-array-length+)
         (setf tree (wb-seq-concatenate tree (if wip-node-string-p
                                                 (coerce wip-node 'string)
                                                 (make-array (length wip-node) :initial-contents wip-node))))
-        (setf wip-node (make-array *max-array-length* :fill-pointer 0))
+        (setf wip-node (make-array +max-array-length+ :fill-pointer 0))
         (setf wip-node-string-p t))
       (unless (characterp item)
         (setf wip-node-string-p nil))
@@ -840,30 +865,118 @@
 
     (%make-weight-balanced-sequnce :tree tree)))
 
+(defun make-weight-balanced-sequence (&key items)
+  (unless items
+    (return-from make-weight-balanced-sequence
+      *empty-weight-balanced-sequence*))
+
+  ;; We're going to try our best to minimize consing as we build our
+  ;; tree.  This gets a bit fancy, so buckle up.
+
+  (let ((item-count (length items)))
+
+    (when (<= item-count +max-array-length+)
+      ;; The input sequence fits within a single node.  Great!  Nice
+      ;; and simple!  Just make the vector and be done with it.
+      (return-from make-weight-balanced-sequence
+        (%make-weight-balanced-sequnce
+         :tree (if (position-if-not #'characterp items)
+                   (coerce items 'vector)
+                   (coerce items 'string)))))
+
+    (when (<= item-count (* 2 +max-array-length+))
+      ;; The input sequence fits within two nodes.  Its a little bit
+      ;; messier, this time, but we can just try to split the input in
+      ;; two.  This involves creating a temporary array, but... its
+      ;; probably still better than going through the general case.
+      (return-from make-weight-balanced-sequence
+        (%make-weight-balanced-sequnce
+         :tree (make-wb-seq-node-splitting-arrays (coerce items 'vector) #()))))
+
+    ;; Okay.  Here's the idea.  Combining arrays of similar size is
+    ;; always O(1).  So, let's break up the input sequence into
+    ;; similarly sized trees, and concatenate them pairwise until
+    ;; we've combined them all.  Each time we run perform pairwise
+    ;; combinations, we end up with half as many trees and trees
+    ;; becomes twice as big (aside from possibly the last node).
+
+    ;; This comes out to O(n) in the end.  Obviously building the
+    ;; initial trees takes O(n).  The interesting bit is where we
+    ;; iteratively concatenate those trees.  In each iteration, we can
+    ;; perform log(n) concatenations with O(1) cost.  One
+    ;; concatenation from each iteration (i.e. the last one) might
+    ;; cost log(n).  So, the total cost of each iteration is 2 log(n).
+    ;; We will do log(n) iterations.  So, in the end, the iterative
+    ;; concatenation part comes out to O((log(n))^2).  That's less
+    ;; than the O(n) cost to build the initial trees.  That's pretty
+    ;; neat!
+    (let ((node-queue (make-impure-queue :initial-size (ceiling (/ item-count +max-array-length+))
+                                         :growth-factor nil
+                                         :shrink-factor nil))
+          (wip-node (make-array +max-array-length+ :fill-pointer 0))
+          (wip-node-string-p t))
+
+      ;; Here we break up the input into vectors that make up the
+      ;; leaves of the tree.
+      (dolist (item items)
+        (when (>= (length wip-node) +max-array-length+)
+          (enqueue node-queue
+                   (if wip-node-string-p
+                       (coerce wip-node 'string)
+                       (make-array (length wip-node) :initial-contents wip-node)))
+          (setf wip-node (make-array +max-array-length+ :fill-pointer 0))
+          (setf wip-node-string-p t))
+        (unless (characterp item)
+          (setf wip-node-string-p nil))
+        (vector-push item wip-node))
+
+      (unless (zerop (length wip-node))
+        (enqueue node-queue
+                 (if wip-node-string-p
+                     (coerce wip-node 'string)
+                     (make-array (length wip-node) :initial-contents wip-node))))
+
+      ;; Now we start combining our elements!
+      (loop
+        (cond
+          ((equal 1 (impure-queue-count node-queue))
+           (assert nil))
+          ((equal 2 (impure-queue-count node-queue))
+           (return
+             (%make-weight-balanced-sequnce :tree (wb-seq-concatenate (dequeue node-queue) (dequeue node-queue)))))
+          (t
+           ;; Grab two trees, combine them, and add them to the back
+           ;; of the queue.
+           (loop :with oddp = (oddp (impure-queue-count node-queue))
+                 :for i :below (floor (/ (impure-queue-count node-queue) 2))
+                 :for first = (dequeue node-queue)
+                 :for second = (dequeue node-queue)
+                 :do (enqueue node-queue
+                              (wb-seq-concatenate first second))
+                 :finally (when oddp
+                            ;; In order to preserve element ordering,
+                            ;; we need to process every tree in the
+                            ;; queue on every iteration.  If the queue
+                            ;; had an even number of elements then we
+                            ;; should have already cycled through the
+                            ;; whole queue.  However, if the queue had
+                            ;; an odd number of elements, we'll have a
+                            ;; leftover that is now at the start of
+                            ;; the queue.  It needs to stay at the end
+                            ;; of the queue to preserve element
+                            ;; ordering.  Guess we don't get to
+                            ;; combine it this time.  Oh well.  Let's
+                            ;; move it to the end and start over.
+                            (enqueue node-queue
+                                     (dequeue node-queue))))))))))
+
 (defun weight-balanced-sequence (&rest items)
   (make-weight-balanced-sequence :items items))
 
-(defmethod with-entry ((seq weight-balanced-sequence) index value)
+(defun weight-balanced-sequence-with-entry (seq index value)
   (if (equal index (wb-seq-weight (weight-balanced-sequence-tree seq)))
       (%make-weight-balanced-sequnce :tree (wb-seq-with-last (weight-balanced-sequence-tree seq) value))
       (copy-weight-balanced-sequence seq :tree (wb-seq-store (weight-balanced-sequence-tree seq) index value))))
-
-(defun weight-balanced-sequence-remove-entry (seq index)
-  (let* ((tree (weight-balanced-sequence-tree seq))
-         (weight (wb-seq-weight tree)))
-    (cond
-      ((or (< index 0)
-           (>= index weight))
-       (values seq nil nil))
-
-      (t
-       (multiple-value-bind (new-tree removed-value) (wb-seq-remove tree index)
-         (values
-          (if new-tree
-              (%make-weight-balanced-sequnce :tree new-tree)
-              *empty-weight-balanced-sequence*)
-          removed-value
-          t))))))
 
 (declaim (inline weight-balanced-sequence-size))
 (defun weight-balanced-sequence-size (seq)
@@ -877,65 +990,54 @@
         (values nil nil)
         (wb-seq-lookup tree index))))
 
-(defmethod without-entry ((seq weight-balanced-sequence) index)
+(defun weight-balanced-sequence-without-entry (seq index)
   (weight-balanced-sequence-remove-entry seq index))
 
-(defmethod lookup-entry ((seq weight-balanced-sequence) index)
-  (weight-balanced-sequence-lookup-entry seq index))
-
-(defmethod with-top ((seq weight-balanced-sequence) value)
-  (%make-weight-balanced-sequnce :tree (wb-seq-with-last (weight-balanced-sequence-tree seq) value)))
-
-(defmethod peek-top ((seq weight-balanced-sequence))
-  (weight-balanced-sequence-lookup-entry seq (1- (weight-balanced-sequence-size seq))))
-
-(defmethod without-top ((seq weight-balanced-sequence))
-  (weight-balanced-sequence-remove-entry seq (1- (wb-seq-weight (weight-balanced-sequence-tree seq)))))
-
-(defmethod with-first ((seq weight-balanced-sequence) value)
+(defun weight-balanced-sequence-with-top (seq value)
   (%make-weight-balanced-sequnce :tree (wb-seq-with-first (weight-balanced-sequence-tree seq) value)))
 
-(defmethod with-last ((seq weight-balanced-sequence) value)
-  (%make-weight-balanced-sequnce :tree (wb-seq-with-last (weight-balanced-sequence-tree seq) value)))
-
-(defmethod without-first ((seq weight-balanced-sequence))
-  (weight-balanced-sequence-remove-entry seq 0))
-
-(defmethod without-last ((seq weight-balanced-sequence))
-  (weight-balanced-sequence-remove-entry seq (1- (wb-seq-weight (weight-balanced-sequence-tree seq)))))
-
-(defmethod peek-first ((seq weight-balanced-sequence))
+(defun weight-balanced-sequence-peek-top (seq)
   (weight-balanced-sequence-lookup-entry seq 0))
 
-(defmethod peek-last ((seq weight-balanced-sequence))
+(defun weight-balanced-sequence-without-top (seq)
+  (weight-balanced-sequence-remove-entry seq 0))
+
+(defun weight-balanced-sequence-with-front (seq value)
+  (%make-weight-balanced-sequnce :tree (wb-seq-with-first (weight-balanced-sequence-tree seq) value)))
+
+(defun weight-balanced-sequence-with-back (seq value)
+  (%make-weight-balanced-sequnce :tree (wb-seq-with-last (weight-balanced-sequence-tree seq) value)))
+
+(defun weight-balanced-sequence-without-front (seq)
+  (weight-balanced-sequence-remove-entry seq 0))
+
+(defun weight-balanced-sequence-without-back (seq)
+  (weight-balanced-sequence-remove-entry seq (1- (wb-seq-weight (weight-balanced-sequence-tree seq)))))
+
+(defun weight-balanced-sequence-peek-front (seq)
+  (weight-balanced-sequence-lookup-entry seq 0))
+
+(defun weight-balanced-sequence-peek-back (seq)
   (weight-balanced-sequence-lookup-entry seq (1- (weight-balanced-sequence-size seq))))
 
-(defmethod compare-objects ((left weight-balanced-sequence) (right weight-balanced-sequence))
-  (compare-containers left right #'compare))
+(defun weight-balanced-sequence-compare (left right)
+  (compare-collection-contents <weight-balanced-sequence> left right #'compare))
 
-(defmethod insert ((seq weight-balanced-sequence) before-index object)
+(defun weight-balanced-sequence-insert (seq before-index object)
   (check-type before-index (integer 0))
   (let ((tree (weight-balanced-sequence-tree seq)))
     (when (> before-index (wb-seq-weight tree))
       (error "before-index is out of bounds: ~A" before-index))
     (%make-weight-balanced-sequnce :tree (wb-seq-insert tree before-index object))))
 
-(defmethod join ((left weight-balanced-sequence) (right weight-balanced-sequence))
+(defun weight-balanced-sequence-join (left right)
   (let ((tree (wb-seq-concatenate (weight-balanced-sequence-tree left)
                                   (weight-balanced-sequence-tree right))))
     (if tree
         (%make-weight-balanced-sequnce :tree tree)
         *empty-weight-balanced-sequence*)))
 
-(defmethod join ((seq weight-balanced-sequence) other)
-  (let ((tree (weight-balanced-sequence-tree seq)))
-    (do-each (value other)
-      (setf tree (wb-seq-with-last tree value)))
-    (if tree
-        (%make-weight-balanced-sequnce :tree tree)
-        *empty-weight-balanced-sequence*)))
-
-(defmethod subsequence ((seq weight-balanced-sequence) min max)
+(defun weight-balanced-sequence-subsequence (seq min max)
   (check-type min (integer 0))
   (check-type max (or null (integer 0)))
   (let* ((tree (weight-balanced-sequence-tree seq))
@@ -960,27 +1062,6 @@
       (t
        (%make-weight-balanced-sequnce :tree (wb-seq-subseq tree min max))))))
 
-(defmethod with-front ((seq weight-balanced-sequence) value)
-  (%make-weight-balanced-sequnce :tree (wb-seq-with-first (weight-balanced-sequence-tree seq) value)))
-
-(defmethod with-back ((seq weight-balanced-sequence) value)
-  (%make-weight-balanced-sequnce :tree (wb-seq-with-last (weight-balanced-sequence-tree seq) value)))
-
-(defmethod without-front ((seq weight-balanced-sequence))
-  (weight-balanced-sequence-remove-entry seq 0))
-
-(defmethod without-back ((seq weight-balanced-sequence))
-  (weight-balanced-sequence-remove-entry seq (1- (wb-seq-weight (weight-balanced-sequence-tree seq)))))
-
-(defmethod without-front ((seq weight-balanced-sequence))
-  (weight-balanced-sequence-remove-entry seq 0))
-
-(defmethod peek-front ((seq weight-balanced-sequence))
-  (weight-balanced-sequence-lookup-entry seq 0))
-
-(defmethod peek-back ((seq weight-balanced-sequence))
-  (weight-balanced-sequence-lookup-entry seq (1- (weight-balanced-sequence-size seq))))
-
 (defun wb-seq-print-graphviz (tree stream id-vendor)
   (let ((id (next-graphviz-id id-vendor)))
     (etypecase tree
@@ -998,7 +1079,7 @@
        (format stream "ID~A [label=\"~A\" shape=box]~%" id tree)
        id))))
 
-(defmethod print-graphviz ((seq weight-balanced-sequence) stream id-vendor)
+(defun weight-balanced-sequence-print-graphviz (seq stream id-vendor)
   (wb-seq-print-graphviz (weight-balanced-sequence-tree seq) stream id-vendor))
 
 (defun check-wb-seq-invariants (tree)
@@ -1018,5 +1099,5 @@
        (check-wb-seq-invariants left)
        (check-wb-seq-invariants right)))))
 
-(defmethod check-invariants ((seq weight-balanced-sequence))
+(defun weight-balanced-sequence-check-invariants (seq)
   (check-wb-seq-invariants (weight-balanced-sequence-tree seq)))
