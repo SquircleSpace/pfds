@@ -17,7 +17,7 @@
   (:use :pfds.shcl.io/utility/interface)
   (:use :pfds.shcl.io/implementation/interface)
   (:import-from :pfds.shcl.io/utility/specialization
-   #:specialize)
+   #:named-specialize*)
   (:import-from :pfds.shcl.io/utility/printer
    #:print-container)
   (:import-from :pfds.shcl.io/utility/iterator-tools
@@ -253,11 +253,8 @@
 (defun pairing-heap-iterator (heap)
   (make-p-heap-iterator (pairing-heap-tree heap)))
 
-(specialize collection-to-list <pairing-heap>)
-
-(declaim (inline pairing-heap-to-list))
-(defun pairing-heap-to-list (heap)
-  (collection-to-list <pairing-heap> heap))
+(named-specialize*
+  (pairing-heap-to-list (collection-to-list <pairing-heap>)))
 
 (defmethod print-object ((heap pairing-heap) stream)
   (if *print-readably*

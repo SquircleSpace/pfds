@@ -17,7 +17,7 @@
   (:use :pfds.shcl.io/utility/interface)
   (:use :pfds.shcl.io/implementation/interface)
   (:import-from :pfds.shcl.io/utility/specialization
-   #:specialize)
+   #:named-specialize*)
   (:import-from :pfds.shcl.io/utility/printer
    #:print-container)
   (:import-from :pfds.shcl.io/utility/iterator-tools
@@ -115,11 +115,8 @@
   (do-guts (item (leftist-heap-guts heap))
     (funcall function item)))
 
-(specialize collection-to-list <leftist-heap>)
-
-(declaim (inline leftist-heap-to-list))
-(defun leftist-heap-to-list (heap)
-  (collection-to-list <leftist-heap> heap))
+(named-specialize*
+  (leftist-heap-to-list (collection-to-list <leftist-heap>)))
 
 (defun make-tree-iterator (tree)
   (when (guts-nil-p tree)

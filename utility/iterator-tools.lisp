@@ -107,7 +107,7 @@
              (return result))))))))
 
 (define-specializable-function compare-collection-contents
-    (<interface>) (left right comparator)
+    (<interface>) (left right &optional (comparator #'compare))
   (compare*
     (compare-reals (i-size <interface> left)
                    (i-size <interface> right))

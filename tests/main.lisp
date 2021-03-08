@@ -47,8 +47,8 @@
   ;; (:import-from :pfds.shcl.io/implementation/splay-tree #:splay-heap)
   (:import-from :pfds.shcl.io/implementation/batched-deque #:<batched-deque>)
   (:import-from :pfds.shcl.io/implementation/persistent-vector #:<persistent-vector>)
-  ;; (:import-from :pfds.shcl.io/implementation/weight-balanced-tree
-  ;;  #:weight-balanced-sequence #:weight-balanced-set #:weight-balanced-map)
+  (:import-from :pfds.shcl.io/implementation/weight-balanced-tree
+   #:<weight-balanced-sequence> #:<weight-balanced-set> #:<weight-balanced-map>)
   ;; (:import-from :pfds.shcl.io/implementation/red-black-tree
   ;;  #:red-black-set #:red-black-map)
   (:import-from :prove #:*suite* #:suite #:finalize #:skip)
@@ -148,7 +148,10 @@
     <weight-biased-leftist-heap>
     <pairing-heap>
     <binomial-heap>
-    <persistent-vector>))
+    <persistent-vector>
+    <weight-balanced-map>
+    <weight-balanced-set>
+    <weight-balanced-sequence>))
 
 (defparameter *interface-tests*
   '((<<debugable>> . test-debugable)
@@ -180,7 +183,7 @@
       (subtest* (symbol-name sym)
         ;; Macroexpand the symbol because we use symbol macros to make
         ;; interface instances redefineable
-        (run-interface-tests (macroexpand sym))))))
+        (run-interface-tests (symbol-value (macroexpand sym)))))))
 
 (defun all-tests ()
   (ensure-suite

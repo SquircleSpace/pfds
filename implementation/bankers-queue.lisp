@@ -17,7 +17,7 @@
   (:use :pfds.shcl.io/utility/interface)
   (:use :pfds.shcl.io/implementation/interface)
   (:import-from :pfds.shcl.io/utility/specialization
-   #:specialize)
+   #:named-specialize*)
   (:import-from :pfds.shcl.io/utility/lazy
    #:force #:lazy)
   (:import-from :pfds.shcl.io/utility/printer
@@ -136,7 +136,9 @@
   (i-for-each <lazy-list> (bankers-queue-front-stack queue) function)
   (i-for-each <list> (nreverse (i-to-list <lazy-list> (bankers-queue-back-stack queue))) function))
 
-(specialize collection-to-list <bankers-queue>)
+(named-specialize*
+  (bankers-queue-to-list (collection-to-list <bankers-queue>))
+  (bankers-queue-compare (compare-collection-contents <bankers-queue>)))
 
 (declaim (inline bankers-queue-to-list))
 (defun bankers-queue-to-list (queue)
@@ -206,10 +208,6 @@
       (link id)
       (link-list (i-reverse <lazy-list> (bankers-queue-back-stack queue)))
       id)))
-
-(declaim (inline bankers-queue-compare))
-(defun bankers-queue-compare (left right)
-  (compare-collection-contents <bankers-queue> left right #'compare))
 
 (declaim (inline bankers-queue-with-member))
 (defun bankers-queue-with-member (queue object)

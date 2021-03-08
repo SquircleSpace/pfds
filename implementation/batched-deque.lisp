@@ -16,6 +16,8 @@
   (:use :common-lisp)
   (:use :pfds.shcl.io/utility/interface)
   (:use :pfds.shcl.io/implementation/interface)
+  (:import-from :pfds.shcl.io/utility/specialization
+   #:named-specialize*)
   (:import-from :pfds.shcl.io/implementation/list
    #:<list>)
   (:import-from :pfds.shcl.io/utility/list
@@ -312,9 +314,8 @@
   (+ (batched-deque-front-count deque)
      (batched-deque-back-count deque)))
 
-(declaim (inline batched-deque-compare))
-(defun batched-deque-compare (left right)
-  (compare-collection-contents <batched-deque> left right #'compare))
+(named-specialize*
+  (batched-deque-compare (compare-collection-contents <batched-deque>)))
 
 (declaim (inline batched-deque-with-member))
 (defun batched-deque-with-member (deque object)

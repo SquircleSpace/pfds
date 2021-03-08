@@ -719,7 +719,8 @@
   'make-stack 'make-weight-balanced-sequence
   'make-queue 'make-weight-balanced-sequence
   'make-deque 'make-weight-balanced-sequence
-  'make-seq 'make-weight-balanced-sequence)
+  'make-seq 'make-weight-balanced-sequence
+  'representative-empty 'make-weight-balanced-sequence)
 
 (named-specialize*
   (weight-balanced-sequence-to-list (collection-to-list <weight-balanced-sequence>))

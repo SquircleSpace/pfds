@@ -16,6 +16,8 @@
   (:use :common-lisp)
   (:use :pfds.shcl.io/utility/interface)
   (:use :pfds.shcl.io/implementation/interface)
+  (:import-from :pfds.shcl.io/utility/specialization
+   #:named-specialize*)
   (:import-from :pfds.shcl.io/implementation/list
    #:<list>)
   (:import-from :pfds.shcl.io/utility/printer
@@ -194,9 +196,8 @@
 (defun batched-queue-size (queue)
   (batched-queue-count queue))
 
-(declaim (inline batched-queue-compare))
-(defun batched-queue-compare (left right)
-  (compare-collection-contents <batched-queue> left right #'compare))
+(named-specialize*
+  (batched-queue-compare (compare-collection-contents <batched-queue>)))
 
 (declaim (inline batched-queue-with-member))
 (defun batched-queue-with-member (queue object)

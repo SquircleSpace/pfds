@@ -17,7 +17,7 @@
   (:use :pfds.shcl.io/utility/interface)
   (:use :pfds.shcl.io/implementation/interface)
   (:import-from :pfds.shcl.io/utility/specialization
-   #:specialize)
+   #:named-specialize*)
   (:import-from :pfds.shcl.io/utility/iterator-tools
    #:compare-collection-contents)
   (:import-from :pfds.shcl.io/utility/compare
@@ -401,10 +401,9 @@
      (declare (ignore k))
      (funcall function v))))
 
-(specialize collection-to-list <persistent-vector>)
-
-(defun persistent-vector-to-list (p-vec)
-  (collection-to-list <persistent-vector> p-vec))
+(named-specialize*
+  (persistent-vector-to-list (collection-to-list <persistent-vector>))
+  (persistent-vector-compare (compare-collection-contents <persistent-vector>)))
 
 (defun persistent-vector-map-members (p-vec function)
   (persistent-vector-map-entries
@@ -432,9 +431,6 @@
 
 (defun persistent-vector-size (p-vec)
   (persistent-vector-count p-vec))
-
-(defun persistent-vector-compare (left right)
-  (compare-collection-contents <persistent-vector> left right #'compare))
 
 (defun persistent-vector-with-member (p-vec object)
   (persistent-vector-push p-vec object))
