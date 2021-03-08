@@ -384,7 +384,13 @@
          ,@forwarding-body)
 
        (define-compiler-macro ,wrapper-name (,interface &rest ,rest &environment ,env)
-         ;; Use funcall to prevent local shadowing
+         ;; Use FUNCALL to prevent local shadowing.  Sadly, SBCL isn't
+         ;; smart enough to inline a FUNCALL to an inline function
+         ;; (aside from some functions that SBCL itself defines).
+         ;; Since we macroexpand the target before we hand it to
+         ;; FUNCALL, we make it more likely that compiler macros will
+         ;; run, though!  Instead of seeing (FUNCALL (SOME-FORMS)) it
+         ;; will often see (FUNCALL 'SOME-SYM).
          (let ((,target (macroexpand `(interface-get ,,interface ',',interface-function-name) ,env)))
            `(funcall ,,target ,@,rest))))))
 
