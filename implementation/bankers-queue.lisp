@@ -140,10 +140,6 @@
   (bankers-queue-to-list (collection-to-list <bankers-queue>))
   (bankers-queue-compare (compare-collection-contents <bankers-queue>)))
 
-(declaim (inline bankers-queue-to-list))
-(defun bankers-queue-to-list (queue)
-  (collection-to-list <bankers-queue> queue))
-
 (declaim (inline bankers-queue-size))
 (defun bankers-queue-size (queue)
   (+ (bankers-queue-front-stack-size queue)

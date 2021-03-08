@@ -86,15 +86,17 @@
                              :body body
                              :dependencies dependencies))
         (progn
+          (when (and (plusp (hash-table-count (slot-value existing '%table)))
+                     (not (equal body (slot-value existing '%body))))
+            (alexandria:simple-style-warning "~W has specializations that are being lost" function-name)
+            (setf (slot-value existing '%table) (make-hash-table :test #'equal)))
           (reinitialize-instance existing
                                  :name function-name
                                  :interfaces interfaces
                                  :lambda-list lambda-list
                                  :body body
                                  :dependencies dependencies)
-          (when (plusp (hash-table-count (slot-value existing '%table)))
-            (alexandria:simple-style-warning "~W has specializations that are being lost" function-name))
-          (setf (slot-value existing '%table) (make-hash-table :test #'equal))
+
           existing))))
 
 (eval-when (:compile-toplevel :load-toplevel :execute)
