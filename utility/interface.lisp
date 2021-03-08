@@ -434,7 +434,11 @@
      ',function-name))
 
 (defmacro define-interface-methods (instance class-name &environment env)
-  (setf instance (macroexpand instance env))
+  (let ((expanded (macroexpand instance env)))
+    (unless (and (symbolp expanded)
+                 (constantp expanded env))
+      (error "Interface instance must be a simple constant: ~W" instance))
+    (setf instance (symbol-value expanded)))
   `(progn
      ,@(loop :for interface-record :in (interface-functions instance)
              :for interface-function-name = (car interface-record)

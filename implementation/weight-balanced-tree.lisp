@@ -214,7 +214,7 @@
   (wb-set-check-balance (weight-balanced-set-tree set)))
 
 (defun weight-balanced-set (&rest items)
-  (make-weight-balanced-set #'compare :items items))
+  (make-weight-balanced-set :items items))
 
 (define-tree-type (wb-map :map-p t)
   (weight 1 :type (integer 1)))
@@ -839,30 +839,6 @@
   (unless items
     (return-from make-weight-balanced-sequence
       *empty-weight-balanced-sequence*))
-  (let (tree
-        (wip-node (make-array +max-array-length+ :fill-pointer 0))
-        (wip-node-string-p t))
-    (dolist (item items)
-      (when (>= (length wip-node) +max-array-length+)
-        (setf tree (wb-seq-concatenate tree (if wip-node-string-p
-                                                (coerce wip-node 'string)
-                                                (make-array (length wip-node) :initial-contents wip-node))))
-        (setf wip-node (make-array +max-array-length+ :fill-pointer 0))
-        (setf wip-node-string-p t))
-      (unless (characterp item)
-        (setf wip-node-string-p nil))
-      (vector-push item wip-node))
-
-    (setf tree (wb-seq-concatenate tree (if wip-node-string-p
-                                            (coerce wip-node 'string)
-                                            (make-array (length wip-node) :initial-contents wip-node))))
-
-    (%make-weight-balanced-sequnce :tree tree)))
-
-(defun make-weight-balanced-sequence (&key items)
-  (unless items
-    (return-from make-weight-balanced-sequence
-      *empty-weight-balanced-sequence*))
 
   ;; We're going to try our best to minimize consing as we build our
   ;; tree.  This gets a bit fancy, so buckle up.
@@ -971,10 +947,6 @@
   (if (equal index (wb-seq-weight (weight-balanced-sequence-tree seq)))
       (%make-weight-balanced-sequnce :tree (wb-seq-with-last (weight-balanced-sequence-tree seq) value))
       (copy-weight-balanced-sequence seq :tree (wb-seq-store (weight-balanced-sequence-tree seq) index value))))
-
-(declaim (inline weight-balanced-sequence-size))
-(defun weight-balanced-sequence-size (seq)
-  (wb-seq-weight (weight-balanced-sequence-tree seq)))
 
 (defun weight-balanced-sequence-lookup-entry (seq index)
   (let* ((tree (weight-balanced-sequence-tree seq))

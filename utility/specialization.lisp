@@ -93,7 +93,7 @@
                                  :body body
                                  :dependencies dependencies)
           (when (plusp (hash-table-count (slot-value existing '%table)))
-            (warn "~W has specializations that are being lost" function-name))
+            (alexandria:simple-style-warning "~W has specializations that are being lost" function-name))
           (setf (slot-value existing '%table) (make-hash-table :test #'equal))
           existing))))
 
