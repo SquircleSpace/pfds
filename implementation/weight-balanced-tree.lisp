@@ -731,6 +731,10 @@
   'make-deque 'make-weight-balanced-sequence
   'make-seq 'make-weight-balanced-sequence)
 
+(named-specialize*
+  (weight-balanced-sequence-to-list (collection-to-list <weight-balanced-sequence>))
+  (weight-balanced-sequence-compare (compare-collection-contents <weight-balanced-sequence>)))
+
 (defvar *empty-weight-balanced-sequence* (%make-weight-balanced-sequnce))
 
 (defun weight-balanced-sequence-for-each (seq function)
@@ -1020,9 +1024,6 @@
 (defun weight-balanced-sequence-peek-back (seq)
   (weight-balanced-sequence-lookup-entry seq (1- (weight-balanced-sequence-size seq))))
 
-(defun weight-balanced-sequence-compare (left right)
-  (compare-collection-contents <weight-balanced-sequence> left right #'compare))
-
 (defun weight-balanced-sequence-insert (seq before-index object)
   (check-type before-index (integer 0))
   (let ((tree (weight-balanced-sequence-tree seq)))
@@ -1101,3 +1102,5 @@
 
 (defun weight-balanced-sequence-check-invariants (seq)
   (check-wb-seq-invariants (weight-balanced-sequence-tree seq)))
+
+(define-interface-methods <weight-balanced-sequence> weight-balanced-sequence)
