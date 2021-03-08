@@ -438,14 +438,11 @@ dictionaries.
 You don't need to use interfaces to interact with this library's data
 structures.  In fact, you are encouraged to simply use the generic
 interface.  If you're a speed demon or allergic to generic functions,
-you can use the interface infrastructure.  The `INTERFACE-GET`
-function has a compiler macro that does function lookup at compile
-time when the interface is a literal or a macro that expands to a
-literal.  It also handles cases where the interface argument is a
-constant form.  The end result is that calling `(FUNCALL
-(INTERFACE-GET <I> 'SYM))` will often be transformed to `(FUNCALL
-'OTHER-SYM)` (assuming the interface `<I>` maps `SYM` to
-`OTHER-SYM`!).  While this is nifty, its a lot clunkier than just
-using generic functions.  Steer clear of interfaces until you have
-benchmarks that show that generic function dispatch is a bottleneck
-for you.
+you can use the interface infrastructure.  The `INTERFACE-GET` macro
+does function lookup at compile time in the usual cases.  The end
+result is that calling `(FUNCALL (INTERFACE-GET <I> 'SYM))` will often
+be transformed to `(FUNCALL 'OTHER-SYM)` (assuming the interface `<I>`
+maps `SYM` to `OTHER-SYM`!).  While this is nifty, its a lot clunkier
+than just using generic functions.  Steer clear of interfaces until
+you have benchmarks that show that generic function dispatch is a
+bottleneck for you.

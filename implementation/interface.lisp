@@ -16,7 +16,6 @@
   (:use :common-lisp)
   (:import-from :pfds.shcl.io/utility/interface
    #:define-interface
-   #:interface-get
    #:interface-functions
    #:define-interface-function-invoker
    #:define-interface-function

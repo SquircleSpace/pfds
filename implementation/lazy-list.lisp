@@ -140,7 +140,7 @@
 (defun lazy-list-without-back (list)
   ;; This isn't anywhere near optimal, but... meh?  What are you doing
   ;; popping from the end of a linked list, anyway?!
-  (multiple-value-bind (strict-list value valid-p) (funcall (interface-get <list> 'without-back) (lazy-list-to-list list))
+  (multiple-value-bind (strict-list value valid-p) (i-without-back <list> (lazy-list-to-list list))
     (values (make-lazy-list :items strict-list) value valid-p)))
 
 (defun lazy-list-peek-back (list)

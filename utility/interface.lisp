@@ -252,6 +252,14 @@
 
   (defmacro interface-get (interface function-name &environment env)
     (setf interface (macroexpand interface env))
+    (when (and (symbolp interface)
+               (constantp interface env))
+      ;; Ignore errors in case the symbol doesn't have a value yet.
+      ;; If it does have a value then we can safely assume it won't
+      ;; change between now and runtime.
+      (ignore-errors
+       (setf interface (symbol-value interface))))
+
     (setf function-name (macroexpand function-name env))
     (cond
       ((and (typep interface 'interface)
@@ -289,20 +297,6 @@
       (t
        `(slot-value ,interface ,function-name)))))
 
-(defmacro i-funcall (target &rest args &environment env)
-  "Like the normal FUNCALL, but with more optimization!
-
-Yeah, I know.  That sounds like a dubious claim.  The problem is that
-if the target function form is a macro instead of a literal symbol,
-you don't always get a chance to run compiler macros against its
-result.  This just fully expands the target function form (including
-compiler macros) and then funcalls the result using the standard
-FUNCALL.
-
-Note that this means that it ignores NOTINLINE declarations.  So, use
-it with care!"
-  `(funcall ,(fully-expand target env) ,@args))
-
 (defmacro with-interface (interface functions &body body &environment env)
   (setf interface (macroexpand interface env))
   (setf functions (loop :for entry :in functions
@@ -312,7 +306,6 @@ it with care!"
     (labels
         ((symbol-macro-form (entry)
            (destructuring-bind (local-name interface-fn-name) entry
-             ;; Use funcall to prevent local shadowing
              `(,local-name (interface-get ,interface-instance ',interface-fn-name)))))
       (let ((main-form
               `(symbol-macrolet
@@ -376,6 +369,8 @@ it with care!"
          (lambda-list (interface-function-metadata-lambda-list metadata))
          (interface (make-symbol "<INTERFACE>"))
          (rest (gensym "REST"))
+         (target (gensym "TARGET"))
+         (env (gensym "ENV"))
          (forwarding-lambda (make-forwarding-lambda
                              lambda-list
                              `(interface-get ,interface ',interface-function-name)))
@@ -388,8 +383,10 @@ it with care!"
          ,@(when documentation `(,documentation))
          ,@forwarding-body)
 
-       (define-compiler-macro ,wrapper-name (,interface &rest ,rest)
-         `(i-funcall (interface-get ,,interface ',',interface-function-name) ,@,rest)))))
+       (define-compiler-macro ,wrapper-name (,interface &rest ,rest &environment ,env)
+         ;; Use funcall to prevent local shadowing
+         (let ((,target (macroexpand `(interface-get ,,interface ',',interface-function-name) ,env)))
+           `(funcall ,,target ,@,rest))))))
 
 (eval-when (:compile-toplevel :load-toplevel :execute)
   (defun n-specializer (count generic-name class-name interface interface-function-name)
