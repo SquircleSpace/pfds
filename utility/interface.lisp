@@ -189,7 +189,7 @@
              (symbol-value ',constant-sym)
              (make-instance ',interface-name ,@initargs :debug-name ',instance-name)))
        (defmacro ,constant-sym ()
-         ,constant-sym)
+         ',constant-sym)
        (define-symbol-macro ,instance-name (,constant-sym)))))
 
 (eval-when (:compile-toplevel :load-toplevel :execute)
@@ -250,11 +250,7 @@
   (defun interface-has-function-p (interface function-name)
     (slot-exists-p interface function-name))
 
-  (declaim (inline interface-get))
-  (defun interface-get (interface function-name)
-    (slot-value interface function-name))
-
-  (define-compiler-macro interface-get (&whole whole interface function-name &environment env)
+  (defmacro interface-get (interface function-name &environment env)
     (setf interface (macroexpand interface env))
     (setf function-name (macroexpand function-name env))
     (cond
@@ -291,7 +287,7 @@
                                       (sb-int:constant-form-value function-name env))))
 
       (t
-       whole))))
+       `(slot-value ,interface ,function-name)))))
 
 (defmacro i-funcall (target &rest args &environment env)
   "Like the normal FUNCALL, but with more optimization!

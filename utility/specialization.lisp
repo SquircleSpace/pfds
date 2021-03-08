@@ -97,14 +97,20 @@
           (setf (slot-value existing '%table) (make-hash-table :test #'equal))
           existing))))
 
-(defun find-specialization (function-name interface-arguments)
+(eval-when (:compile-toplevel :load-toplevel :execute)
+  (defun expand-args (args &optional environment)
+    (loop :for arg :in args
+          :collect (macroexpand arg environment))))
+
+(defun find-specialization (function-name interface-arguments &optional environment)
   (let* ((record (specialization-record function-name))
          (symbol (when record
-                   (gethash interface-arguments (slot-value record '%table)))))
+                   (gethash (expand-args interface-arguments environment)
+                            (slot-value record '%table)))))
     symbol))
 
-(defun specialization-invocation (function-name interface-arguments other-args)
-  (let ((symbol (find-specialization function-name interface-arguments)))
+(defun specialization-invocation (function-name interface-arguments other-args &optional environment)
+  (let ((symbol (find-specialization function-name interface-arguments environment)))
     (when symbol
       `(,symbol ,@other-args))))
 
@@ -201,13 +207,42 @@
          ,@(nreverse post-forms)))))
 
 (eval-when (:compile-toplevel :load-toplevel :execute)
+  (defun specialize-1-forms (name preferred-name interface-arguments &optional environment)
+    (let* ((specialization-record (or (specialization-record name) (error "~W isn't specializable" name)))
+           (expanded-args (loop :for arg :in interface-arguments
+                                :for expanded = (macroexpand arg environment)
+                                :collect (if (and (symbolp expanded)
+                                                  (constantp expanded environment))
+                                             expanded
+                                             (error "argument isn't a simple constant: ~W / ~W" arg expanded))))
+           (provided-length (length interface-arguments))
+           (expected-length (length (slot-value specialization-record '%interfaces)))
+           (specialization-name (or preferred-name (gensym (format nil "~A-~A" name interface-arguments))))
+           (specialization-defun (make-specialization-defun
+                                  specialization-name
+                                  (slot-value specialization-record '%name)
+                                  (slot-value specialization-record '%interfaces)
+                                  expanded-args
+                                  (slot-value specialization-record '%lambda-list)
+                                  (slot-value specialization-record '%body))))
+
+      (unless (equal provided-length expected-length)
+        (error "Incorrect number of interface arguments.  Got ~A, expected ~A" provided-length expected-length))
+      (list
+       specialization-defun
+       `(eval-when (:compile-toplevel :load-toplevel :execute)
+          (record-specialization
+           ',name
+           ',expanded-args
+           ',specialization-name)))))
+
   (defun %recursive-specialize (function-name interface-arguments environment seen-table name-table)
     (let ((target (cons function-name interface-arguments)))
       (when (nth-value 1 (gethash (cons function-name interface-arguments) seen-table))
         (return-from %recursive-specialize))
 
       (setf (gethash target seen-table)
-            `(specialize-1 ,function-name ,(gethash function-name name-table) ,@interface-arguments)))
+            (specialize-1-forms function-name (gethash function-name name-table) interface-arguments environment)))
 
     (let* ((record (or (specialization-record function-name)
                        (error "Couldn't find a specializable function named ~W" function-name)))
@@ -228,9 +263,15 @@
                 (%recursive-specialize (car dependency) mapped-arguments environment seen-table name-table)))))
 
   (defun seen-table-generate (table)
-    `(progn
-       ,@(loop :for form :being :the :hash-values :of table
-               :collect form)))
+    (loop :with defuns = nil :with records = nil
+          :for forms :being :the :hash-values :of table
+          :do (destructuring-bind (defun-form record-form) forms
+                (push defun-form defuns)
+                (push record-form records))
+          :finally (return
+                     `(progn
+                        ,@records
+                        ,@defuns))))
 
   (defun recursive-specialize (name interface-arguments &optional environment)
     (let ((table (make-hash-table :test #'equal)))
@@ -273,29 +314,5 @@
        ',last-name)))
 
 (defmacro specialize-1 (name &optional preferred-name &rest interface-arguments &environment env)
-  (dolist (arg interface-arguments)
-    (unless (or (constantp arg env)
-                (constantp (macroexpand arg env) env))
-      (error "Interface argument isn't constant: ~W" arg)))
-  (let* ((specialization-record (or (specialization-record name) (error "~W isn't specializable" name)))
-         (provided-length (length interface-arguments))
-         (expected-length (length (slot-value specialization-record '%interfaces)))
-         (specialization-name (or preferred-name (gensym (format nil "~A-~A" name interface-arguments))))
-         (specialization-defun (make-specialization-defun
-                                specialization-name
-                                (slot-value specialization-record '%name)
-                                (slot-value specialization-record '%interfaces)
-                                interface-arguments
-                                (slot-value specialization-record '%lambda-list)
-                                (slot-value specialization-record '%body))))
-
-    (unless (equal provided-length expected-length)
-      (error "Incorrect number of interface arguments.  Got ~A, expected ~A" provided-length expected-length))
-    `(progn
-       ,specialization-defun
-       (eval-when (:compile-toplevel :load-toplevel :execute)
-         (record-specialization
-          ',name
-          ',interface-arguments
-          ',specialization-name))
-       ',name)))
+  `(progn
+     ,@(specialize-1-forms name preferred-name interface-arguments env)))
