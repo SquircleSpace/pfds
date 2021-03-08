@@ -114,7 +114,7 @@
     (wb-set-node
      (wb-set-node-weight tree))))
 
-(define-interface <<wb-set>> (<<base-wb-set>> <<rotations>>)
+(define-interface <<wb-set>> (<<base-wb-set>>)
   tree-weight)
 
 (defun copy-wb-set-node-1+ (node &key (left (wb-set-node-left node))
@@ -151,11 +151,6 @@
   'remove-right-balancer 'wb-set-balance
 
   'mutate 'wb-set-mutate
-
-  'rotate-left 'wb-set-rotate-left
-  'rotate-right 'wb-set-rotate-right
-  'rotate-double-left 'wb-set-rotate-double-left
-  'rotate-double-right 'wb-set-rotate-double-right
 
   'tree-weight 'wb-set-weight)
 
@@ -231,7 +226,7 @@
     (wb-map-node
      (wb-map-node-weight tree))))
 
-(define-interface <<wb-map>> (<<base-wb-map>> <<rotations>>)
+(define-interface <<wb-map>> (<<base-wb-map>>)
   tree-weight)
 
 (defun copy-wb-map-node-1+ (node &key (left (wb-map-node-left node))
@@ -268,11 +263,6 @@
   'remove-right-balancer 'wb-map-balance
 
   'mutate 'wb-map-mutate
-
-  'rotate-left 'wb-map-rotate-left
-  'rotate-right 'wb-map-rotate-right
-  'rotate-double-left 'wb-map-rotate-double-left
-  'rotate-double-right 'wb-map-rotate-double-right
 
   'tree-weight 'wb-map-weight)
 

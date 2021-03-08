@@ -92,16 +92,6 @@
    #:mutate
    #:i-mutate
 
-   #:<<rotations>>
-   #:rotate-left
-   #:i-rotate-left
-   #:rotate-right
-   #:i-rotate-right
-   #:rotate-double-left
-   #:i-rotate-double-left
-   #:rotate-double-right
-   #:i-rotate-double-right
-
    #:<<tree-wrapper>>
    #:size
    #:i-size
@@ -294,22 +284,6 @@
   :define-generic nil)
 
 (define-interface-function mutate (tree comparator key action-function)
-  :define-generic nil)
-
-(define-interface <<rotations>> ()
-  rotate-left
-  rotate-right
-  rotate-double-left
-  rotate-double-right)
-
-(define-interface-function rotate-left (node &optional left right)
-  :define-generic nil)
-(define-interface-function rotate-right (node &optional left right)
-  :define-generic nil)
-
-(define-interface-function rotate-double-left (node &optional left right)
-  :define-generic nil)
-(define-interface-function rotate-double-right (node &optional left right)
   :define-generic nil)
 
 (define-interface <<tree-wrapper>> ()
