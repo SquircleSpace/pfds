@@ -231,12 +231,14 @@
 
 (defun copy-wb-map-node-1+ (node &key (left (wb-map-node-left node))
                                    (right (wb-map-node-right node))
-                                   (key (wb-map-node-1-key node)))
+                                   (key (wb-map-node-1-key node))
+                                   (value (wb-map-node-1-value node)))
   (copy-wb-map-node-1
    node
    :left left
    :right right
    :key key
+   :value value
    :weight (+ 1
               (wb-map-weight left)
               (wb-map-weight right))))
@@ -296,7 +298,8 @@
   'make-wrapper '%make-weight-balanced-map
   'copy-wrapper 'copy-weight-balanced-map
   'make-ordered-map 'make-weight-balanced-map
-  'representative-empty 'make-weight-balanced-map)
+  'representative-empty 'make-weight-balanced-map
+  'member-type 'weight-balanced-map-member-type)
 
 (named-specialize*
   (make-weight-balanced-map (wrapper-make-map <weight-balanced-map> <wb-map>))
@@ -310,6 +313,7 @@
   (weight-balanced-map-check-invariants-base (wrapper-check-invariants <weight-balanced-map> <wb-map>))
   (weight-balanced-map-decompose (wrapper-decompose <weight-balanced-map> <wb-map>))
   (weight-balanced-map-print-graphviz (wrapper-print-graphviz <weight-balanced-map> <wb-map>))
+  (weight-balanced-map-with-member (wrapper-with-member <weight-balanced-map> <wb-map>))
   (weight-balanced-map-with-entry (wrapper-with-entry <weight-balanced-map> <wb-map>))
   (weight-balanced-map-lookup-entry (wrapper-lookup-entry <weight-balanced-map> <wb-map>))
   (weight-balanced-map-without-entry (wrapper-without-entry <weight-balanced-map> <wb-map>))
@@ -329,6 +333,10 @@
 
 (defun weight-balanced-map (&rest plist)
   (make-weight-balanced-map :plist plist))
+
+(defun weight-balanced-map-member-type (map)
+  (declare (ignore map))
+  '(cons t t))
 
 ;; Weight balanced sequences are weird because they don't use tree
 ;; nodes all the way down.  That isn't a feature that the

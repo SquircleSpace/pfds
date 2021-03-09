@@ -1171,7 +1171,12 @@
                     :size (+ count-change (i-size <wrapper> collection)))))
 
 (define-specializable-function wrapper-decompose (<wrapper> <tree>) (collection)
-  (tree-decompose <tree> (i-tree <wrapper> collection)))
+  (multiple-value-bind (new-tree value valid-p) (tree-decompose <tree> (i-tree <wrapper> collection))
+    (if valid-p
+        (values (i-copy-wrapper <wrapper> collection :tree new-tree :size (1- (i-size <wrapper> collection)))
+                value
+                valid-p)
+        (values collection value valid-p))))
 
 (define-specializable-function wrapper-without-member (<wrapper> <tree>) (collection item)
   (multiple-value-bind

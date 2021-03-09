@@ -94,7 +94,7 @@
       ((equal type t)
        item)
       ((equal type '(cons t t))
-       (cons item (complex 0 (sxhash item))))
+       (cons item (list item)))
       (t
        (error "Not sure how to encode ~A" type)))))
 
@@ -104,8 +104,8 @@
       ((equal type t)
        item)
       ((equal type '(cons t t))
-       (cassert (equal (complex 0 (sxhash (car item)))
-                       (cdr item))
+       (cassert (equal (car item)
+                       (car (cdr item)))
                 (item)
                 "Mismatched hash for ~W" item)
        (car item))
@@ -126,10 +126,10 @@
     `(let* ((,old-suite prove:*suite*)
             (prove:*suite* (or ,old-suite
                                (make-instance 'prove:suite :plan nil))))
-       (multiple-value-prog1
-           (progn ,@body)
-         (unless ,old-suite
-           (finalize prove:*suite*))))))
+       ,@body
+       (unless ,old-suite
+         (finalize prove:*suite*))
+       (zerop (prove.suite:failed prove:*suite*)))))
 
 (defconstant +test-name-prefix+ (if (boundp '+test-name-prefix+)
                                     (symbol-value '+test-name-prefix+)
