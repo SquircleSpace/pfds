@@ -26,57 +26,54 @@
 (in-package :pfds.shcl.io/tests/deque)
 
 (defun wrap (interface)
-  (with-interface interface
-      ((check-invariants pfds.shcl.io/implementation/interface:check-invariants)
-       (is-empty pfds.shcl.io/implementation/interface:is-empty))
-    (labels
-        ((with-x-wrapper (with-fn)
-           (lambda (&rest args)
-             (let ((result (apply with-fn args)))
-               (funcall check-invariants result)
-               result)))
+  (labels
+      ((with-x-wrapper (with-fn)
+         (lambda (&rest args)
+           (let ((result (apply with-fn args)))
+             (i-check-invariants interface result)
+             result)))
 
-         (without-x-wrapper (peek-fn)
-           (lambda (without-fn)
-             (lambda (deque &rest args)
-               (multiple-value-bind (result head valid-p) (apply without-fn deque args)
-                 (funcall check-invariants result)
-
-                 (if valid-p
-                     (cassert (not (funcall is-empty deque)) nil "A non-empty deque should always claim validity when removing an element")
-                     (cassert (funcall is-empty deque) nil "An empty deque should always claim non-validity when removing an element"))
-
-                 (multiple-value-bind (other-head peek-valid-p) (funcall peek-fn deque)
-                   (cassert (eq other-head head)
-                            nil
-                            "Peeking and removal should return the same value")
-                   (cassert (or (and peek-valid-p valid-p)
-                                (and (not peek-valid-p) (not valid-p)))
-                            nil
-                            "Peeking and removal should agree on validity"))
-
-                 (values result head valid-p)))))
-
-         (peek-x-wrapper (peek-fn)
+       (without-x-wrapper (peek-fn)
+         (lambda (without-fn)
            (lambda (deque &rest args)
-             (multiple-value-bind (result valid-p) (apply peek-fn deque args)
+             (multiple-value-bind (result head valid-p) (apply without-fn deque args)
+               (i-check-invariants interface result)
+
                (if valid-p
-                   (cassert (not (funcall is-empty deque)) nil "A non-empty queue should always return a true valid-p result for peek")
-                   (cassert (funcall is-empty deque) nil "An empty queue should always return a nil valid-p result for peek"))
-               (values result valid-p)))))
+                   (cassert (not (i-is-empty interface deque)) nil "A non-empty deque should always claim validity when removing an element")
+                   (cassert (i-is-empty interface deque) nil "An empty deque should always claim non-validity when removing an element"))
 
-      (wrap-interface
-       interface
-       'pfds.shcl.io/implementation/interface:with-front #'with-x-wrapper
-       'pfds.shcl.io/implementation/interface:with-back #'with-x-wrapper
+               (multiple-value-bind (other-head peek-valid-p) (funcall peek-fn deque)
+                 (cassert (eq other-head head)
+                          nil
+                          "Peeking and removal should return the same value")
+                 (cassert (or (and peek-valid-p valid-p)
+                              (and (not peek-valid-p) (not valid-p)))
+                          nil
+                          "Peeking and removal should agree on validity"))
 
-       'pfds.shcl.io/implementation/interface:without-front (without-x-wrapper
+               (values result head valid-p)))))
+
+       (peek-x-wrapper (peek-fn)
+         (lambda (deque &rest args)
+           (multiple-value-bind (result valid-p) (apply peek-fn deque args)
+             (if valid-p
+                 (cassert (not (i-is-empty interface deque)) nil "A non-empty queue should always return a true valid-p result for peek")
+                 (cassert (i-is-empty interface deque) nil "An empty queue should always return a nil valid-p result for peek"))
+             (values result valid-p)))))
+
+    (wrap-interface
+     interface
+     'pfds.shcl.io/implementation/interface:with-front #'with-x-wrapper
+     'pfds.shcl.io/implementation/interface:with-back #'with-x-wrapper
+
+     'pfds.shcl.io/implementation/interface:without-front (without-x-wrapper
                                                               (interface-get interface 'pfds.shcl.io/implementation/interface:peek-front))
-       'pfds.shcl.io/implementation/interface:without-back (without-x-wrapper
-                                                              (interface-get interface 'pfds.shcl.io/implementation/interface:peek-back))
+     'pfds.shcl.io/implementation/interface:without-back (without-x-wrapper
+                                                             (interface-get interface 'pfds.shcl.io/implementation/interface:peek-back))
 
-       'pfds.shcl.io/implementation/interface:peek-front #'peek-x-wrapper
-       'pfds.shcl.io/implementation/interface:peek-back #'peek-x-wrapper))))
+     'pfds.shcl.io/implementation/interface:peek-front #'peek-x-wrapper
+     'pfds.shcl.io/implementation/interface:peek-back #'peek-x-wrapper)))
 
 (defvar *operations*
   ;; Generated randomly with ~2/3 chance of with, 1/3 chancec of without

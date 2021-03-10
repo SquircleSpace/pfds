@@ -31,7 +31,8 @@
    #:define-interface-instance
    #:define-simple-interface-instance
    #:interface-get
-   #:with-interface
+   #:interface-get-function
+   #:interface-get-subinterface
 
    #:interface-functions
    #:interface-superclasses
@@ -250,7 +251,7 @@
   (defun interface-has-function-p (interface function-name)
     (slot-exists-p interface function-name))
 
-  (defmacro interface-get (interface function-name &environment env)
+  (defun interface-get-form (interface identifier function-p env)
     (setf interface (macroexpand interface env))
     (when (and (symbolp interface)
                (constantp interface env))
@@ -260,62 +261,61 @@
       (ignore-errors
        (setf interface (symbol-value interface))))
 
-    (setf function-name (macroexpand function-name env))
-    (cond
-      ((and (typep interface 'interface)
-            (quote-p function-name))
-       ;; Objects inheriting from INTERFACE are assumed to be
-       ;; immutable.  There's no reason to wait to perform the lookup
-       ;; at runtime!  Might as well do it now!
-       (maybe-de-quote `',(slot-value interface (de-quote function-name))))
+    (setf identifier (macroexpand identifier env))
 
-      ((and (constantp interface env)
-            (constantp function-name env))
-       ;; This is an unusual case!  Typically, when we're given a
-       ;; constant, it will be covered by the above logic (i.e. a
-       ;; direct reference to a constant symbol).  This would be
-       ;; something fancy that CONSTANTP is able to recognize that we
-       ;; aren't (e.g. (progn +some-constant+)).  That's unlikely to
-       ;; happen with human-authored code, but it could definitely
-       ;; happen with macro-generated code.
-
-       ;; There isn't a nice way to evaluate constant forms.  We could
-       ;; just EVAL it... but a strict reading of the standard doesn't
-       ;; allow us to do that.  EVAL runs with a nil lexical
-       ;; environment, but CONSTANTP is allowed to depend on
-       ;; environment when making its determination.  Our only option
-       ;; is to defer the evaluation to runtime.
-       #-sbcl
-       `(load-time-value (slot-value ,interface ,function-name) t)
-
-       ;; SBCL has a super handy function for evaluating a constant
-       ;; form at compile time.  Might as well use it!
-       #+sbcl
-       (maybe-de-quote `',(slot-value (sb-int:constant-form-value interface env)
-                                      (sb-int:constant-form-value function-name env))))
-
-      (t
-       `(slot-value ,interface ,function-name)))))
-
-(defmacro with-interface (interface functions &body body &environment env)
-  (setf interface (macroexpand interface env))
-  (setf functions (loop :for entry :in functions
-                        :collect (if (symbolp entry) (list entry entry) entry)))
-  (let* ((constantp (constantp interface))
-         (interface-instance (if constantp interface (gensym "INTERFACE"))))
     (labels
-        ((symbol-macro-form (entry)
-           (destructuring-bind (local-name interface-fn-name) entry
-             `(,local-name (interface-get ,interface-instance ',interface-fn-name)))))
-      (let ((main-form
-              `(symbol-macrolet
-                   ,(loop :for entry :in functions :collect (symbol-macro-form entry))
-                 ,@body)))
-        (if constantp
-            main-form
-            `(let ((,interface-instance ,interface))
-               (declare (ignorable ,interface-instance))
-               ,main-form))))))
+        ((maybe-quote (form)
+           (if function-p
+               `',form
+               form)))
+      (cond
+        ((and (typep interface 'interface)
+              (quote-p identifier))
+         ;; Objects inheriting from INTERFACE are assumed to be
+         ;; immutable.  There's no reason to wait to perform the lookup
+         ;; at runtime!  Might as well do it now!
+         (maybe-quote (slot-value interface (de-quote identifier))))
+
+        ((and (constantp interface env)
+              (constantp identifier env))
+         ;; This is an unusual case!  Typically, when we're given a
+         ;; constant, it will be covered by the above logic (i.e. a
+         ;; direct reference to a constant symbol).  This would be
+         ;; something fancy that CONSTANTP is able to recognize that we
+         ;; aren't (e.g. (progn +some-constant+)).  That's unlikely to
+         ;; happen with human-authored code, but it could definitely
+         ;; happen with macro-generated code.
+
+         ;; There isn't a nice way to evaluate constant forms.  We could
+         ;; just EVAL it... but a strict reading of the standard doesn't
+         ;; allow us to do that.  EVAL runs with a nil lexical
+         ;; environment, but CONSTANTP is allowed to depend on
+         ;; environment when making its determination.  Our only option
+         ;; is to defer the evaluation to runtime.
+         #-sbcl
+         (if function-p
+             `(load-time-value (slot-value ,interface ,identifier) t)
+             `(load-time-value (symbol-value (slot-value ,interface ,identifier)) t))
+
+         ;; SBCL has a super handy function for evaluating a constant
+         ;; form at compile time.  Might as well use it!
+         #+sbcl
+         (maybe-quote (slot-value (sb-int:constant-form-value interface env)
+                                  (sb-int:constant-form-value identifier env))))
+
+        (t
+         (if function-p
+             `(slot-value ,interface ,identifier)
+             `(symbol-value (slot-value ,interface ,identifier))))))))
+
+(defmacro interface-get-function (interface function-name &environment env)
+  (interface-get-form interface function-name t env))
+
+(defmacro interface-get-subinterface (interface identifier &environment env)
+  (interface-get-form interface identifier nil env))
+
+(defun interface-get (interface identifier)
+  (slot-value interface identifier))
 
 (defconstant +interface-function-metadata+ '+interface-function-metadata+)
 
@@ -373,7 +373,7 @@
          (env (gensym "ENV"))
          (forwarding-lambda (make-forwarding-lambda
                              lambda-list
-                             `(interface-get ,interface ',interface-function-name)))
+                             `(interface-get-function ,interface ',interface-function-name)))
          (forwarding-lambda-list (second forwarding-lambda))
          (forwarding-body (cddr forwarding-lambda)))
 
@@ -391,13 +391,13 @@
          ;; FUNCALL, we make it more likely that compiler macros will
          ;; run, though!  Instead of seeing (FUNCALL (SOME-FORMS)) it
          ;; will often see (FUNCALL 'SOME-SYM).
-         (let ((,target (macroexpand `(interface-get ,,interface ',',interface-function-name) ,env)))
+         (let ((,target (macroexpand `(interface-get-function ,,interface ',',interface-function-name) ,env)))
            `(funcall ,,target ,@,rest))))))
 
 (eval-when (:compile-toplevel :load-toplevel :execute)
   (defun n-specializer (count generic-name class-name interface interface-function-name)
     (let ((lambda-list (interface-function-lambda-list interface-function-name)))
-      (make-forwarding-method generic-name lambda-list `(interface-get ,interface ',interface-function-name)
+      (make-forwarding-method generic-name lambda-list `(interface-get-function ,interface ',interface-function-name)
                               :specializers (loop :for i :below count :collect class-name))))
 
   (defun single-specializer (generic-name class-name interface interface-function-name)

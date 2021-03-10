@@ -15,13 +15,13 @@
 (uiop:define-package :pfds.shcl.io/tests/test-interface
   (:use :common-lisp)
   (:use :pfds.shcl.io/utility/interface)
+  (:use :pfds.shcl.io/implementation/interface)
   (:import-from :pfds.shcl.io/utility/misc
    #:intern-conc
    #:string-starts-with-p
    #:string-ends-with-p)
   (:import-from :pfds.shcl.io/utility/forwarding
    #:make-forwarding-defun)
-  (:import-from :pfds.shcl.io/implementation/interface)
   (:export
    #:*interface*
    #:^graphviz))
@@ -44,13 +44,16 @@
                                :pfds.shcl.io/tests/test-interface
                                "^"
                                (symbol-name original-function-name)))
+           (their-invoker (find-symbol (concatenate 'string "I-" (symbol-name original-function-name))
+                                       :pfds.shcl.io/implementation/interface))
            (lambda-list (interface-function-lambda-list original-function-name)))
       `(progn
          (export ',our-function-name :pfds.shcl.io/tests/test-interface)
+         (export ',their-invoker :pfds.shcl.io/tests/test-interface)
          ,(make-forwarding-defun
            our-function-name
            lambda-list
-           `(interface-get *interface* ',original-function-name))))))
+           `(interface-get-function *interface* ',original-function-name))))))
 
 (defmacro forms ()
   (let ((classes (loop
