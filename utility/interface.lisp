@@ -32,7 +32,6 @@
    #:define-simple-interface-instance
    #:interface-get
    #:interface-get-function
-   #:interface-get-subinterface
 
    #:interface-functions
    #:interface-superclasses
@@ -251,7 +250,7 @@
   (defun interface-has-function-p (interface function-name)
     (slot-exists-p interface function-name))
 
-  (defun interface-get-form (interface identifier function-p env)
+  (defun interface-get-form (interface identifier env)
     (setf interface (macroexpand interface env))
     (when (and (symbolp interface)
                (constantp interface env))
@@ -263,56 +262,46 @@
 
     (setf identifier (macroexpand identifier env))
 
-    (labels
-        ((maybe-quote (form)
-           (if function-p
-               `',form
-               form)))
-      (cond
-        ((and (typep interface 'interface)
-              (quote-p identifier))
-         ;; Objects inheriting from INTERFACE are assumed to be
-         ;; immutable.  There's no reason to wait to perform the lookup
-         ;; at runtime!  Might as well do it now!
-         (maybe-quote (slot-value interface (de-quote identifier))))
+    (cond
+      ((and (typep interface 'interface)
+            (quote-p identifier))
+       ;; Objects inheriting from INTERFACE are assumed to be
+       ;; immutable.  There's no reason to wait to perform the lookup
+       ;; at runtime!  Might as well do it now!
+       `',(slot-value interface (de-quote identifier)))
 
-        ((and (constantp interface env)
-              (constantp identifier env))
-         ;; This is an unusual case!  Typically, when we're given a
-         ;; constant, it will be covered by the above logic (i.e. a
-         ;; direct reference to a constant symbol).  This would be
-         ;; something fancy that CONSTANTP is able to recognize that we
-         ;; aren't (e.g. (progn +some-constant+)).  That's unlikely to
-         ;; happen with human-authored code, but it could definitely
-         ;; happen with macro-generated code.
+      ((and (constantp interface env)
+            (constantp identifier env))
+       ;; This is an unusual case!  Typically, when we're given a
+       ;; constant, it will be covered by the above logic (i.e. a
+       ;; direct reference to a constant symbol).  This would be
+       ;; something fancy that CONSTANTP is able to recognize that we
+       ;; aren't (e.g. (progn +some-constant+)).  That's unlikely to
+       ;; happen with human-authored code, but it could definitely
+       ;; happen with macro-generated code.
 
-         ;; There isn't a nice way to evaluate constant forms.  We could
-         ;; just EVAL it... but a strict reading of the standard doesn't
-         ;; allow us to do that.  EVAL runs with a nil lexical
-         ;; environment, but CONSTANTP is allowed to depend on
-         ;; environment when making its determination.  Our only option
-         ;; is to defer the evaluation to runtime.
-         #-sbcl
-         (if function-p
-             `(load-time-value (slot-value ,interface ,identifier) t)
-             `(load-time-value (symbol-value (slot-value ,interface ,identifier)) t))
+       ;; There isn't a nice way to evaluate constant forms.  We could
+       ;; just EVAL it... but a strict reading of the standard doesn't
+       ;; allow us to do that.  EVAL runs with a nil lexical
+       ;; environment, but CONSTANTP is allowed to depend on
+       ;; environment when making its determination.  Our only option
+       ;; is to defer the evaluation to runtime.
+       #-sbcl
+       (if function-p
+           `(load-time-value (slot-value ,interface ,identifier) t)
+           `(load-time-value (symbol-value (slot-value ,interface ,identifier)) t))
 
-         ;; SBCL has a super handy function for evaluating a constant
-         ;; form at compile time.  Might as well use it!
-         #+sbcl
-         (maybe-quote (slot-value (sb-int:constant-form-value interface env)
-                                  (sb-int:constant-form-value identifier env))))
+       ;; SBCL has a super handy function for evaluating a constant
+       ;; form at compile time.  Might as well use it!
+       #+sbcl
+       `',(slot-value (sb-int:constant-form-value interface env)
+                      (sb-int:constant-form-value identifier env)))
 
-        (t
-         (if function-p
-             `(slot-value ,interface ,identifier)
-             `(symbol-value (slot-value ,interface ,identifier))))))))
+      (t
+       `(slot-value ,interface ,identifier)))))
 
 (defmacro interface-get-function (interface function-name &environment env)
-  (interface-get-form interface function-name t env))
-
-(defmacro interface-get-subinterface (interface identifier &environment env)
-  (interface-get-form interface identifier nil env))
+  (interface-get-form interface function-name env))
 
 (defun interface-get (interface identifier)
   (slot-value interface identifier))
