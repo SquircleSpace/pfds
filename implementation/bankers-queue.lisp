@@ -136,14 +136,20 @@
   (i-for-each <lazy-list> (bankers-queue-front-stack queue) function)
   (i-for-each <list> (nreverse (i-to-list <lazy-list> (bankers-queue-back-stack queue))) function))
 
-(named-specialize*
-  (bankers-queue-to-list (collection-to-list <bankers-queue>))
-  (bankers-queue-compare (compare-collection-contents <bankers-queue>)))
+(declaim (inline bankers-queue-iterator))
+(defun bankers-queue-iterator (queue)
+  (let ((front-iterator (i-iterator <lazy-list> (bankers-queue-front-stack queue)))
+        (back-iterator (i-iterator <lazy-list> (i-reverse <lazy-list> (bankers-queue-back-stack queue)))))
+    (iterator-flatten* front-iterator back-iterator)))
 
 (declaim (inline bankers-queue-size))
 (defun bankers-queue-size (queue)
   (+ (bankers-queue-front-stack-size queue)
      (bankers-queue-back-stack-size queue)))
+
+(named-specialize*
+  (bankers-queue-to-list (collection-to-list <bankers-queue>))
+  (bankers-queue-compare (compare-collection-contents <bankers-queue>)))
 
 (defun bankers-queue-map-members (queue function)
   (let ((size (bankers-queue-size queue)))
@@ -163,12 +169,6 @@
           queue
           (balance-bankers-queue (i-make-stack <lazy-list> :items (impure-list-builder-extract builder)) size
                                  (lazy-list) 0)))))
-
-(declaim (inline bankers-queue-iterator))
-(defun bankers-queue-iterator (queue)
-  (let ((front-iterator (i-iterator <lazy-list> (bankers-queue-front-stack queue)))
-        (back-iterator (i-iterator <lazy-list> (i-reverse <lazy-list> (bankers-queue-back-stack queue)))))
-    (iterator-flatten* front-iterator back-iterator)))
 
 (defmethod print-object ((queue bankers-queue) stream)
   (if *print-readably*

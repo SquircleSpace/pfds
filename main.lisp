@@ -16,17 +16,16 @@
   (:use :common-lisp)
   (:use :pfds.shcl.io/utility/interface)
   (:use-reexport :pfds.shcl.io/implementation/interface)
-  (:import-from :pfds.shcl.io/implementation/red-black-tree
-   #:make-red-black-map
-   #:make-red-black-set)
-  (:import-from :pfds.shcl.io/implementation/leftist-heap
-   #:make-leftist-heap)
-  (:import-from :pfds.shcl.io/implementation/persistent-vector
-   #:make-persistent-vector)
   (:import-from :pfds.shcl.io/implementation/weight-balanced-tree
-   #:make-weight-balanced-sequence)
+   #:<weight-balanced-map>
+   #:<weight-balanced-set>
+   #:<weight-balanced-sequence>)
+  (:import-from :pfds.shcl.io/implementation/leftist-heap
+   #:<leftist-heap>)
+  (:import-from :pfds.shcl.io/implementation/persistent-vector
+   #:<persistent-vector>)
   (:import-from :pfds.shcl.io/implementation/bankers-queue
-   #:make-bankers-queue)
+   #:<bankers-queue>)
   (:import-from :pfds.shcl.io/utility/compare
    #:compare)
   (:import-from :named-readtables
@@ -49,22 +48,22 @@
 The map will contain the associations described by the given alist and
 plist.  If both the alist and the plist contain a key, then it is
 unspecified which value will be contained in the map."
-  (make-red-black-map comparator :plist plist :alist alist))
+  (i-make-ordered-map <weight-balanced-map> :comparator comparator :plist plist :alist alist))
 
 (declaim (inline make-set))
 (defun make-set (&key items (comparator #'compare))
   "Make an ordered set."
-  (make-red-black-set comparator :items items))
+  (i-make-ordered-set <weight-balanced-set> :comparator comparator :items items))
 
 (declaim (inline make-priority-queue))
 (defun make-priority-queue (&key items (comparator #'compare))
   "Make a priority queue."
-  (make-leftist-heap comparator :items items))
+  (i-make-priority-queue <leftist-heap> :comparator comparator :items items))
 
 (declaim (inline make-queue))
 (defun make-queue (&key items)
   "Make a queue."
-  (make-bankers-queue :items items))
+  (i-make-queue <bankers-queue> :items items))
 
 (declaim (inline make-stack))
 (defun make-stack (&key items)
@@ -72,10 +71,10 @@ unspecified which value will be contained in the map."
   ;; Sssshh.  Don't tell anyone.
   (copy-list items))
 
-(declaim (inline make-sequence))
-(defun make-sequence (&key items)
+(declaim (inline make-seq))
+(defun make-seq (&key items)
   "Make a general-purpose sequence."
-  (make-weight-balanced-sequence :items items))
+  (i-make-seq <weight-balanced-sequence> :items items))
 
 (defun read-seq (stream char)
   (declare (ignore char))
